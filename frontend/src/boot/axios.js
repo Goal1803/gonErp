@@ -2,11 +2,15 @@ import { boot } from 'quasar/wrappers'
 import axios from 'axios'
 import { useAuthStore } from 'src/stores/authStore'
 
+// Unique ID for this browser tab — used to skip echoed WebSocket events
+export const TAB_ID = crypto.randomUUID()
+
 const api = axios.create({
   baseURL: '/api',
   timeout: 30000,
   headers: {
-    'Content-Type': 'application/json'
+    'Content-Type': 'application/json',
+    'X-Tab-Id': TAB_ID
   }
 })
 

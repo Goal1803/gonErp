@@ -1,0 +1,6 @@
+com/gonerp/imagemanager/service/ImageInfoServiceTest.class
+com/gonerp/imagemanager/controller/ImageInfoControllerTest.class
+com/gonerp/usermanager/service/UserServiceTest.class
+com/gonerp/usermanager/controller/UserRoleControllerTest.class
+com/gonerp/usermanager/service/UserRoleServiceTest.class
+com/gonerp/usermanager/controller/UserControllerTest.class

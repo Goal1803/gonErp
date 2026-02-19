@@ -35,6 +35,18 @@ const routes = [
         name: 'images',
         component: () => import('pages/ImageManagerPage.vue'),
         meta: { title: 'Image Manager' }
+      },
+      {
+        path: 'tasks',
+        name: 'tasks',
+        component: () => import('pages/TaskManagerPage.vue'),
+        meta: { title: 'Task Manager' }
+      },
+      {
+        path: 'tasks/:boardId',
+        name: 'board',
+        component: () => import('pages/BoardPage.vue'),
+        meta: { title: 'Board' }
       }
     ]
   },

@@ -57,6 +57,6 @@ const modules = [
   { title: 'Sales', description: 'Sales & CRM', icon: 'point_of_sale', color: 'orange-5', to: null, disabled: true },
   { title: 'Marketing', description: 'Marketing campaigns', icon: 'campaign', color: 'purple-4', to: null, disabled: true },
   { title: 'Inventory', description: 'Stock management', icon: 'inventory', color: 'cyan-5', to: null, disabled: true },
-  { title: 'Task Manager', description: 'Project & task tracking', icon: 'task_alt', color: 'teal-5', to: null, disabled: true }
+  { title: 'Task Manager', description: 'Project & task tracking', icon: 'task_alt', color: 'teal-5', to: '/tasks', disabled: false }
 ]
 </script>

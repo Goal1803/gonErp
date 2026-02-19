@@ -151,6 +151,21 @@
             </q-item-section>
           </q-item>
 
+          <!-- Task Manager -->
+          <q-item
+            clickable
+            v-ripple
+            to="/tasks"
+            class="rounded-borders q-mb-xs"
+          >
+            <q-item-section avatar>
+              <q-icon name="task_alt" />
+            </q-item-section>
+            <q-item-section>
+              <q-item-label>Task Manager</q-item-label>
+            </q-item-section>
+          </q-item>
+
           <!-- Coming Soon -->
           <q-item-label header class="text-grey-6 text-uppercase text-caption q-mb-xs q-mt-sm">
             Coming Soon
@@ -210,8 +225,7 @@ const comingSoon = [
   { label: 'Finance', icon: 'account_balance' },
   { label: 'Sales', icon: 'point_of_sale' },
   { label: 'Marketing', icon: 'campaign' },
-  { label: 'Inventory', icon: 'inventory' },
-  { label: 'Task Manager', icon: 'task_alt' }
+  { label: 'Inventory', icon: 'inventory' }
 ]
 
 const handleLogout = () => {
