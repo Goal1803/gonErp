@@ -33,7 +33,7 @@
     </div>
 
     <!-- Kanban area -->
-    <div v-else class="kanban-scroll">
+    <div v-else class="kanban-scroll" ref="kanbanScrollEl">
       <draggable
         v-model="localColumns"
         group="columns"
@@ -41,6 +41,7 @@
         handle=".col-header"
         ghost-class="col-ghost"
         drag-class="col-drag"
+        @start="onDragStart"
         @end="onColumnDragEnd"
         class="kanban-inner"
       >
@@ -50,6 +51,8 @@
             @open-card="openCard"
             @delete="confirmDeleteColumn"
             @refresh="refreshBoard"
+            @drag-start="onDragStart"
+            @drag-end="onDragEnd"
           />
         </template>
       </draggable>
@@ -102,7 +105,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useQuasar } from 'quasar'
 import draggable from 'vuedraggable'
@@ -132,6 +135,7 @@ const addingColumn = ref(false)
 const newColTitle = ref('')
 const isConnected = ref(false)
 const cardExternalUpdate = ref(null) // { actorName, type }
+const kanbanScrollEl = ref(null) // ref to the horizontal scroll container
 
 const canManage = computed(() => {
   if (authStore.isAdmin) return true
@@ -154,6 +158,7 @@ const openCard = (card) => {
 }
 
 const onColumnDragEnd = async () => {
+  onDragEnd()
   const orderedIds = localColumns.value.map(c => c.id)
   await boardStore.reorderColumns(boardId.value, orderedIds)
 }
@@ -197,6 +202,58 @@ const onBoardSaved = () => {
   refreshBoard()
 }
 
+// ─── Auto-scroll during drag ─────────────────────────────────────────────────
+
+let isDragging = false
+let dragScrollSpeed = 0
+let scrollRaf = null
+
+const scrollLoop = () => {
+  if (dragScrollSpeed !== 0 && kanbanScrollEl.value) {
+    kanbanScrollEl.value.scrollLeft += dragScrollSpeed
+  }
+  if (isDragging) {
+    scrollRaf = requestAnimationFrame(scrollLoop)
+  } else {
+    scrollRaf = null
+  }
+}
+
+const onDragMove = (e) => {
+  if (!isDragging || !kanbanScrollEl.value) return
+  const clientX = e.touches ? e.touches[0]?.clientX : e.clientX
+  if (clientX == null) return
+
+  const EDGE = 120     // activation zone width in px
+  const MAX_SPEED = 18 // max scroll speed (px per frame)
+  const rect = kanbanScrollEl.value.getBoundingClientRect()
+
+  // Use the kanban container's own edges for both directions
+  const distRight = rect.right - clientX
+  const distLeft  = clientX - rect.left
+
+  if (distRight < EDGE) {
+    // Clamp so going past the right edge gives max speed, not > max
+    dragScrollSpeed = Math.ceil(MAX_SPEED * (1 - Math.max(0, distRight) / EDGE))
+  } else if (distLeft < EDGE) {
+    // Clamp so going into the sidebar (distLeft < 0) gives max speed, not > max
+    dragScrollSpeed = -Math.ceil(MAX_SPEED * (1 - Math.max(0, distLeft) / EDGE))
+  } else {
+    dragScrollSpeed = 0
+  }
+}
+
+const onDragStart = () => {
+  isDragging = true
+  dragScrollSpeed = 0
+  if (!scrollRaf) scrollRaf = requestAnimationFrame(scrollLoop)
+}
+
+const onDragEnd = () => {
+  isDragging = false
+  dragScrollSpeed = 0
+}
+
 // ─── WebSocket real-time updates ────────────────────────────────────────────
 
 // Structural events that require a full board refresh
@@ -235,7 +292,19 @@ watch(boardId, async (id) => {
   }
 })
 
-onMounted(() => refreshBoard())
+onMounted(() => {
+  refreshBoard()
+  document.addEventListener('mousemove', onDragMove)
+  document.addEventListener('dragover',  onDragMove)   // fires during HTML5 drag (mousemove is suppressed)
+  document.addEventListener('touchmove', onDragMove, { passive: true })
+})
+
+onUnmounted(() => {
+  document.removeEventListener('mousemove', onDragMove)
+  document.removeEventListener('dragover',  onDragMove)
+  document.removeEventListener('touchmove', onDragMove)
+  if (scrollRaf) cancelAnimationFrame(scrollRaf)
+})
 </script>
 
 <style scoped>

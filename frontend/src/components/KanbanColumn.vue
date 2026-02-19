@@ -38,6 +38,7 @@
       ghost-class="card-ghost"
       drag-class="card-drag"
       :data-column-id="column.id"
+      @start="$emit('drag-start')"
       @end="onDragEnd"
       class="col-cards"
     >
@@ -74,7 +75,7 @@ import { columnApi, cardApi } from 'src/api/tasks'
 import { useBoardStore } from 'src/stores/boardStore'
 
 const props = defineProps({ column: { type: Object, required: true } })
-const emit = defineEmits(['open-card', 'delete', 'refresh'])
+const emit = defineEmits(['open-card', 'delete', 'refresh', 'drag-start', 'drag-end'])
 const $q = useQuasar()
 const boardStore = useBoardStore()
 
@@ -121,6 +122,7 @@ const addCard = async () => {
 }
 
 const onDragEnd = async (evt) => {
+  emit('drag-end')
   if (evt.from === evt.to) {
     // Same-column reorder
     const newOrder = localCards.value.map(c => c.id)
