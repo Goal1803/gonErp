@@ -6,4 +6,5 @@ import lombok.Data;
 public class LabelRequest {
     private String name;
     private String color;
+    private String textColor;
 }

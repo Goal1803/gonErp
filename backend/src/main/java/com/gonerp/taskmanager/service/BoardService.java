@@ -140,6 +140,7 @@ public class BoardService {
         CardLabel label = CardLabel.builder()
                 .name(request.getName() != null ? request.getName() : "Label")
                 .color(request.getColor() != null ? request.getColor() : "#2E7D32")
+                .textColor(request.getTextColor() != null ? request.getTextColor() : "#ffffff")
                 .board(board)
                 .build();
         return LabelResponse.from(cardLabelRepository.save(label));

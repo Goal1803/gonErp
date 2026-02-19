@@ -24,6 +24,10 @@ public class CardLabel extends BaseModel {
     @Builder.Default
     private String color = "#2E7D32";
 
+    @Column(length = 20, columnDefinition = "varchar(20) default '#ffffff'")
+    @Builder.Default
+    private String textColor = "#ffffff";
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "board_id", nullable = false)
     private Board board;

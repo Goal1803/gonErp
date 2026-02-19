@@ -79,6 +79,7 @@
     <card-detail-dialog
       v-model="showCard"
       :card-id="selectedCardId"
+      :board-id="boardId"
       :board-labels="boardStore.board?.labels || []"
       :board-members="boardStore.board?.members || []"
       :external-update="cardExternalUpdate"
