@@ -1,0 +1,9 @@
+.DS_Store
+.thumbs.db
+node_modules
+/dist
+.quasar
+/src-capacitor
+/src-cordova
+/.yarn/cache
+/.yarn/install-state.gz

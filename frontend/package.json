@@ -1,0 +1,35 @@
+{
+  "name": "gonerp-frontend",
+  "version": "1.0.0",
+  "description": "gonErp - Enterprise Resource Planning Frontend",
+  "productName": "gonErp",
+  "scripts": {
+    "lint": "eslint --ext .js,.vue ./src",
+    "format": "prettier --write \"**/*.{js,vue,scss,html,md,json}\" --ignore-path .gitignore",
+    "test": "echo \"No test specified\" && exit 0",
+    "dev": "quasar dev",
+    "build": "quasar build"
+  },
+  "dependencies": {
+    "@quasar/extras": "^1.16.12",
+    "axios": "^1.7.7",
+    "pinia": "^2.1.7",
+    "quasar": "^2.16.9",
+    "vue": "^3.5.12",
+    "vue-router": "^4.4.5"
+  },
+  "devDependencies": {
+    "@quasar/app-vite": "^1.10.2",
+    "@vitejs/plugin-vue": "^5.1.4",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-vue": "^9.29.1",
+    "prettier": "^3.3.3",
+    "vite": "^5.4.10"
+  },
+  "engines": {
+    "node": "^20 || ^18 || ^16",
+    "npm": ">= 6.13.4",
+    "yarn": ">= 1.21.1"
+  }
+}

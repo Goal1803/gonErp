@@ -1,0 +1,35 @@
+# ========================
+# Backend (Java / Maven)
+# ========================
+backend/target/
+backend/.mvn/wrapper/maven-wrapper.jar
+backend/*.jar
+backend/*.war
+backend/uploads/
+
+# ========================
+# Frontend (Node / Quasar)
+# ========================
+frontend/node_modules/
+frontend/dist/
+frontend/.quasar/
+
+# ========================
+# Claude Code
+# ========================
+.claude/
+
+# ========================
+# IDE / OS
+# ========================
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db
+
+# ========================
+# Env / secrets
+# ========================
+*.env
+.env*
