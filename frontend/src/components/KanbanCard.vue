@@ -1,8 +1,9 @@
 <template>
   <div class="kanban-card" :data-card-id="card.id" @click="$emit('open', card)">
-    <!-- Main image -->
-    <div v-if="card.mainImageUrl" class="card-cover"
-      :style="{ backgroundImage: `url(${card.mainImageUrl})` }" />
+    <!-- Main image (always square, image fits without cropping) -->
+    <div v-if="card.mainImageUrl" class="card-cover">
+      <img :src="card.mainImageUrl" class="card-cover-inner" alt="" />
+    </div>
 
     <div class="card-body">
       <!-- Labels -->
@@ -72,10 +73,17 @@ const statusColor = (s) => ({
   transform: translateY(-1px);
 }
 .card-cover {
+  position: relative;
   width: 100%;
-  height: 100px;
-  background-size: cover;
-  background-position: center;
+  padding-top: 100%; /* 1:1 square */
+}
+.card-cover-inner {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
 }
 .card-body { padding: 10px 12px; }
 .label-chip {

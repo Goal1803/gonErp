@@ -29,23 +29,25 @@
       </div>
     </div>
 
-    <!-- Cards draggable list -->
-    <draggable
-      v-model="localCards"
-      group="cards"
-      item-key="id"
-      handle=".kanban-card"
-      ghost-class="card-ghost"
-      drag-class="card-drag"
-      :data-column-id="column.id"
-      @start="$emit('drag-start')"
-      @end="onDragEnd"
-      class="col-cards"
-    >
-      <template #item="{ element }">
-        <kanban-card :card="element" @open="$emit('open-card', element)" />
-      </template>
-    </draggable>
+    <!-- Cards scroll container -->
+    <div class="col-cards" ref="colCardsEl">
+      <draggable
+        v-model="localCards"
+        group="cards"
+        item-key="id"
+        handle=".kanban-card"
+        ghost-class="card-ghost"
+        drag-class="card-drag"
+        :data-column-id="column.id"
+        @start="onCardDragStart"
+        @end="onDragEnd"
+        class="col-cards-inner"
+      >
+        <template #item="{ element }">
+          <kanban-card :card="element" @open="$emit('open-card', element)" />
+        </template>
+      </draggable>
+    </div>
 
     <!-- Add card -->
     <div class="q-px-sm q-pb-sm">
@@ -66,8 +68,15 @@
   </div>
 </template>
 
+<script>
+// Module-level: one shared variable across ALL KanbanColumn instances.
+// Set to true by whichever column starts a card drag so every column's
+// onVDragMove can respond — enabling vertical scroll when dragging into a new column.
+let globalCardDragging = false
+</script>
+
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useQuasar } from 'quasar'
 import draggable from 'vuedraggable'
 import KanbanCard from './KanbanCard.vue'
@@ -83,6 +92,7 @@ const editingTitle = ref(false)
 const editTitle = ref('')
 const addingCard = ref(false)
 const newCardName = ref('')
+const colCardsEl = ref(null)
 
 const localCards = computed({
   get: () => props.column.cards || [],
@@ -121,8 +131,65 @@ const addCard = async () => {
   }
 }
 
+// ─── Vertical drag-scroll ─────────────────────────────────────────────────────
+
+let vDragScrollSpeed = 0
+let vScrollRaf = null
+
+const vScrollLoop = () => {
+  if (vDragScrollSpeed !== 0 && colCardsEl.value) {
+    colCardsEl.value.scrollTop += vDragScrollSpeed
+  }
+  if (globalCardDragging && vDragScrollSpeed !== 0) {
+    vScrollRaf = requestAnimationFrame(vScrollLoop)
+  } else {
+    vScrollRaf = null
+  }
+}
+
+const onVDragMove = (e) => {
+  if (!globalCardDragging || !colCardsEl.value) return
+  const clientX = e.clientX ?? e.touches?.[0]?.clientX
+  const clientY = e.clientY ?? e.touches?.[0]?.clientY
+  if (clientY == null) return
+
+  const rect = colCardsEl.value.getBoundingClientRect()
+
+  // Only activate for the column the cursor is currently over
+  if (clientX != null && (clientX < rect.left || clientX > rect.right)) {
+    vDragScrollSpeed = 0
+    return
+  }
+
+  const EDGE = 60      // px from top/bottom edge to start scrolling
+  const MAX_SPEED = 12 // max scroll speed (px per frame)
+  const distBottom = rect.bottom - clientY
+  const distTop    = clientY - rect.top
+
+  if (distBottom < EDGE) {
+    vDragScrollSpeed = Math.ceil(MAX_SPEED * (1 - Math.max(0, distBottom) / EDGE))
+  } else if (distTop < EDGE) {
+    vDragScrollSpeed = -Math.ceil(MAX_SPEED * (1 - Math.max(0, distTop) / EDGE))
+  } else {
+    vDragScrollSpeed = 0
+  }
+
+  if (vDragScrollSpeed !== 0 && !vScrollRaf) {
+    vScrollRaf = requestAnimationFrame(vScrollLoop)
+  }
+}
+
+const onCardDragStart = () => {
+  globalCardDragging = true
+  vDragScrollSpeed = 0
+  emit('drag-start')
+}
+
 const onDragEnd = async (evt) => {
+  globalCardDragging = false
+  vDragScrollSpeed = 0
   emit('drag-end')
+
   if (evt.from === evt.to) {
     // Same-column reorder
     const newOrder = localCards.value.map(c => c.id)
@@ -149,6 +216,17 @@ const onDragEnd = async (evt) => {
     }
   }
 }
+
+onMounted(() => {
+  document.addEventListener('mousemove', onVDragMove)
+  document.addEventListener('dragover',  onVDragMove)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('mousemove', onVDragMove)
+  document.removeEventListener('dragover',  onVDragMove)
+  if (vScrollRaf) cancelAnimationFrame(vScrollRaf)
+})
 </script>
 
 <style scoped>
@@ -160,15 +238,18 @@ const onDragEnd = async (evt) => {
   border-radius: 10px;
   display: flex;
   flex-direction: column;
-  max-height: calc(100vh - 140px);
+  /* No max-height here — the scroll container below is bounded instead */
 }
 .col-header {
   border-bottom: 1px solid rgba(255,255,255,0.07);
   min-height: 44px;
 }
 .col-cards {
-  flex: 1;
   overflow-y: auto;
+  max-height: calc(100vh - 200px);
+  min-height: 40px;
+}
+.col-cards-inner {
   padding: 8px;
   display: flex;
   flex-direction: column;
