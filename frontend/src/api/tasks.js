@@ -10,7 +10,10 @@ export const boardApi = {
   removeMember: (id, userId) => api.delete(`/tasks/boards/${id}/members/${userId}`),
   getLabels: (id) => api.get(`/tasks/boards/${id}/labels`),
   createLabel: (id, data) => api.post(`/tasks/boards/${id}/labels`, data),
-  deleteLabel: (labelId) => api.delete(`/tasks/boards/labels/${labelId}`)
+  deleteLabel: (labelId) => api.delete(`/tasks/boards/labels/${labelId}`),
+  getTypes: (id) => api.get(`/tasks/boards/${id}/types`),
+  createType: (id, data) => api.post(`/tasks/boards/${id}/types`, data),
+  deleteType: (typeId) => api.delete(`/tasks/boards/types/${typeId}`)
 }
 
 export const columnApi = {
@@ -35,6 +38,8 @@ export const cardApi = {
   deleteAttachment: (id, attachmentId) => api.delete(`/tasks/cards/${id}/attachments/${attachmentId}`),
   addLabel: (id, labelId) => api.post(`/tasks/cards/${id}/labels/${labelId}`),
   removeLabel: (id, labelId) => api.delete(`/tasks/cards/${id}/labels/${labelId}`),
+  addType: (id, typeId) => api.post(`/tasks/cards/${id}/types/${typeId}`),
+  removeType: (id, typeId) => api.delete(`/tasks/cards/${id}/types/${typeId}`),
   addMember: (id, userId) => api.post(`/tasks/cards/${id}/members/${userId}`),
   removeMember: (id, userId) => api.delete(`/tasks/cards/${id}/members/${userId}`)
 }

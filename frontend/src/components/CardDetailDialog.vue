@@ -532,6 +532,186 @@
             </div>
           </div>
 
+          <!-- Types -->
+          <div class="sidebar-section">
+            <!-- Manage / create types popup -->
+            <q-btn flat dense color="grey-5" icon="category" label="Types">
+              <q-menu
+                persistent
+                style="
+                  min-width: 270px;
+                  background: #1e1e1e;
+                  border: 1px solid rgba(255, 255, 255, 0.1);
+                "
+              >
+                <div class="q-pa-sm">
+                  <!-- Header row -->
+                  <div class="row items-center q-mb-sm">
+                    <span
+                      class="text-grey-4"
+                      style="
+                        font-size: 0.72rem;
+                        font-weight: 600;
+                        letter-spacing: 0.05em;
+                      "
+                      >BOARD TYPES</span
+                    >
+                    <q-space />
+                    <q-btn
+                      flat
+                      round
+                      dense
+                      icon="close"
+                      color="grey-5"
+                      size="xs"
+                      v-close-popup
+                    />
+                  </div>
+
+                  <!-- Board types: click to toggle attach/detach -->
+                  <div
+                    v-if="!allBoardTypes.length"
+                    class="text-grey-6 text-caption q-mb-sm"
+                  >
+                    No types yet — create one below.
+                  </div>
+                  <div
+                    v-for="t in allBoardTypes"
+                    :key="t.id"
+                    class="row items-center q-mb-xs label-row"
+                    style="
+                      cursor: pointer;
+                      border-radius: 6px;
+                      padding: 2px 4px;
+                    "
+                    @click="toggleType(t)"
+                  >
+                    <q-chip
+                      dense
+                      :label="t.name"
+                      :style="{
+                        background: t.color,
+                        color: t.textColor || '#fff',
+                        minWidth: '110px',
+                        fontSize: '0.78rem',
+                      }"
+                    />
+                    <q-icon
+                      v-if="isTypeAttached(t)"
+                      name="check"
+                      color="teal-4"
+                      size="16px"
+                      class="q-ml-xs"
+                    />
+                    <q-space />
+                    <q-btn
+                      flat
+                      round
+                      dense
+                      icon="delete"
+                      color="grey-7"
+                      size="xs"
+                      @click.stop="deleteBoardType(t)"
+                    />
+                  </div>
+
+                  <q-separator dark class="q-my-sm" />
+
+                  <!-- Create new type form -->
+                  <div
+                    class="text-grey-5"
+                    style="
+                      font-size: 0.72rem;
+                      font-weight: 600;
+                      letter-spacing: 0.05em;
+                      margin-bottom: 6px;
+                    "
+                  >
+                    CREATE TYPE
+                  </div>
+                  <q-input
+                    v-model="newType.name"
+                    outlined
+                    dark
+                    color="teal-5"
+                    dense
+                    placeholder="Type name"
+                    class="q-mb-sm"
+                  />
+
+                  <!-- 20 color preset swatches -->
+                  <div
+                    class="text-grey-6"
+                    style="font-size: 0.7rem; margin-bottom: 4px"
+                  >
+                    Color presets
+                  </div>
+                  <div class="label-preset-grid q-mb-xs">
+                    <div
+                      v-for="(p, i) in allPresets"
+                      :key="'type-' + i"
+                      class="label-preset-swatch"
+                      :style="{ background: p.bg }"
+                      :class="{
+                        'preset-selected':
+                          newType.bg === p.bg && newType.text === p.text,
+                      }"
+                      @click="
+                        newType.bg = p.bg;
+                        newType.text = p.text;
+                      "
+                      :title="`BG: ${p.bg}  Text: ${p.text}`"
+                    />
+                  </div>
+
+                  <!-- Preview + create -->
+                  <div class="row items-center q-gutter-xs q-mb-sm">
+                    <span class="text-grey-6" style="font-size: 0.7rem"
+                      >Preview:</span
+                    >
+                    <q-chip
+                      dense
+                      :label="newType.name || 'Type preview'"
+                      :style="{
+                        background: newType.bg,
+                        color: newType.text,
+                        fontSize: '0.78rem',
+                      }"
+                    />
+                  </div>
+                  <q-btn
+                    label="Create type"
+                    color="teal-6"
+                    unelevated
+                    dense
+                    size="sm"
+                    class="full-width"
+                    :disable="!newType.name.trim()"
+                    :loading="creatingType"
+                    @click="createType"
+                  />
+                </div>
+              </q-menu>
+            </q-btn>
+            <!-- Attached type chips -->
+            <div class="row q-gutter-xs q-mb-xs" style="flex-wrap: wrap">
+              <q-chip
+                v-for="t in detail.types"
+                :key="t.id"
+                dense
+                removable
+                :style="{
+                  background: t.color,
+                  color: t.textColor || '#fff',
+                  fontSize: '0.72rem',
+                }"
+                @remove="removeType(t)"
+              >
+                {{ t.name }}
+              </q-chip>
+            </div>
+          </div>
+
           <!-- Members -->
           <div class="sidebar-section">
             <div class="sidebar-label">
@@ -678,6 +858,7 @@ const props = defineProps({
   cardId: { type: Number, default: null },
   boardId: { type: Number, default: null },
   boardLabels: { type: Array, default: () => [] },
+  boardTypes: { type: Array, default: () => [] },
   boardMembers: { type: Array, default: () => [] },
   externalUpdate: { type: Object, default: null }, // { actorName, type }
 });
@@ -770,6 +951,67 @@ const saveCustomPreset = () => {
   newLabel.value.bg = preset.bg;
   newLabel.value.text = preset.text;
   showCustomPicker.value = false;
+};
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ─── Type management state ────────────────────────────────────────────────────
+const allBoardTypes = ref([]);
+watch(
+  () => props.boardTypes,
+  (v) => {
+    allBoardTypes.value = [...v];
+  },
+  { immediate: true },
+);
+
+const newType = ref({
+  name: "",
+  bg: LABEL_PRESETS[4].bg,
+  text: LABEL_PRESETS[4].text,
+});
+const creatingType = ref(false);
+
+const isTypeAttached = (type) =>
+  detail.value?.types?.some((t) => t.id === type.id);
+
+const toggleType = async (type) => {
+  if (isTypeAttached(type)) await removeType(type);
+  else await addType(type);
+};
+
+const createType = async () => {
+  if (!newType.value.name.trim() || !props.boardId) return;
+  creatingType.value = true;
+  try {
+    const res = await boardApi.createType(props.boardId, {
+      name: newType.value.name.trim(),
+      color: newType.value.bg,
+      textColor: newType.value.text,
+    });
+    allBoardTypes.value.push(res.data.data);
+    newType.value.name = "";
+    emit("updated");
+  } catch {
+    $q.notify({ type: "negative", message: "Failed to create type" });
+  } finally {
+    creatingType.value = false;
+  }
+};
+
+const deleteBoardType = async (type) => {
+  try {
+    await boardApi.deleteType(type.id);
+    allBoardTypes.value = allBoardTypes.value.filter(
+      (t) => t.id !== type.id,
+    );
+    if (detail.value)
+      detail.value.types = detail.value.types.filter(
+        (t) => t.id !== type.id,
+      );
+    emit("updated");
+  } catch {
+    $q.notify({ type: "negative", message: "Failed to delete type" });
+  }
 };
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -901,6 +1143,26 @@ const removeLabel = async (label) => {
   try {
     await cardApi.removeLabel(detail.value.id, label.id);
     detail.value.labels = detail.value.labels.filter((l) => l.id !== label.id);
+    emit("updated");
+  } catch {
+    $q.notify({ type: "negative", message: "Failed" });
+  }
+};
+
+const addType = async (type) => {
+  try {
+    await cardApi.addType(detail.value.id, type.id);
+    detail.value.types.push(type);
+    emit("updated");
+  } catch {
+    $q.notify({ type: "negative", message: "Failed" });
+  }
+};
+
+const removeType = async (type) => {
+  try {
+    await cardApi.removeType(detail.value.id, type.id);
+    detail.value.types = detail.value.types.filter((t) => t.id !== type.id);
     emit("updated");
   } catch {
     $q.notify({ type: "negative", message: "Failed" });

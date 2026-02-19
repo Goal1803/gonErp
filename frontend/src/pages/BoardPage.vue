@@ -81,6 +81,7 @@
       :card-id="selectedCardId"
       :board-id="boardId"
       :board-labels="boardStore.board?.labels || []"
+      :board-types="boardStore.board?.types || []"
       :board-members="boardStore.board?.members || []"
       :external-update="cardExternalUpdate"
       @updated="refreshBoard"

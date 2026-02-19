@@ -17,8 +17,9 @@ public class BoardResponse {
     private List<BoardMemberResponse> members;
     private List<ColumnResponse> columns;
     private List<LabelResponse> labels;
+    private List<TypeResponse> types;
 
-    public static BoardResponse from(Board board, List<LabelResponse> labels) {
+    public static BoardResponse from(Board board, List<LabelResponse> labels, List<TypeResponse> types) {
         return BoardResponse.builder()
                 .id(board.getId())
                 .name(board.getName())
@@ -28,6 +29,7 @@ public class BoardResponse {
                 .members(board.getMembers().stream().map(BoardMemberResponse::from).toList())
                 .columns(board.getColumns().stream().map(ColumnResponse::from).toList())
                 .labels(labels)
+                .types(types)
                 .build();
     }
 }

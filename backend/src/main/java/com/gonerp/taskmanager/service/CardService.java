@@ -37,6 +37,7 @@ public class CardService {
     private final CardAttachmentRepository cardAttachmentRepository;
     private final CardActivityRepository cardActivityRepository;
     private final CardLabelRepository cardLabelRepository;
+    private final CardTypeRepository cardTypeRepository;
     private final CardMemberRepository cardMemberRepository;
     private final UserRepository userRepository;
     private final BoardEventPublisher eventPublisher;
@@ -119,6 +120,7 @@ public class CardService {
         Long columnId = card.getColumn().getId();
         String actor = getCurrentUser().getUserName();
         card.getLabels().clear();
+        card.getTypes().clear();
         cardRepository.save(card);
         for (CardAttachment att : card.getAttachments()) {
             deletePhysicalFile(att.getUrl());
@@ -244,6 +246,26 @@ public class CardService {
         cardRepository.save(card);
         eventPublisher.publish(card.getColumn().getBoard().getId(), "LABEL_REMOVED",
                 cardId, null, getCurrentUser().getUserName(), Map.of("labelId", labelId));
+    }
+
+    public void addType(Long cardId, Long typeId) {
+        Card card = getCardOrThrow(cardId);
+        CardType type = cardTypeRepository.findById(typeId)
+                .orElseThrow(() -> new EntityNotFoundException("Type not found: " + typeId));
+        if (card.getTypes().stream().noneMatch(t -> t.getId().equals(typeId))) {
+            card.getTypes().add(type);
+            cardRepository.save(card);
+            eventPublisher.publish(card.getColumn().getBoard().getId(), "TYPE_ADDED",
+                    cardId, null, getCurrentUser().getUserName(), TypeResponse.from(type));
+        }
+    }
+
+    public void removeType(Long cardId, Long typeId) {
+        Card card = getCardOrThrow(cardId);
+        card.getTypes().removeIf(t -> t.getId().equals(typeId));
+        cardRepository.save(card);
+        eventPublisher.publish(card.getColumn().getBoard().getId(), "TYPE_REMOVED",
+                cardId, null, getCurrentUser().getUserName(), Map.of("typeId", typeId));
     }
 
     public void addCardMember(Long cardId, Long userId) {

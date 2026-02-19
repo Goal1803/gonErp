@@ -23,6 +23,7 @@ public class BoardService {
     private final BoardRepository boardRepository;
     private final BoardMemberRepository boardMemberRepository;
     private final CardLabelRepository cardLabelRepository;
+    private final CardTypeRepository cardTypeRepository;
     private final UserRepository userRepository;
 
     private User getCurrentUser() {
@@ -72,7 +73,9 @@ public class BoardService {
         checkAccess(board);
         List<LabelResponse> labels = cardLabelRepository.findByBoardId(id)
                 .stream().map(LabelResponse::from).toList();
-        return BoardResponse.from(board, labels);
+        List<TypeResponse> types = cardTypeRepository.findByBoardId(id)
+                .stream().map(TypeResponse::from).toList();
+        return BoardResponse.from(board, labels, types);
     }
 
     public BoardSummaryResponse create(BoardRequest request) {
@@ -152,5 +155,31 @@ public class BoardService {
         checkAccess(label.getBoard());
         cardLabelRepository.deleteLabelMappings(labelId);
         cardLabelRepository.delete(label);
+    }
+
+    public List<TypeResponse> getTypes(Long boardId) {
+        Board board = getBoardOrThrow(boardId);
+        checkAccess(board);
+        return cardTypeRepository.findByBoardId(boardId).stream().map(TypeResponse::from).toList();
+    }
+
+    public TypeResponse createType(Long boardId, TypeRequest request) {
+        Board board = getBoardOrThrow(boardId);
+        checkAccess(board);
+        CardType type = CardType.builder()
+                .name(request.getName() != null ? request.getName() : "Type")
+                .color(request.getColor() != null ? request.getColor() : "#2E7D32")
+                .textColor(request.getTextColor() != null ? request.getTextColor() : "#ffffff")
+                .board(board)
+                .build();
+        return TypeResponse.from(cardTypeRepository.save(type));
+    }
+
+    public void deleteType(Long typeId) {
+        CardType type = cardTypeRepository.findById(typeId)
+                .orElseThrow(() -> new EntityNotFoundException("Type not found: " + typeId));
+        checkAccess(type.getBoard());
+        cardTypeRepository.deleteTypeMappings(typeId);
+        cardTypeRepository.delete(type);
     }
 }

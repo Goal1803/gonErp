@@ -56,6 +56,16 @@ public class Card extends BaseModel {
     @Builder.Default
     private List<CardLabel> labels = new ArrayList<>();
 
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "tm_card_type_map",
+            joinColumns = @JoinColumn(name = "card_id"),
+            inverseJoinColumns = @JoinColumn(name = "type_id")
+    )
+    @BatchSize(size = 20)
+    @Builder.Default
+    private List<CardType> types = new ArrayList<>();
+
     @OneToMany(mappedBy = "card", cascade = CascadeType.ALL, orphanRemoval = true)
     @BatchSize(size = 20)
     @Builder.Default

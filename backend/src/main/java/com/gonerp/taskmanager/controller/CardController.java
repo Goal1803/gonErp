@@ -102,6 +102,20 @@ public class CardController {
         return ResponseEntity.ok(ApiResponse.ok("Label removed", null));
     }
 
+    @PostMapping("/cards/{id}/types/{typeId}")
+    public ResponseEntity<ApiResponse<Void>> addType(
+            @PathVariable Long id, @PathVariable Long typeId) {
+        cardService.addType(id, typeId);
+        return ResponseEntity.ok(ApiResponse.ok("Type added", null));
+    }
+
+    @DeleteMapping("/cards/{id}/types/{typeId}")
+    public ResponseEntity<ApiResponse<Void>> removeType(
+            @PathVariable Long id, @PathVariable Long typeId) {
+        cardService.removeType(id, typeId);
+        return ResponseEntity.ok(ApiResponse.ok("Type removed", null));
+    }
+
     @PostMapping("/cards/{id}/members/{userId}")
     public ResponseEntity<ApiResponse<Void>> addMember(
             @PathVariable Long id, @PathVariable Long userId) {

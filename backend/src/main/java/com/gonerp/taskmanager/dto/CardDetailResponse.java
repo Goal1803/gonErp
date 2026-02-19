@@ -21,6 +21,7 @@ public class CardDetailResponse {
     private Long columnId;
     private Long boardId;
     private List<LabelResponse> labels;
+    private List<TypeResponse> types;
     private List<UserSummaryResponse> members;
     private List<AttachmentResponse> attachments;
     private List<CommentResponse> comments;
@@ -42,6 +43,7 @@ public class CardDetailResponse {
                 .columnId(card.getColumn().getId())
                 .boardId(card.getColumn().getBoard().getId())
                 .labels(card.getLabels().stream().map(LabelResponse::from).toList())
+                .types(card.getTypes().stream().map(TypeResponse::from).toList())
                 .members(card.getMembers().stream()
                         .map(m -> UserSummaryResponse.from(m.getUser())).toList())
                 .attachments(card.getAttachments().stream().map(AttachmentResponse::from).toList())

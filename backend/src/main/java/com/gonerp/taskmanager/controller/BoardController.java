@@ -77,4 +77,22 @@ public class BoardController {
         boardService.deleteLabel(labelId);
         return ResponseEntity.ok(ApiResponse.ok("Label deleted successfully", null));
     }
+
+    @GetMapping("/{id}/types")
+    public ResponseEntity<ApiResponse<List<TypeResponse>>> getTypes(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.ok(boardService.getTypes(id)));
+    }
+
+    @PostMapping("/{id}/types")
+    public ResponseEntity<ApiResponse<TypeResponse>> createType(
+            @PathVariable Long id, @RequestBody TypeRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.ok("Type created successfully", boardService.createType(id, request)));
+    }
+
+    @DeleteMapping("/types/{typeId}")
+    public ResponseEntity<ApiResponse<Void>> deleteType(@PathVariable Long typeId) {
+        boardService.deleteType(typeId);
+        return ResponseEntity.ok(ApiResponse.ok("Type deleted successfully", null));
+    }
 }
