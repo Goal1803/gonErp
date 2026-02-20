@@ -88,6 +88,20 @@ public class CardController {
         return ResponseEntity.ok(ApiResponse.ok("Attachment deleted", null));
     }
 
+    @PostMapping("/cards/{id}/links")
+    public ResponseEntity<ApiResponse<LinkResponse>> addLink(
+            @PathVariable Long id, @RequestBody LinkRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.ok("Link added", cardService.addLink(id, request)));
+    }
+
+    @DeleteMapping("/cards/{id}/links/{linkId}")
+    public ResponseEntity<ApiResponse<Void>> deleteLink(
+            @PathVariable Long id, @PathVariable Long linkId) {
+        cardService.deleteLink(id, linkId);
+        return ResponseEntity.ok(ApiResponse.ok("Link deleted", null));
+    }
+
     @PostMapping("/cards/{id}/labels/{labelId}")
     public ResponseEntity<ApiResponse<Void>> addLabel(
             @PathVariable Long id, @PathVariable Long labelId) {

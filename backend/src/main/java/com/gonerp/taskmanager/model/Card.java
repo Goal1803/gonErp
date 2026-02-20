@@ -77,6 +77,11 @@ public class Card extends BaseModel {
     private List<CardAttachment> attachments = new ArrayList<>();
 
     @OneToMany(mappedBy = "card", cascade = CascadeType.ALL, orphanRemoval = true)
+    @BatchSize(size = 10)
+    @Builder.Default
+    private List<CardLink> links = new ArrayList<>();
+
+    @OneToMany(mappedBy = "card", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("id ASC")
     @BatchSize(size = 20)
     @Builder.Default

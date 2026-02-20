@@ -66,7 +66,44 @@
         />
       </div>
 
-      <div class="col row no-wrap" style="min-height: 0" v-if="detail">
+      <div class="col column" style="min-height: 0" v-if="detail">
+        <!-- Cover image (full width, top) -->
+        <div class="cover-image-wrap" style="flex-shrink: 0">
+          <template v-if="detail.mainImageUrl">
+            <img
+              :src="detail.mainImageUrl"
+              class="cover-image"
+            />
+            <div class="cover-image-actions">
+              <q-btn
+                flat dense icon="image" color="white" size="sm" label="Replace"
+                style="background: rgba(0,0,0,0.55); border-radius: 6px"
+                @click="$refs.coverImageInput.click()"
+              />
+              <q-btn
+                flat dense icon="delete" color="red-3" size="sm" label="Remove"
+                style="background: rgba(0,0,0,0.55); border-radius: 6px"
+                @click="removeCoverImage"
+              />
+            </div>
+          </template>
+          <div v-else class="cover-image-empty">
+            <q-btn
+              flat dense icon="add_photo_alternate" color="grey-5"
+              label="Add cover image" size="sm"
+              @click="$refs.coverImageInput.click()"
+            />
+          </div>
+          <input
+            ref="coverImageInput"
+            type="file"
+            accept="image/*"
+            style="display: none"
+            @change="onCoverImageSelected"
+          />
+        </div>
+
+        <div class="col row no-wrap" style="min-height: 0">
         <!-- LEFT: main content -->
         <div class="col q-pa-lg" style="max-width: 680px; overflow-y: auto; min-height: 0">
           <!-- Card name -->
@@ -80,6 +117,508 @@
             label="Card name"
             @blur="saveField('name', detail.name)"
           />
+
+          <!-- Metadata row: Status, Stage, Labels, Types, Members, Cover -->
+          <div class="metadata-section q-mb-lg">
+            <!-- Status + Stage row -->
+            <div class="row q-gutter-md q-mb-sm items-end">
+              <div style="min-width: 160px">
+                <div class="sidebar-label">
+                  <q-icon name="flag" size="xs" /> Status
+                </div>
+                <q-select
+                  v-model="detail.status"
+                  :options="statusOptions"
+                  outlined
+                  dark
+                  dense
+                  color="teal-5"
+                  @update:model-value="saveField('status', detail.status)"
+                />
+              </div>
+              <div>
+                <div class="sidebar-label">
+                  <q-icon name="view_column" size="xs" /> Stage
+                </div>
+                <q-chip color="teal-9" text-color="teal-3" dense>{{
+                  detail.stage
+                }}</q-chip>
+              </div>
+            </div>
+
+            <!-- Labels -->
+            <div class="q-mb-sm">
+              <q-btn flat dense color="grey-5" icon="label" label="Labels" size="sm">
+                <q-menu
+                  persistent
+                  style="
+                    min-width: 270px;
+                    background: #1e1e1e;
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                  "
+                >
+                  <div class="q-pa-sm">
+                    <!-- Header row -->
+                    <div class="row items-center q-mb-sm">
+                      <span
+                        class="text-grey-4"
+                        style="
+                          font-size: 0.72rem;
+                          font-weight: 600;
+                          letter-spacing: 0.05em;
+                        "
+                        >BOARD LABELS</span
+                      >
+                      <q-space />
+                      <q-btn
+                        flat
+                        round
+                        dense
+                        icon="close"
+                        color="grey-5"
+                        size="xs"
+                        v-close-popup
+                      />
+                    </div>
+
+                    <!-- Board labels: click to toggle attach/detach -->
+                    <div
+                      v-if="!allBoardLabels.length"
+                      class="text-grey-6 text-caption q-mb-sm"
+                    >
+                      No labels yet — create one below.
+                    </div>
+                    <div
+                      v-for="l in allBoardLabels"
+                      :key="l.id"
+                      class="row items-center q-mb-xs label-row"
+                      style="
+                        cursor: pointer;
+                        border-radius: 6px;
+                        padding: 2px 4px;
+                      "
+                      @click="toggleLabel(l)"
+                    >
+                      <q-chip
+                        dense
+                        :label="l.name"
+                        :style="{
+                          background: l.color,
+                          color: l.textColor || '#fff',
+                          minWidth: '110px',
+                          fontSize: '0.78rem',
+                        }"
+                      />
+                      <q-icon
+                        v-if="isAttached(l)"
+                        name="check"
+                        color="teal-4"
+                        size="16px"
+                        class="q-ml-xs"
+                      />
+                      <q-space />
+                      <q-btn
+                        flat
+                        round
+                        dense
+                        icon="delete"
+                        color="grey-7"
+                        size="xs"
+                        @click.stop="deleteBoardLabel(l)"
+                      />
+                    </div>
+
+                    <q-separator dark class="q-my-sm" />
+
+                    <!-- Create new label form -->
+                    <div
+                      class="text-grey-5"
+                      style="
+                        font-size: 0.72rem;
+                        font-weight: 600;
+                        letter-spacing: 0.05em;
+                        margin-bottom: 6px;
+                      "
+                    >
+                      CREATE LABEL
+                    </div>
+                    <q-input
+                      v-model="newLabel.name"
+                      outlined
+                      dark
+                      color="teal-5"
+                      dense
+                      placeholder="Label name"
+                      class="q-mb-sm"
+                    />
+
+                    <!-- 20 color preset swatches -->
+                    <div
+                      class="text-grey-6"
+                      style="font-size: 0.7rem; margin-bottom: 4px"
+                    >
+                      Color presets
+                    </div>
+                    <div class="label-preset-grid q-mb-xs">
+                      <div
+                        v-for="(p, i) in allPresets"
+                        :key="i"
+                        class="label-preset-swatch"
+                        :style="{ background: p.bg }"
+                        :class="{
+                          'preset-selected':
+                            newLabel.bg === p.bg && newLabel.text === p.text,
+                        }"
+                        @click="
+                          newLabel.bg = p.bg;
+                          newLabel.text = p.text;
+                        "
+                        :title="`BG: ${p.bg}  Text: ${p.text}`"
+                      />
+                    </div>
+
+                    <!-- Add custom color set -->
+                    <div v-if="!showCustomPicker" class="q-mb-sm">
+                      <q-btn
+                        flat
+                        dense
+                        icon="add"
+                        label="Add custom preset"
+                        color="grey-5"
+                        size="xs"
+                        @click="showCustomPicker = true"
+                      />
+                    </div>
+                    <div v-else class="q-mb-sm">
+                      <div class="row items-center q-gutter-sm">
+                        <div>
+                          <div
+                            class="text-grey-6"
+                            style="font-size: 0.68rem; margin-bottom: 2px"
+                          >
+                            Background
+                          </div>
+                          <input
+                            type="color"
+                            v-model="customPreset.bg"
+                            style="
+                              width: 38px;
+                              height: 26px;
+                              border: 1px solid rgba(255, 255, 255, 0.2);
+                              border-radius: 4px;
+                              cursor: pointer;
+                              padding: 2px;
+                              background: #2a2a2a;
+                            "
+                          />
+                        </div>
+                        <div>
+                          <div
+                            class="text-grey-6"
+                            style="font-size: 0.68rem; margin-bottom: 2px"
+                          >
+                            Text
+                          </div>
+                          <input
+                            type="color"
+                            v-model="customPreset.text"
+                            style="
+                              width: 38px;
+                              height: 26px;
+                              border: 1px solid rgba(255, 255, 255, 0.2);
+                              border-radius: 4px;
+                              cursor: pointer;
+                              padding: 2px;
+                              background: #2a2a2a;
+                            "
+                          />
+                        </div>
+                        <q-btn
+                          flat
+                          dense
+                          icon="check"
+                          color="teal-4"
+                          size="sm"
+                          style="margin-top: 14px"
+                          title="Save to presets"
+                          @click="saveCustomPreset"
+                        />
+                        <q-btn
+                          flat
+                          dense
+                          icon="close"
+                          color="grey-5"
+                          size="sm"
+                          style="margin-top: 14px"
+                          @click="showCustomPicker = false"
+                        />
+                      </div>
+                    </div>
+
+                    <!-- Preview + create -->
+                    <div class="row items-center q-gutter-xs q-mb-sm">
+                      <span class="text-grey-6" style="font-size: 0.7rem"
+                        >Preview:</span
+                      >
+                      <q-chip
+                        dense
+                        :label="newLabel.name || 'Label preview'"
+                        :style="{
+                          background: newLabel.bg,
+                          color: newLabel.text,
+                          fontSize: '0.78rem',
+                        }"
+                      />
+                    </div>
+                    <q-btn
+                      label="Create label"
+                      color="teal-6"
+                      unelevated
+                      dense
+                      size="sm"
+                      class="full-width"
+                      :disable="!newLabel.name.trim()"
+                      :loading="creatingLabel"
+                      @click="createLabel"
+                    />
+                  </div>
+                </q-menu>
+              </q-btn>
+              <div class="row q-gutter-xs q-mt-xs" style="flex-wrap: wrap">
+                <q-chip
+                  v-for="l in detail.labels"
+                  :key="l.id"
+                  dense
+                  removable
+                  :style="{
+                    background: l.color,
+                    color: l.textColor || '#fff',
+                    fontSize: '0.72rem',
+                  }"
+                  @remove="removeLabel(l)"
+                >
+                  {{ l.name }}
+                </q-chip>
+              </div>
+            </div>
+
+            <!-- Types -->
+            <div class="q-mb-sm">
+              <q-btn flat dense color="grey-5" icon="category" label="Types" size="sm">
+                <q-menu
+                  persistent
+                  style="
+                    min-width: 270px;
+                    background: #1e1e1e;
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                  "
+                >
+                  <div class="q-pa-sm">
+                    <!-- Header row -->
+                    <div class="row items-center q-mb-sm">
+                      <span
+                        class="text-grey-4"
+                        style="
+                          font-size: 0.72rem;
+                          font-weight: 600;
+                          letter-spacing: 0.05em;
+                        "
+                        >BOARD TYPES</span
+                      >
+                      <q-space />
+                      <q-btn
+                        flat
+                        round
+                        dense
+                        icon="close"
+                        color="grey-5"
+                        size="xs"
+                        v-close-popup
+                      />
+                    </div>
+
+                    <!-- Board types: click to toggle attach/detach -->
+                    <div
+                      v-if="!allBoardTypes.length"
+                      class="text-grey-6 text-caption q-mb-sm"
+                    >
+                      No types yet — create one below.
+                    </div>
+                    <div
+                      v-for="t in allBoardTypes"
+                      :key="t.id"
+                      class="row items-center q-mb-xs label-row"
+                      style="
+                        cursor: pointer;
+                        border-radius: 6px;
+                        padding: 2px 4px;
+                      "
+                      @click="toggleType(t)"
+                    >
+                      <q-chip
+                        dense
+                        :label="t.name"
+                        :style="{
+                          background: t.color,
+                          color: t.textColor || '#fff',
+                          minWidth: '110px',
+                          fontSize: '0.78rem',
+                        }"
+                      />
+                      <q-icon
+                        v-if="isTypeAttached(t)"
+                        name="check"
+                        color="teal-4"
+                        size="16px"
+                        class="q-ml-xs"
+                      />
+                      <q-space />
+                      <q-btn
+                        flat
+                        round
+                        dense
+                        icon="delete"
+                        color="grey-7"
+                        size="xs"
+                        @click.stop="deleteBoardType(t)"
+                      />
+                    </div>
+
+                    <q-separator dark class="q-my-sm" />
+
+                    <!-- Create new type form -->
+                    <div
+                      class="text-grey-5"
+                      style="
+                        font-size: 0.72rem;
+                        font-weight: 600;
+                        letter-spacing: 0.05em;
+                        margin-bottom: 6px;
+                      "
+                    >
+                      CREATE TYPE
+                    </div>
+                    <q-input
+                      v-model="newType.name"
+                      outlined
+                      dark
+                      color="teal-5"
+                      dense
+                      placeholder="Type name"
+                      class="q-mb-sm"
+                    />
+
+                    <!-- 20 color preset swatches -->
+                    <div
+                      class="text-grey-6"
+                      style="font-size: 0.7rem; margin-bottom: 4px"
+                    >
+                      Color presets
+                    </div>
+                    <div class="label-preset-grid q-mb-xs">
+                      <div
+                        v-for="(p, i) in allPresets"
+                        :key="'type-' + i"
+                        class="label-preset-swatch"
+                        :style="{ background: p.bg }"
+                        :class="{
+                          'preset-selected':
+                            newType.bg === p.bg && newType.text === p.text,
+                        }"
+                        @click="
+                          newType.bg = p.bg;
+                          newType.text = p.text;
+                        "
+                        :title="`BG: ${p.bg}  Text: ${p.text}`"
+                      />
+                    </div>
+
+                    <!-- Preview + create -->
+                    <div class="row items-center q-gutter-xs q-mb-sm">
+                      <span class="text-grey-6" style="font-size: 0.7rem"
+                        >Preview:</span
+                      >
+                      <q-chip
+                        dense
+                        :label="newType.name || 'Type preview'"
+                        :style="{
+                          background: newType.bg,
+                          color: newType.text,
+                          fontSize: '0.78rem',
+                        }"
+                      />
+                    </div>
+                    <q-btn
+                      label="Create type"
+                      color="teal-6"
+                      unelevated
+                      dense
+                      size="sm"
+                      class="full-width"
+                      :disable="!newType.name.trim()"
+                      :loading="creatingType"
+                      @click="createType"
+                    />
+                  </div>
+                </q-menu>
+              </q-btn>
+              <div class="row q-gutter-xs q-mt-xs" style="flex-wrap: wrap">
+                <q-chip
+                  v-for="t in detail.types"
+                  :key="t.id"
+                  dense
+                  removable
+                  :style="{
+                    background: t.color,
+                    color: t.textColor || '#fff',
+                    fontSize: '0.72rem',
+                  }"
+                  @remove="removeType(t)"
+                >
+                  {{ t.name }}
+                </q-chip>
+              </div>
+            </div>
+
+            <!-- Members -->
+            <div class="q-mb-sm">
+              <div class="sidebar-label">
+                <q-icon name="group" size="xs" /> Members
+              </div>
+              <div class="row q-gutter-xs q-mb-xs items-center">
+                <div v-for="m in detail.members" :key="m.id"
+                  style="cursor: pointer" :title="m.userName"
+                  @click="removeMember(m)">
+                  <UserAvatar :user="m" size="28px" />
+                </div>
+                <q-btn-dropdown
+                  flat
+                  dense
+                  color="grey-5"
+                  icon="person_add"
+                  size="xs"
+                >
+                  <q-list dark dense style="min-width: 200px">
+                    <q-item
+                      v-for="u in availableMembers"
+                      :key="u.id"
+                      clickable
+                      v-close-popup
+                      @click="addMember(u)"
+                    >
+                      <q-item-section avatar>
+                        <UserAvatar :user="u" size="24px" />
+                      </q-item-section>
+                      <q-item-section
+                        >{{ u.firstName }} {{ u.lastName }}</q-item-section
+                      >
+                    </q-item>
+                  </q-list>
+                </q-btn-dropdown>
+              </div>
+            </div>
+
+          </div>
 
           <!-- Description -->
           <div class="text-caption text-grey-5 q-mb-xs row items-center gap-2">
@@ -158,6 +697,59 @@
             style="display: none"
             @change="onDescImageSelected"
           />
+
+          <!-- Links -->
+          <div class="q-mb-md">
+            <div class="text-caption text-grey-5 q-mb-xs row items-center gap-2">
+              <q-icon name="link" /> Links
+            </div>
+            <q-list v-if="detail.links?.length" dense class="q-mb-sm">
+              <q-item v-for="lnk in detail.links" :key="lnk.id" dense>
+                <q-item-section avatar>
+                  <q-icon name="open_in_new" color="teal-4" />
+                </q-item-section>
+                <q-item-section>
+                  <a
+                    :href="lnk.url"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="text-teal-4 link-truncate"
+                    style="text-decoration: none"
+                  >{{ lnk.title || lnk.url }}</a>
+                  <q-item-label caption class="text-grey-6 link-truncate">{{ lnk.url }}</q-item-label>
+                </q-item-section>
+                <q-item-section side>
+                  <q-btn
+                    flat round dense icon="delete" color="red-4" size="xs"
+                    @click="deleteLink(lnk)"
+                  />
+                </q-item-section>
+              </q-item>
+            </q-list>
+            <div class="row q-gutter-sm items-end">
+              <q-input
+                v-model="newLink.url"
+                outlined dark color="teal-5" dense
+                placeholder="https://..."
+                class="col"
+                label="URL"
+              />
+              <q-input
+                v-model="newLink.title"
+                outlined dark color="teal-5" dense
+                placeholder="Title (optional)"
+                style="max-width: 180px"
+              />
+              <q-btn
+                icon="add_link"
+                color="teal-6"
+                unelevated dense
+                :loading="addingLink"
+                :disable="!newLink.url.trim()"
+                @click="addLink"
+              />
+            </div>
+          </div>
 
           <!-- Images -->
           <div class="q-mb-md">
@@ -254,7 +846,38 @@
             </q-file>
           </div>
 
-          <!-- Comments -->
+          <!-- Activity -->
+          <div
+            class="text-caption text-grey-5 q-mt-lg q-mb-sm row items-center gap-2"
+          >
+            <q-icon name="history" /> Activity
+          </div>
+          <div
+            v-for="act in detail.activities"
+            :key="act.id"
+            class="row items-center q-gutter-xs q-mb-xs"
+          >
+            <q-icon name="circle" size="6px" color="teal-4" />
+            <span class="text-grey-5" style="font-size: 0.78rem">{{
+              act.action
+            }}</span>
+            <span class="text-grey-7" style="font-size: 0.72rem"
+              >· {{ formatDate(act.createdAt) }}</span
+            >
+          </div>
+        </div>
+
+        <!-- RIGHT: Comments -->
+        <div
+          class="q-pa-lg"
+          style="
+            width: 340px;
+            flex-shrink: 0;
+            border-left: 1px solid rgba(255, 255, 255, 0.07);
+            overflow-y: auto;
+            min-height: 0;
+          "
+        >
           <div class="text-caption text-grey-5 q-mb-sm row items-center gap-2">
             <q-icon name="chat" /> Comments
           </div>
@@ -310,581 +933,7 @@
               @click="addComment"
             />
           </div>
-
-          <!-- Activity -->
-          <div
-            class="text-caption text-grey-5 q-mt-lg q-mb-sm row items-center gap-2"
-          >
-            <q-icon name="history" /> Activity
-          </div>
-          <div
-            v-for="act in detail.activities"
-            :key="act.id"
-            class="row items-center q-gutter-xs q-mb-xs"
-          >
-            <q-icon name="circle" size="6px" color="teal-4" />
-            <span class="text-grey-5" style="font-size: 0.78rem">{{
-              act.action
-            }}</span>
-            <span class="text-grey-7" style="font-size: 0.72rem"
-              >· {{ formatDate(act.createdAt) }}</span
-            >
-          </div>
         </div>
-
-        <!-- RIGHT: sidebar -->
-        <div
-          class="q-pa-lg"
-          style="
-            width: 260px;
-            flex-shrink: 0;
-            border-left: 1px solid rgba(255, 255, 255, 0.07);
-            overflow-y: auto;
-          "
-        >
-          <!-- Status -->
-          <div class="sidebar-section">
-            <div class="sidebar-label">
-              <q-icon name="flag" size="xs" /> Status
-            </div>
-            <q-select
-              v-model="detail.status"
-              :options="statusOptions"
-              outlined
-              dark
-              dense
-              color="teal-5"
-              @update:model-value="saveField('status', detail.status)"
-            />
-          </div>
-
-          <!-- Stage (read-only) -->
-          <div class="sidebar-section">
-            <div class="sidebar-label">
-              <q-icon name="view_column" size="xs" /> Stage
-            </div>
-            <q-chip color="teal-9" text-color="teal-3" dense>{{
-              detail.stage
-            }}</q-chip>
-          </div>
-
-          <!-- Labels -->
-          <div class="sidebar-section">
-            <!-- Manage / create labels popup -->
-            <q-btn flat dense color="grey-5" icon="label" label="Labels">
-              <q-menu
-                persistent
-                style="
-                  min-width: 270px;
-                  background: #1e1e1e;
-                  border: 1px solid rgba(255, 255, 255, 0.1);
-                "
-              >
-                <div class="q-pa-sm">
-                  <!-- Header row -->
-                  <div class="row items-center q-mb-sm">
-                    <span
-                      class="text-grey-4"
-                      style="
-                        font-size: 0.72rem;
-                        font-weight: 600;
-                        letter-spacing: 0.05em;
-                      "
-                      >BOARD LABELS</span
-                    >
-                    <q-space />
-                    <q-btn
-                      flat
-                      round
-                      dense
-                      icon="close"
-                      color="grey-5"
-                      size="xs"
-                      v-close-popup
-                    />
-                  </div>
-
-                  <!-- Board labels: click to toggle attach/detach -->
-                  <div
-                    v-if="!allBoardLabels.length"
-                    class="text-grey-6 text-caption q-mb-sm"
-                  >
-                    No labels yet — create one below.
-                  </div>
-                  <div
-                    v-for="l in allBoardLabels"
-                    :key="l.id"
-                    class="row items-center q-mb-xs label-row"
-                    style="
-                      cursor: pointer;
-                      border-radius: 6px;
-                      padding: 2px 4px;
-                    "
-                    @click="toggleLabel(l)"
-                  >
-                    <q-chip
-                      dense
-                      :label="l.name"
-                      :style="{
-                        background: l.color,
-                        color: l.textColor || '#fff',
-                        minWidth: '110px',
-                        fontSize: '0.78rem',
-                      }"
-                    />
-                    <q-icon
-                      v-if="isAttached(l)"
-                      name="check"
-                      color="teal-4"
-                      size="16px"
-                      class="q-ml-xs"
-                    />
-                    <q-space />
-                    <q-btn
-                      flat
-                      round
-                      dense
-                      icon="delete"
-                      color="grey-7"
-                      size="xs"
-                      @click.stop="deleteBoardLabel(l)"
-                    />
-                  </div>
-
-                  <q-separator dark class="q-my-sm" />
-
-                  <!-- Create new label form -->
-                  <div
-                    class="text-grey-5"
-                    style="
-                      font-size: 0.72rem;
-                      font-weight: 600;
-                      letter-spacing: 0.05em;
-                      margin-bottom: 6px;
-                    "
-                  >
-                    CREATE LABEL
-                  </div>
-                  <q-input
-                    v-model="newLabel.name"
-                    outlined
-                    dark
-                    color="teal-5"
-                    dense
-                    placeholder="Label name"
-                    class="q-mb-sm"
-                  />
-
-                  <!-- 20 color preset swatches -->
-                  <div
-                    class="text-grey-6"
-                    style="font-size: 0.7rem; margin-bottom: 4px"
-                  >
-                    Color presets
-                  </div>
-                  <div class="label-preset-grid q-mb-xs">
-                    <div
-                      v-for="(p, i) in allPresets"
-                      :key="i"
-                      class="label-preset-swatch"
-                      :style="{ background: p.bg }"
-                      :class="{
-                        'preset-selected':
-                          newLabel.bg === p.bg && newLabel.text === p.text,
-                      }"
-                      @click="
-                        newLabel.bg = p.bg;
-                        newLabel.text = p.text;
-                      "
-                      :title="`BG: ${p.bg}  Text: ${p.text}`"
-                    />
-                  </div>
-
-                  <!-- Add custom color set -->
-                  <div v-if="!showCustomPicker" class="q-mb-sm">
-                    <q-btn
-                      flat
-                      dense
-                      icon="add"
-                      label="Add custom preset"
-                      color="grey-5"
-                      size="xs"
-                      @click="showCustomPicker = true"
-                    />
-                  </div>
-                  <div v-else class="q-mb-sm">
-                    <div class="row items-center q-gutter-sm">
-                      <div>
-                        <div
-                          class="text-grey-6"
-                          style="font-size: 0.68rem; margin-bottom: 2px"
-                        >
-                          Background
-                        </div>
-                        <input
-                          type="color"
-                          v-model="customPreset.bg"
-                          style="
-                            width: 38px;
-                            height: 26px;
-                            border: 1px solid rgba(255, 255, 255, 0.2);
-                            border-radius: 4px;
-                            cursor: pointer;
-                            padding: 2px;
-                            background: #2a2a2a;
-                          "
-                        />
-                      </div>
-                      <div>
-                        <div
-                          class="text-grey-6"
-                          style="font-size: 0.68rem; margin-bottom: 2px"
-                        >
-                          Text
-                        </div>
-                        <input
-                          type="color"
-                          v-model="customPreset.text"
-                          style="
-                            width: 38px;
-                            height: 26px;
-                            border: 1px solid rgba(255, 255, 255, 0.2);
-                            border-radius: 4px;
-                            cursor: pointer;
-                            padding: 2px;
-                            background: #2a2a2a;
-                          "
-                        />
-                      </div>
-                      <q-btn
-                        flat
-                        dense
-                        icon="check"
-                        color="teal-4"
-                        size="sm"
-                        style="margin-top: 14px"
-                        title="Save to presets"
-                        @click="saveCustomPreset"
-                      />
-                      <q-btn
-                        flat
-                        dense
-                        icon="close"
-                        color="grey-5"
-                        size="sm"
-                        style="margin-top: 14px"
-                        @click="showCustomPicker = false"
-                      />
-                    </div>
-                  </div>
-
-                  <!-- Preview + create -->
-                  <div class="row items-center q-gutter-xs q-mb-sm">
-                    <span class="text-grey-6" style="font-size: 0.7rem"
-                      >Preview:</span
-                    >
-                    <q-chip
-                      dense
-                      :label="newLabel.name || 'Label preview'"
-                      :style="{
-                        background: newLabel.bg,
-                        color: newLabel.text,
-                        fontSize: '0.78rem',
-                      }"
-                    />
-                  </div>
-                  <q-btn
-                    label="Create label"
-                    color="teal-6"
-                    unelevated
-                    dense
-                    size="sm"
-                    class="full-width"
-                    :disable="!newLabel.name.trim()"
-                    :loading="creatingLabel"
-                    @click="createLabel"
-                  />
-                </div>
-              </q-menu>
-            </q-btn>
-            <!-- Attached label chips -->
-            <div class="row q-gutter-xs q-mb-xs" style="flex-wrap: wrap">
-              <q-chip
-                v-for="l in detail.labels"
-                :key="l.id"
-                dense
-                removable
-                :style="{
-                  background: l.color,
-                  color: l.textColor || '#fff',
-                  fontSize: '0.72rem',
-                }"
-                @remove="removeLabel(l)"
-              >
-                {{ l.name }}
-              </q-chip>
-            </div>
-          </div>
-
-          <!-- Types -->
-          <div class="sidebar-section">
-            <!-- Manage / create types popup -->
-            <q-btn flat dense color="grey-5" icon="category" label="Types">
-              <q-menu
-                persistent
-                style="
-                  min-width: 270px;
-                  background: #1e1e1e;
-                  border: 1px solid rgba(255, 255, 255, 0.1);
-                "
-              >
-                <div class="q-pa-sm">
-                  <!-- Header row -->
-                  <div class="row items-center q-mb-sm">
-                    <span
-                      class="text-grey-4"
-                      style="
-                        font-size: 0.72rem;
-                        font-weight: 600;
-                        letter-spacing: 0.05em;
-                      "
-                      >BOARD TYPES</span
-                    >
-                    <q-space />
-                    <q-btn
-                      flat
-                      round
-                      dense
-                      icon="close"
-                      color="grey-5"
-                      size="xs"
-                      v-close-popup
-                    />
-                  </div>
-
-                  <!-- Board types: click to toggle attach/detach -->
-                  <div
-                    v-if="!allBoardTypes.length"
-                    class="text-grey-6 text-caption q-mb-sm"
-                  >
-                    No types yet — create one below.
-                  </div>
-                  <div
-                    v-for="t in allBoardTypes"
-                    :key="t.id"
-                    class="row items-center q-mb-xs label-row"
-                    style="
-                      cursor: pointer;
-                      border-radius: 6px;
-                      padding: 2px 4px;
-                    "
-                    @click="toggleType(t)"
-                  >
-                    <q-chip
-                      dense
-                      :label="t.name"
-                      :style="{
-                        background: t.color,
-                        color: t.textColor || '#fff',
-                        minWidth: '110px',
-                        fontSize: '0.78rem',
-                      }"
-                    />
-                    <q-icon
-                      v-if="isTypeAttached(t)"
-                      name="check"
-                      color="teal-4"
-                      size="16px"
-                      class="q-ml-xs"
-                    />
-                    <q-space />
-                    <q-btn
-                      flat
-                      round
-                      dense
-                      icon="delete"
-                      color="grey-7"
-                      size="xs"
-                      @click.stop="deleteBoardType(t)"
-                    />
-                  </div>
-
-                  <q-separator dark class="q-my-sm" />
-
-                  <!-- Create new type form -->
-                  <div
-                    class="text-grey-5"
-                    style="
-                      font-size: 0.72rem;
-                      font-weight: 600;
-                      letter-spacing: 0.05em;
-                      margin-bottom: 6px;
-                    "
-                  >
-                    CREATE TYPE
-                  </div>
-                  <q-input
-                    v-model="newType.name"
-                    outlined
-                    dark
-                    color="teal-5"
-                    dense
-                    placeholder="Type name"
-                    class="q-mb-sm"
-                  />
-
-                  <!-- 20 color preset swatches -->
-                  <div
-                    class="text-grey-6"
-                    style="font-size: 0.7rem; margin-bottom: 4px"
-                  >
-                    Color presets
-                  </div>
-                  <div class="label-preset-grid q-mb-xs">
-                    <div
-                      v-for="(p, i) in allPresets"
-                      :key="'type-' + i"
-                      class="label-preset-swatch"
-                      :style="{ background: p.bg }"
-                      :class="{
-                        'preset-selected':
-                          newType.bg === p.bg && newType.text === p.text,
-                      }"
-                      @click="
-                        newType.bg = p.bg;
-                        newType.text = p.text;
-                      "
-                      :title="`BG: ${p.bg}  Text: ${p.text}`"
-                    />
-                  </div>
-
-                  <!-- Preview + create -->
-                  <div class="row items-center q-gutter-xs q-mb-sm">
-                    <span class="text-grey-6" style="font-size: 0.7rem"
-                      >Preview:</span
-                    >
-                    <q-chip
-                      dense
-                      :label="newType.name || 'Type preview'"
-                      :style="{
-                        background: newType.bg,
-                        color: newType.text,
-                        fontSize: '0.78rem',
-                      }"
-                    />
-                  </div>
-                  <q-btn
-                    label="Create type"
-                    color="teal-6"
-                    unelevated
-                    dense
-                    size="sm"
-                    class="full-width"
-                    :disable="!newType.name.trim()"
-                    :loading="creatingType"
-                    @click="createType"
-                  />
-                </div>
-              </q-menu>
-            </q-btn>
-            <!-- Attached type chips -->
-            <div class="row q-gutter-xs q-mb-xs" style="flex-wrap: wrap">
-              <q-chip
-                v-for="t in detail.types"
-                :key="t.id"
-                dense
-                removable
-                :style="{
-                  background: t.color,
-                  color: t.textColor || '#fff',
-                  fontSize: '0.72rem',
-                }"
-                @remove="removeType(t)"
-              >
-                {{ t.name }}
-              </q-chip>
-            </div>
-          </div>
-
-          <!-- Members -->
-          <div class="sidebar-section">
-            <div class="sidebar-label">
-              <q-icon name="group" size="xs" /> Members
-            </div>
-            <div class="row q-gutter-xs q-mb-xs">
-              <div v-for="m in detail.members" :key="m.id"
-                style="cursor: pointer" :title="m.userName"
-                @click="removeMember(m)">
-                <UserAvatar :user="m" size="28px" />
-              </div>
-            </div>
-            <q-btn-dropdown
-              flat
-              dense
-              color="grey-5"
-              icon="person_add"
-              label="Add member"
-              size="xs"
-            >
-              <q-list dark dense style="min-width: 200px">
-                <q-item
-                  v-for="u in availableMembers"
-                  :key="u.id"
-                  clickable
-                  v-close-popup
-                  @click="addMember(u)"
-                >
-                  <q-item-section avatar>
-                    <UserAvatar :user="u" size="24px" />
-                  </q-item-section>
-                  <q-item-section
-                    >{{ u.firstName }} {{ u.lastName }}</q-item-section
-                  >
-                </q-item>
-              </q-list>
-            </q-btn-dropdown>
-          </div>
-
-          <!-- Main image -->
-          <div class="sidebar-section">
-            <div class="sidebar-label">
-              <q-icon name="image" size="xs" /> Cover Image
-            </div>
-            <div v-if="detail.mainImageUrl" class="q-mb-xs">
-              <img
-                :src="detail.mainImageUrl"
-                style="
-                  width: 100%;
-                  border-radius: 6px;
-                  max-height: 100px;
-                  object-fit: cover;
-                "
-              />
-              <q-btn
-                flat
-                dense
-                color="red-4"
-                icon="clear"
-                label="Remove"
-                size="xs"
-                @click="saveField('mainImageUrl', null)"
-              />
-            </div>
-            <q-file
-              v-model="coverFile"
-              outlined
-              dark
-              color="teal-5"
-              dense
-              label="Upload cover"
-              accept="image/*"
-              @update:model-value="uploadCover"
-            >
-              <template #prepend
-                ><q-icon name="upload" color="grey-5"
-              /></template>
-            </q-file>
-          </div>
         </div>
       </div>
 
@@ -977,7 +1026,8 @@ const newComment = ref("");
 const sendingComment = ref(false);
 const attachFile = ref(null);
 const imageFile = ref(null);
-const coverFile = ref(null);
+const newLink = ref({ url: '', title: '' });
+const addingLink = ref(false);
 const descEditor = ref(null);
 const descImageInput = ref(null);
 let savedSelection = null;
@@ -1496,7 +1546,18 @@ const deleteAttachment = async (att) => {
   }
 };
 
-const uploadCover = async (file) => {
+const removeCoverImage = async () => {
+  try {
+    await cardApi.update(detail.value.id, { mainImageUrl: null });
+    detail.value.mainImageUrl = null;
+    emit("updated");
+  } catch {
+    $q.notify({ type: "negative", message: "Failed to remove cover" });
+  }
+};
+
+const onCoverImageSelected = async (e) => {
+  const file = e.target.files?.[0];
   if (!file) return;
   const fd = new FormData();
   fd.append("file", file);
@@ -1506,11 +1567,11 @@ const uploadCover = async (file) => {
     await cardApi.update(detail.value.id, { mainImageUrl: res.data.data.url });
     detail.value.mainImageUrl = res.data.data.url;
     detail.value.attachments.push(res.data.data);
-    coverFile.value = null;
     emit("updated");
   } catch {
     $q.notify({ type: "negative", message: "Upload failed" });
   }
+  e.target.value = "";
 };
 
 const addLabel = async (label) => {
@@ -1570,6 +1631,33 @@ const removeMember = async (user) => {
     emit("updated");
   } catch {
     $q.notify({ type: "negative", message: "Failed" });
+  }
+};
+
+const addLink = async () => {
+  if (!newLink.value.url.trim()) return;
+  addingLink.value = true;
+  try {
+    const res = await cardApi.addLink(detail.value.id, {
+      url: newLink.value.url.trim(),
+      title: newLink.value.title.trim() || null,
+    });
+    if (!detail.value.links) detail.value.links = [];
+    detail.value.links.push(res.data.data);
+    newLink.value = { url: '', title: '' };
+  } catch {
+    $q.notify({ type: "negative", message: "Failed to add link" });
+  } finally {
+    addingLink.value = false;
+  }
+};
+
+const deleteLink = async (link) => {
+  try {
+    await cardApi.deleteLink(detail.value.id, link.id);
+    detail.value.links = detail.value.links.filter((l) => l.id !== link.id);
+  } catch {
+    $q.notify({ type: "negative", message: "Failed to delete link" });
   }
 };
 </script>
@@ -1797,5 +1885,57 @@ const removeMember = async (user) => {
 .desc-img-overlay .q-btn {
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(4px);
+}
+
+/* Cover image */
+.cover-image-wrap {
+  position: relative;
+  width: 100%;
+  height: 200px;
+  background: #1a1a1a;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.cover-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  background: #1a1a1a;
+}
+.cover-image-actions {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  display: flex;
+  gap: 6px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.cover-image-wrap:hover .cover-image-actions {
+  opacity: 1;
+}
+.cover-image-empty {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Metadata section */
+.metadata-section {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  padding: 14px;
+}
+
+/* Link text truncation */
+.link-truncate {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  max-width: 480px;
 }
 </style>

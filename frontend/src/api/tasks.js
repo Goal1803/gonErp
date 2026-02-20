@@ -42,5 +42,7 @@ export const cardApi = {
   addType: (id, typeId) => api.post(`/tasks/cards/${id}/types/${typeId}`),
   removeType: (id, typeId) => api.delete(`/tasks/cards/${id}/types/${typeId}`),
   addMember: (id, userId) => api.post(`/tasks/cards/${id}/members/${userId}`),
-  removeMember: (id, userId) => api.delete(`/tasks/cards/${id}/members/${userId}`)
+  removeMember: (id, userId) => api.delete(`/tasks/cards/${id}/members/${userId}`),
+  addLink: (id, data) => api.post(`/tasks/cards/${id}/links`, data),
+  deleteLink: (id, linkId) => api.delete(`/tasks/cards/${id}/links/${linkId}`)
 }

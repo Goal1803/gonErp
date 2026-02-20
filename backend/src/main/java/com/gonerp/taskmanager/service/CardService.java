@@ -35,6 +35,7 @@ public class CardService {
     private final BoardMemberRepository boardMemberRepository;
     private final CardCommentRepository cardCommentRepository;
     private final CardAttachmentRepository cardAttachmentRepository;
+    private final CardLinkRepository cardLinkRepository;
     private final CardActivityRepository cardActivityRepository;
     private final CardLabelRepository cardLabelRepository;
     private final CardTypeRepository cardTypeRepository;
@@ -226,6 +227,34 @@ public class CardService {
         cardAttachmentRepository.delete(attachment);
         eventPublisher.publish(boardId, "ATTACHMENT_DELETED", cardId, null,
                 actor, Map.of("attachmentId", attachmentId));
+    }
+
+    public LinkResponse addLink(Long cardId, LinkRequest request) {
+        Card card = getCardOrThrow(cardId);
+        checkBoardAccess(card.getColumn());
+        CardLink link = CardLink.builder()
+                .url(request.getUrl())
+                .title(request.getTitle())
+                .card(card)
+                .build();
+        link = cardLinkRepository.save(link);
+        String actor = getCurrentUser().getUserName();
+        logActivity(card, actor + " added a link");
+        LinkResponse response = LinkResponse.from(link);
+        eventPublisher.publish(card.getColumn().getBoard().getId(), "LINK_ADDED",
+                cardId, null, actor, response);
+        return response;
+    }
+
+    public void deleteLink(Long cardId, Long linkId) {
+        CardLink link = cardLinkRepository.findById(linkId)
+                .orElseThrow(() -> new EntityNotFoundException("Link not found: " + linkId));
+        Card card = getCardOrThrow(cardId);
+        Long boardId = card.getColumn().getBoard().getId();
+        String actor = getCurrentUser().getUserName();
+        cardLinkRepository.delete(link);
+        eventPublisher.publish(boardId, "LINK_DELETED", cardId, null,
+                actor, Map.of("linkId", linkId));
     }
 
     public void addLabel(Long cardId, Long labelId) {

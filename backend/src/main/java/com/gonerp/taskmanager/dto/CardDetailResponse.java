@@ -24,6 +24,7 @@ public class CardDetailResponse {
     private List<TypeResponse> types;
     private List<UserSummaryResponse> members;
     private List<AttachmentResponse> attachments;
+    private List<LinkResponse> links;
     private List<CommentResponse> comments;
     private List<ActivityResponse> activities;
     private LocalDateTime createdAt;
@@ -47,6 +48,7 @@ public class CardDetailResponse {
                 .members(card.getMembers().stream()
                         .map(m -> UserSummaryResponse.from(m.getUser())).toList())
                 .attachments(card.getAttachments().stream().map(AttachmentResponse::from).toList())
+                .links(card.getLinks().stream().map(LinkResponse::from).toList())
                 .comments(card.getComments().stream().map(CommentResponse::from).toList())
                 .activities(card.getActivities().stream().map(ActivityResponse::from).toList())
                 .createdAt(card.getCreatedAt())
