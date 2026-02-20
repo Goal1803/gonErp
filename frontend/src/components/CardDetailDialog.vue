@@ -819,9 +819,10 @@
               dark
               color="teal-5"
               dense
-              label="Upload image"
+              multiple
+              label="Upload images"
               accept="image/*"
-              @update:model-value="uploadAttachment"
+              @update:model-value="uploadImages"
             >
               <template #prepend
                 ><q-icon name="add_photo_alternate" color="grey-5"
@@ -1571,6 +1572,21 @@ const uploadAttachment = async (file) => {
   } catch {
     $q.notify({ type: "negative", message: "Upload failed" });
   }
+};
+
+const uploadImages = async (files) => {
+  if (!files?.length) return;
+  for (const file of files) {
+    const fd = new FormData();
+    fd.append("file", file);
+    try {
+      const res = await cardApi.uploadAttachment(detail.value.id, fd);
+      detail.value.attachments.push(res.data.data);
+    } catch {
+      $q.notify({ type: "negative", message: `Failed to upload ${file.name}` });
+    }
+  }
+  imageFile.value = null;
 };
 
 const deleteAttachment = async (att) => {
