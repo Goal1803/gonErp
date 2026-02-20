@@ -33,6 +33,16 @@ public class CardDetailResponse {
     private String lastUpdatedBy;
 
     public static CardDetailResponse from(Card card) {
+        return from(card, null);
+    }
+
+    public static CardDetailResponse from(Card card, Long currentUserId) {
+        // Filter to only top-level comments (no parent)
+        var topLevelComments = card.getComments().stream()
+                .filter(c -> c.getParent() == null)
+                .map(c -> CommentResponse.from(c, currentUserId))
+                .toList();
+
         return CardDetailResponse.builder()
                 .id(card.getId())
                 .name(card.getName())
@@ -49,7 +59,7 @@ public class CardDetailResponse {
                         .map(m -> UserSummaryResponse.from(m.getUser())).toList())
                 .attachments(card.getAttachments().stream().map(AttachmentResponse::from).toList())
                 .links(card.getLinks().stream().map(LinkResponse::from).toList())
-                .comments(card.getComments().stream().map(CommentResponse::from).toList())
+                .comments(topLevelComments)
                 .activities(card.getActivities().stream().map(ActivityResponse::from).toList())
                 .createdAt(card.getCreatedAt())
                 .createdBy(card.getCreatedBy())

@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.nio.file.*;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -40,6 +41,7 @@ public class CardService {
     private final CardLabelRepository cardLabelRepository;
     private final CardTypeRepository cardTypeRepository;
     private final CardMemberRepository cardMemberRepository;
+    private final CommentReactionRepository commentReactionRepository;
     private final UserRepository userRepository;
     private final BoardEventPublisher eventPublisher;
 
@@ -75,7 +77,8 @@ public class CardService {
     public CardDetailResponse findById(Long id) {
         Card card = getCardOrThrow(id);
         checkBoardAccess(card.getColumn());
-        return CardDetailResponse.from(card);
+        User currentUser = getCurrentUser();
+        return CardDetailResponse.from(card, currentUser.getId());
     }
 
     public CardDetailResponse create(Long columnId, CardRequest request) {
@@ -167,20 +170,79 @@ public class CardService {
     }
 
     public CommentResponse addComment(Long cardId, CommentRequest request) {
+        boolean hasContent = request.getContent() != null && !request.getContent().isBlank();
+        boolean hasImages = request.getImageUrls() != null && !request.getImageUrls().isEmpty();
+        if (!hasContent && !hasImages) {
+            throw new IllegalArgumentException("Comment must have content or an image");
+        }
         Card card = getCardOrThrow(cardId);
         checkBoardAccess(card.getColumn());
         User user = getCurrentUser();
-        CardComment comment = CardComment.builder()
-                .content(request.getContent())
+        CardComment.CardCommentBuilder builder = CardComment.builder()
+                .content(hasContent ? request.getContent() : null)
                 .card(card)
                 .author(user)
-                .build();
-        comment = cardCommentRepository.save(comment);
+                .imageUrls(hasImages ? request.getImageUrls() : new java.util.ArrayList<>());
+
+        if (request.getParentCommentId() != null) {
+            CardComment parent = cardCommentRepository.findById(request.getParentCommentId())
+                    .orElseThrow(() -> new EntityNotFoundException("Parent comment not found: " + request.getParentCommentId()));
+            builder.parent(parent);
+        }
+
+        CardComment comment = cardCommentRepository.save(builder.build());
         logActivity(card, user.getUserName() + " added a comment");
-        CommentResponse response = CommentResponse.from(comment);
+        CommentResponse response = CommentResponse.from(comment, user.getId());
         eventPublisher.publish(card.getColumn().getBoard().getId(), "COMMENT_ADDED",
                 cardId, null, user.getUserName(), response);
         return response;
+    }
+
+    public Map<String, ReactionInfo> toggleReaction(Long cardId, Long commentId, ReactionRequest request) {
+        Card card = getCardOrThrow(cardId);
+        checkBoardAccess(card.getColumn());
+        User user = getCurrentUser();
+        CardComment comment = cardCommentRepository.findById(commentId)
+                .orElseThrow(() -> new EntityNotFoundException("Comment not found: " + commentId));
+
+        Optional<CommentReaction> existing = commentReactionRepository.findByCommentIdAndUserId(commentId, user.getId());
+        if (existing.isPresent()) {
+            CommentReaction reaction = existing.get();
+            if (reaction.getReactionType().equals(request.getReactionType())) {
+                commentReactionRepository.delete(reaction);
+            } else {
+                reaction.setReactionType(request.getReactionType());
+                commentReactionRepository.save(reaction);
+            }
+        } else {
+            CommentReaction reaction = CommentReaction.builder()
+                    .reactionType(request.getReactionType())
+                    .comment(comment)
+                    .user(user)
+                    .build();
+            commentReactionRepository.save(reaction);
+        }
+
+        // Build updated reaction summary
+        List<CommentReaction> allReactions = commentReactionRepository.findByCommentId(commentId);
+        Map<String, ReactionInfo> result = new java.util.HashMap<>();
+        for (CommentReaction r : allReactions) {
+            ReactionInfo info = result.computeIfAbsent(r.getReactionType(),
+                    k -> ReactionInfo.builder().build());
+            info.setCount(info.getCount() + 1);
+            info.getUsers().add(UserSummaryResponse.from(r.getUser()));
+            if (r.getUser().getId().equals(user.getId())) {
+                info.setReacted(true);
+            }
+        }
+        return result;
+    }
+
+    public String uploadCommentImage(Long cardId, MultipartFile file) {
+        Card card = getCardOrThrow(cardId);
+        checkBoardAccess(card.getColumn());
+        String filename = storeFile(file);
+        return "/api/tasks/files/" + filename;
     }
 
     public void deleteComment(Long cardId, Long commentId) {

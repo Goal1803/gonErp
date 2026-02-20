@@ -798,7 +798,7 @@
                 <img
                   :src="img.url"
                   class="image-thumb"
-                  @click.stop="lightboxUrl = img.url"
+                  @click.stop="openSlideshow({ images: [img.url], index: 0 })"
                 />
                 <div class="image-thumb-actions">
                   <q-btn
@@ -905,7 +905,7 @@
         <div
           class="q-pa-lg"
           style="
-            width: 340px;
+            width: 420px;
             flex-shrink: 0;
             border-left: 1px solid rgba(255, 255, 255, 0.07);
             overflow-y: auto;
@@ -915,58 +915,24 @@
           <div class="text-caption text-grey-5 q-mb-sm row items-center gap-2">
             <q-icon name="chat" /> Comments
           </div>
-          <div
+          <CommentItem
             v-for="c in detail.comments"
             :key="c.id"
-            class="comment-item q-mb-sm"
-          >
-            <div class="row items-center q-gutter-xs q-mb-xs">
-              <UserAvatar :user="c.author" size="24px" />
-              <span class="text-grey-4" style="font-size: 0.8rem">{{
-                c.author.userName
-              }}</span>
-              <span class="text-grey-7" style="font-size: 0.72rem"
-                >· {{ formatDate(c.createdAt) }}</span
-              >
-              <q-btn
-                v-if="canDeleteComment(c)"
-                flat
-                round
-                dense
-                icon="close"
-                color="grey-6"
-                size="xs"
-                @click="deleteComment(c)"
-              />
-            </div>
-            <div
-              class="text-grey-3"
-              style="font-size: 0.85rem; margin-left: 32px"
-              v-html="c.content"
-            />
-          </div>
-          <div class="row q-gutter-sm q-mt-sm items-end">
-            <q-input
-              v-model="newComment"
-              outlined
-              dark
-              color="teal-5"
-              dense
-              placeholder="Write a comment..."
-              class="col"
-              type="textarea"
-              rows="2"
-            />
-            <q-btn
-              icon="send"
-              color="teal-6"
-              unelevated
-              dense
-              :loading="sendingComment"
-              :disable="!newComment.trim()"
-              @click="addComment"
-            />
-          </div>
+            :comment="c"
+            :current-user="authStore.currentUser"
+            :is-admin="authStore.isAdmin"
+            @delete="deleteComment($event)"
+            @react="handleReaction($event)"
+            @reply="replyTo = $event"
+            @view-images="openSlideshow($event)"
+          />
+          <CommentInput
+            :card-id="detail.id"
+            :taggable-users="taggableUsers"
+            :reply-to="replyTo"
+            @commented="onCommented"
+            @cancel-reply="replyTo = null"
+          />
         </div>
         </div>
       </div>
@@ -976,10 +942,26 @@
       </div>
     </q-card>
 
-    <!-- Image lightbox -->
+    <!-- Image lightbox / slideshow -->
     <q-dialog v-model="showLightbox" maximized transition-show="fade" transition-hide="fade">
-      <div class="lightbox-backdrop" @click="lightboxUrl = null">
+      <div class="lightbox-backdrop" @click="closeLightbox" @keydown="onLightboxKeydown" tabindex="0" ref="lightboxBackdrop">
         <img :src="lightboxUrl" class="lightbox-img" @click.stop />
+        <!-- Left / right arrows (only when slideshow has multiple images) -->
+        <template v-if="slideshowImages.length > 1">
+          <q-btn
+            flat round icon="chevron_left" color="white" size="lg"
+            class="slideshow-arrow slideshow-arrow-left"
+            @click.stop="slideshowPrev"
+          />
+          <q-btn
+            flat round icon="chevron_right" color="white" size="lg"
+            class="slideshow-arrow slideshow-arrow-right"
+            @click.stop="slideshowNext"
+          />
+          <div class="slideshow-counter" @click.stop>
+            {{ slideshowIndex + 1 }} / {{ slideshowImages.length }}
+          </div>
+        </template>
         <div class="lightbox-toolbar" @click.stop>
           <q-btn
             flat round dense icon="download" color="white" size="md"
@@ -989,7 +971,7 @@
           </q-btn>
           <q-btn
             flat round dense icon="close" color="white" size="md"
-            @click="lightboxUrl = null"
+            @click="closeLightbox"
           >
             <q-tooltip>Close</q-tooltip>
           </q-btn>
@@ -1005,6 +987,8 @@ import { useQuasar } from "quasar";
 import { cardApi, boardApi } from "src/api/tasks";
 import { useAuthStore } from "src/stores/authStore";
 import UserAvatar from "src/components/UserAvatar.vue";
+import CommentItem from "src/components/CommentItem.vue";
+import CommentInput from "src/components/CommentInput.vue";
 
 // ─── Label color presets ──────────────────────────────────────────────────────
 const LABEL_PRESETS = [
@@ -1056,8 +1040,7 @@ const show = computed({
   set: (v) => emit("update:modelValue", v),
 });
 const detail = ref(null);
-const newComment = ref("");
-const sendingComment = ref(false);
+const replyTo = ref(null);
 const attachFile = ref(null);
 const imageFile = ref(null);
 const newLink = ref({ url: '', title: '' });
@@ -1139,7 +1122,7 @@ const hideDescImgOverlay = () => {
 
 const viewDescImage = () => {
   const img = descImgOverlay.value.targetImg;
-  if (img) lightboxUrl.value = img.src;
+  if (img) openSlideshow({ images: [img.src], index: 0 });
   hideDescImgOverlay();
 };
 
@@ -1322,16 +1305,44 @@ const coverPickerImages = computed(() =>
   allCardImages.value.filter((img) => img.url !== detail.value?.mainImageUrl)
 );
 const fileAttachments = computed(() => detail.value?.attachments?.filter((a) => !isImage(a)) || []);
-const lightboxUrl = ref(null);
+// ─── Lightbox / slideshow state ──────────────────────────────────────────────
+const slideshowImages = ref([]);
+const slideshowIndex = ref(0);
+const lightboxBackdrop = ref(null);
+const lightboxUrl = computed(() =>
+  slideshowImages.value.length ? slideshowImages.value[slideshowIndex.value] : null
+);
 const showLightbox = computed({
-  get: () => !!lightboxUrl.value,
-  set: (v) => { if (!v) lightboxUrl.value = null; },
+  get: () => slideshowImages.value.length > 0,
+  set: (v) => { if (!v) slideshowImages.value = []; },
 });
 const lightboxFilename = computed(() => {
   if (!lightboxUrl.value) return "image";
   const img = imageAttachments.value.find((a) => a.url === lightboxUrl.value);
   return img?.name || lightboxUrl.value.split("/").pop();
 });
+const openSlideshow = ({ images, index }) => {
+  slideshowImages.value = images;
+  slideshowIndex.value = index || 0;
+  nextTick(() => lightboxBackdrop.value?.focus());
+};
+const closeLightbox = () => {
+  slideshowImages.value = [];
+  slideshowIndex.value = 0;
+};
+const slideshowPrev = () => {
+  if (slideshowImages.value.length <= 1) return;
+  slideshowIndex.value = (slideshowIndex.value - 1 + slideshowImages.value.length) % slideshowImages.value.length;
+};
+const slideshowNext = () => {
+  if (slideshowImages.value.length <= 1) return;
+  slideshowIndex.value = (slideshowIndex.value + 1) % slideshowImages.value.length;
+};
+const onLightboxKeydown = (e) => {
+  if (e.key === 'ArrowLeft') slideshowPrev();
+  else if (e.key === 'ArrowRight') slideshowNext();
+  else if (e.key === 'Escape') closeLightbox();
+};
 
 const downloadFile = async (url, filename) => {
   try {
@@ -1490,6 +1501,19 @@ const availableMembers = computed(() =>
     .filter((u) => !detail.value?.members?.some((m) => m.id === u.id)),
 );
 
+// Users who can be @mentioned: card members + board admins (deduplicated)
+const taggableUsers = computed(() => {
+  const cardMembers = detail.value?.members || [];
+  const admins = props.boardMembers
+    .filter((m) => m.role === 'ADMIN' || m.user?.role === 'ADMIN')
+    .map((m) => m.user);
+  const map = new Map();
+  for (const u of [...cardMembers, ...admins]) {
+    if (u && !map.has(u.id)) map.set(u.id, u);
+  }
+  return [...map.values()];
+});
+
 watch(
   () => [props.modelValue, props.cardId],
   async ([open, id]) => {
@@ -1531,32 +1555,57 @@ const saveField = async (field, value) => {
   }
 };
 
-const canDeleteComment = (c) =>
-  authStore.isAdmin || c.author.userName === authStore.currentUser?.userName;
-
-const addComment = async () => {
-  if (!newComment.value.trim()) return;
-  sendingComment.value = true;
-  try {
-    const res = await cardApi.addComment(
-      detail.value.id,
-      newComment.value.trim(),
-    );
-    detail.value.comments.push(res.data.data);
-    newComment.value = "";
-  } catch {
-    $q.notify({ type: "negative", message: "Failed to add comment" });
-  } finally {
-    sendingComment.value = false;
+const onCommented = (comment) => {
+  if (comment.parentId) {
+    // Find parent and add to its replies
+    const parent = detail.value.comments.find((c) => c.id === comment.parentId);
+    if (parent) {
+      if (!parent.replies) parent.replies = [];
+      parent.replies.push(comment);
+    }
+  } else {
+    detail.value.comments.push(comment);
   }
+  replyTo.value = null;
 };
 
 const deleteComment = async (c) => {
   try {
     await cardApi.deleteComment(detail.value.id, c.id);
-    detail.value.comments = detail.value.comments.filter((x) => x.id !== c.id);
+    if (c.parentId) {
+      // Remove from parent's replies
+      const parent = detail.value.comments.find((p) => p.id === c.parentId);
+      if (parent) {
+        parent.replies = parent.replies.filter((r) => r.id !== c.id);
+      }
+    } else {
+      detail.value.comments = detail.value.comments.filter((x) => x.id !== c.id);
+    }
   } catch {
     $q.notify({ type: "negative", message: "Failed to delete comment" });
+  }
+};
+
+const handleReaction = async ({ commentId, reactionType }) => {
+  try {
+    const res = await cardApi.toggleReaction(detail.value.id, commentId, { reactionType });
+    const reactions = res.data.data;
+    // Find the comment (could be top-level or reply) and update its reactions
+    for (const c of detail.value.comments) {
+      if (c.id === commentId) {
+        c.reactions = reactions;
+        break;
+      }
+      if (c.replies) {
+        const reply = c.replies.find((r) => r.id === commentId);
+        if (reply) {
+          reply.reactions = reactions;
+          break;
+        }
+      }
+    }
+  } catch {
+    $q.notify({ type: "negative", message: "Failed to toggle reaction" });
   }
 };
 
@@ -1846,6 +1895,32 @@ const deleteLink = async (link) => {
   right: 16px;
   display: flex;
   gap: 8px;
+}
+
+/* Slideshow arrows */
+.slideshow-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(0, 0, 0, 0.5) !important;
+}
+.slideshow-arrow-left {
+  left: 16px;
+}
+.slideshow-arrow-right {
+  right: 16px;
+}
+.slideshow-counter {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.85rem;
+  font-weight: 600;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 4px 14px;
+  border-radius: 12px;
 }
 
 /* Description editor wrapper for image overlay */

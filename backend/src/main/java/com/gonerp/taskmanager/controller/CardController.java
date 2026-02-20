@@ -12,6 +12,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/tasks")
@@ -70,6 +71,22 @@ public class CardController {
             @PathVariable Long id, @PathVariable Long commentId) {
         cardService.deleteComment(id, commentId);
         return ResponseEntity.ok(ApiResponse.ok("Comment deleted", null));
+    }
+
+    @PostMapping("/cards/{id}/comments/{commentId}/reactions")
+    public ResponseEntity<ApiResponse<Map<String, ReactionInfo>>> toggleReaction(
+            @PathVariable Long id, @PathVariable Long commentId,
+            @RequestBody ReactionRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok("Reaction toggled",
+                cardService.toggleReaction(id, commentId, request)));
+    }
+
+    @PostMapping(value = "/cards/{id}/comments/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<Map<String, String>>> uploadCommentImage(
+            @PathVariable Long id, @RequestParam("file") MultipartFile file) {
+        String url = cardService.uploadCommentImage(id, file);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.ok("Image uploaded", Map.of("url", url)));
     }
 
     @PostMapping(value = "/cards/{id}/attachments", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

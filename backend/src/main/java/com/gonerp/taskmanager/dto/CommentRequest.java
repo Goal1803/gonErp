@@ -1,10 +1,13 @@
 package com.gonerp.taskmanager.dto;
 
-import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
+
+import java.util.List;
 
 @Data
 public class CommentRequest {
-    @NotBlank(message = "Comment content is required")
     private String content;
+    private Long parentCommentId;
+    private List<String> imageUrls;
+    private List<Long> mentionedUserIds;
 }
