@@ -615,39 +615,68 @@
 
             <!-- Members -->
             <div class="q-mb-sm">
-              <div class="sidebar-label">
-                <q-icon name="group" size="xs" /> Members
-              </div>
-              <div class="row q-gutter-xs q-mb-xs items-center">
-                <div v-for="m in detail.members" :key="m.id"
-                  style="cursor: pointer" :title="m.userName"
-                  @click="removeMember(m)">
+              <q-btn flat dense color="grey-5" icon="group" label="Members" size="sm">
+                <q-menu
+                  persistent
+                  style="
+                    min-width: 270px;
+                    background: #1e1e1e;
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                  "
+                >
+                  <div class="q-pa-sm">
+                    <div class="row items-center q-mb-sm">
+                      <span
+                        class="text-grey-4"
+                        style="
+                          font-size: 0.72rem;
+                          font-weight: 600;
+                          letter-spacing: 0.05em;
+                        "
+                        >BOARD MEMBERS</span
+                      >
+                      <q-space />
+                      <q-btn
+                        flat round dense icon="close" color="grey-5" size="xs"
+                        v-close-popup
+                      />
+                    </div>
+                    <div
+                      v-if="!allBoardMemberUsers.length"
+                      class="text-grey-6 text-caption q-mb-sm"
+                    >
+                      No members on this board.
+                    </div>
+                    <div
+                      v-for="u in allBoardMemberUsers"
+                      :key="u.id"
+                      class="row items-center q-mb-xs label-row"
+                      style="
+                        cursor: pointer;
+                        border-radius: 6px;
+                        padding: 4px 6px;
+                      "
+                      @click="toggleMember(u)"
+                    >
+                      <UserAvatar :user="u" size="24px" />
+                      <span class="text-grey-3 q-ml-sm" style="font-size: 0.82rem">
+                        {{ u.firstName }} {{ u.lastName }}
+                      </span>
+                      <q-icon
+                        v-if="isMemberAttached(u)"
+                        name="check"
+                        color="teal-4"
+                        size="16px"
+                        class="q-ml-xs"
+                      />
+                    </div>
+                  </div>
+                </q-menu>
+              </q-btn>
+              <div class="row q-gutter-xs q-mt-xs items-center">
+                <div v-for="m in detail.members" :key="m.id" :title="m.userName">
                   <UserAvatar :user="m" size="28px" />
                 </div>
-                <q-btn-dropdown
-                  flat
-                  dense
-                  color="grey-5"
-                  icon="person_add"
-                  size="xs"
-                >
-                  <q-list dark dense style="min-width: 200px">
-                    <q-item
-                      v-for="u in availableMembers"
-                      :key="u.id"
-                      clickable
-                      v-close-popup
-                      @click="addMember(u)"
-                    >
-                      <q-item-section avatar>
-                        <UserAvatar :user="u" size="24px" />
-                      </q-item-section>
-                      <q-item-section
-                        >{{ u.firstName }} {{ u.lastName }}</q-item-section
-                      >
-                    </q-item>
-                  </q-list>
-                </q-btn-dropdown>
               </div>
             </div>
 
@@ -1495,11 +1524,17 @@ const deleteBoardType = async (type) => {
 };
 // ─────────────────────────────────────────────────────────────────────────────
 
-const availableMembers = computed(() =>
-  props.boardMembers
-    .map((m) => m.user)
-    .filter((u) => !detail.value?.members?.some((m) => m.id === u.id)),
+const allBoardMemberUsers = computed(() =>
+  props.boardMembers.map((m) => m.user).filter(Boolean),
 );
+
+const isMemberAttached = (user) =>
+  detail.value?.members?.some((m) => m.id === user.id);
+
+const toggleMember = async (user) => {
+  if (isMemberAttached(user)) await removeMember(user);
+  else await addMember(user);
+};
 
 // Users who can be @mentioned: card members + board admins (deduplicated)
 const taggableUsers = computed(() => {
