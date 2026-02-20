@@ -6,21 +6,25 @@
     </div>
 
     <div class="card-body">
-      <!-- Labels -->
-      <div v-if="card.labels?.length" class="row q-gutter-xs q-mb-xs">
-        <div v-for="label in card.labels" :key="label.id"
-          class="label-chip"
-          :style="{ background: label.color }"
-          :title="label.name" />
+      <!-- Labels & Types pills -->
+      <div v-if="card.labels?.length || card.types?.length" class="pill-row">
+        <span v-for="label in card.labels" :key="'l-' + label.id"
+          class="card-pill"
+          :style="{ background: label.color, color: label.textColor || '#fff' }">
+          {{ label.name }}
+        </span>
+        <span v-for="t in card.types" :key="'t-' + t.id"
+          class="card-pill type-pill"
+          :style="{ background: t.color, color: t.textColor || '#fff' }">
+          {{ t.name }}
+        </span>
       </div>
 
       <!-- Name -->
-      <div class="text-white text-weight-medium" style="font-size:0.88rem; line-height:1.3">
-        {{ card.name }}
-      </div>
+      <div class="card-name">{{ card.name }}</div>
 
       <!-- Footer row -->
-      <div class="row items-center justify-between q-mt-sm">
+      <div class="card-footer">
         <!-- Status -->
         <q-chip :color="statusColor(card.status)" text-color="white" dense size="xs"
           style="height:18px; font-size:0.65rem">
@@ -29,18 +33,18 @@
 
         <!-- Meta icons -->
         <div class="row items-center q-gutter-xs">
-          <div v-if="card.commentCount" class="row items-center text-grey-5" style="font-size:0.72rem; gap:2px">
+          <div v-if="card.commentCount" class="meta-count">
             <q-icon name="chat_bubble_outline" size="12px" />{{ card.commentCount }}
           </div>
-          <div v-if="card.attachmentCount" class="row items-center text-grey-5" style="font-size:0.72rem; gap:2px">
+          <div v-if="card.attachmentCount" class="meta-count">
             <q-icon name="attach_file" size="12px" />{{ card.attachmentCount }}
           </div>
           <!-- Member avatars -->
           <div v-if="card.members?.length" class="row" style="gap:-4px">
             <div v-for="(m, i) in card.members.slice(0,3)" :key="m.id"
-              :style="{ marginLeft: i > 0 ? '-6px' : '0', zIndex: 3-i }"
-              :title="m.userName">
+              :style="{ marginLeft: i > 0 ? '-6px' : '0', zIndex: 3-i }">
               <UserAvatar :user="m" size="18px" />
+              <q-tooltip class="text-caption">{{ [m.firstName, m.lastName].filter(Boolean).join(' ') || m.userName }}</q-tooltip>
             </div>
           </div>
         </div>
@@ -87,10 +91,47 @@ const statusColor = (s) => ({
   object-position: center;
 }
 .card-body { padding: 10px 12px; }
-.label-chip {
-  height: 6px;
-  min-width: 32px;
-  border-radius: 3px;
-  flex: 0 0 auto;
+
+/* Pills row — labels & types together */
+.pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.card-pill {
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 1px 8px;
+  border-radius: 9999px;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.type-pill {
+  border: 1px dashed rgba(255,255,255,0.25);
+}
+
+/* Card name */
+.card-name {
+  color: #ffffffde;
+  font-size: 0.85rem;
+  font-weight: 500;
+  line-height: 1.35;
+  margin-bottom: 2px;
+}
+
+/* Footer */
+.card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+.meta-count {
+  display: flex;
+  align-items: center;
+  color: #9e9e9e;
+  font-size: 0.72rem;
+  gap: 2px;
 }
 </style>

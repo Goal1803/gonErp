@@ -17,6 +17,7 @@ public class CardSummaryResponse {
     private int position;
     private String mainImageUrl;
     private List<LabelResponse> labels;
+    private List<TypeResponse> types;
     private List<UserSummaryResponse> members;
     private int commentCount;
     private int attachmentCount;
@@ -30,6 +31,7 @@ public class CardSummaryResponse {
                 .position(card.getPosition())
                 .mainImageUrl(card.getMainImageUrl())
                 .labels(card.getLabels().stream().map(LabelResponse::from).toList())
+                .types(card.getTypes().stream().map(TypeResponse::from).toList())
                 .members(card.getMembers().stream()
                         .map(m -> UserSummaryResponse.from(m.getUser())).toList())
                 .commentCount(card.getComments().size())
