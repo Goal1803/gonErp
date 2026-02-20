@@ -5,6 +5,7 @@ import com.gonerp.taskmanager.model.enums.CardStatus;
 import lombok.Builder;
 import lombok.Data;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
@@ -21,6 +22,7 @@ public class CardSummaryResponse {
     private List<UserSummaryResponse> members;
     private int commentCount;
     private int attachmentCount;
+    private LocalDateTime createdAt;
 
     public static CardSummaryResponse from(Card card) {
         return CardSummaryResponse.builder()
@@ -36,6 +38,7 @@ public class CardSummaryResponse {
                         .map(m -> UserSummaryResponse.from(m.getUser())).toList())
                 .commentCount(card.getComments().size())
                 .attachmentCount(card.getAttachments().size())
+                .createdAt(card.getCreatedAt())
                 .build();
     }
 }

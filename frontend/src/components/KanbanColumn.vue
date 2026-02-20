@@ -11,7 +11,7 @@
         @keyup.enter="saveTitle" @keyup.escape="editingTitle=false" @blur="saveTitle" />
 
       <div class="row items-center q-ml-xs">
-        <q-badge color="grey-8" :label="column.cards?.length || 0" rounded style="font-size:0.65rem" />
+        <q-badge color="grey-8" :label="visibleCount" rounded style="font-size:0.65rem" />
         <q-btn flat round dense icon="more_vert" color="grey-5" size="xs" class="q-ml-xs">
           <q-menu dark>
             <q-list dense>
@@ -44,7 +44,7 @@
         class="col-cards-inner"
       >
         <template #item="{ element }">
-          <kanban-card :card="element" @open="$emit('open-card', element)" @delete="$emit('delete-card', $event)" />
+          <kanban-card v-show="cardVisible(element)" :card="element" @open="$emit('open-card', element)" @delete="$emit('delete-card', $event)" />
         </template>
       </draggable>
     </div>
@@ -83,7 +83,10 @@ import KanbanCard from './KanbanCard.vue'
 import { columnApi, cardApi } from 'src/api/tasks'
 import { useBoardStore } from 'src/stores/boardStore'
 
-const props = defineProps({ column: { type: Object, required: true } })
+const props = defineProps({
+  column: { type: Object, required: true },
+  cardFilter: { type: Function, default: null },
+})
 const emit = defineEmits(['open-card', 'delete', 'delete-card', 'refresh', 'drag-start', 'drag-end'])
 const $q = useQuasar()
 const boardStore = useBoardStore()
@@ -98,6 +101,9 @@ const localCards = computed({
   get: () => props.column.cards || [],
   set: (newCards) => { props.column.cards = newCards }
 })
+
+const cardVisible = (card) => !props.cardFilter || props.cardFilter(card)
+const visibleCount = computed(() => localCards.value.filter(cardVisible).length)
 
 const startEdit = () => {
   editTitle.value = props.column.title

@@ -27,6 +27,38 @@
         @click="showEditBoard = true" />
     </div>
 
+    <!-- Filter bar -->
+    <div class="filter-bar row items-center no-wrap q-px-lg q-py-xs q-gutter-sm">
+      <q-btn flat dense :icon="showFilters ? 'filter_alt_off' : 'filter_alt'" :color="hasActiveFilters ? 'teal-4' : 'grey-5'" size="sm"
+        @click="showFilters = !showFilters">
+        <q-tooltip>{{ showFilters ? 'Hide filters' : 'Show filters' }}</q-tooltip>
+      </q-btn>
+      <template v-if="showFilters">
+        <q-select v-model="filterMembers" :options="memberOptions" option-value="id" option-label="displayName"
+          emit-value map-options multiple dense outlined dark color="teal-5" label="Members"
+          style="min-width:150px" clearable use-chips stack-label />
+        <q-select v-model="filterLabels" :options="labelOptions" option-value="id" option-label="name"
+          emit-value map-options multiple dense outlined dark color="teal-5" label="Labels"
+          style="min-width:150px" clearable use-chips stack-label />
+        <q-select v-model="filterTypes" :options="typeOptions" option-value="id" option-label="name"
+          emit-value map-options multiple dense outlined dark color="teal-5" label="Types"
+          style="min-width:150px" clearable use-chips stack-label />
+        <q-select v-model="filterStatuses" :options="statusOptions"
+          multiple dense outlined dark color="teal-5" label="Status"
+          style="min-width:150px" clearable use-chips stack-label />
+        <q-input v-model="filterDateFrom" type="date" dense outlined dark color="teal-5" label="From" stack-label
+          style="min-width:140px" clearable />
+        <q-input v-model="filterDateTo" type="date" dense outlined dark color="teal-5" label="To" stack-label
+          style="min-width:140px" clearable />
+        <q-btn v-if="hasActiveFilters" flat dense icon="clear_all" color="red-4" size="sm" label="Clear"
+          @click="clearFilters" />
+      </template>
+      <q-chip v-if="hasActiveFilters && !showFilters" dense color="teal-9" text-color="teal-3" size="xs"
+        style="font-size:0.68rem" removable @remove="clearFilters">
+        Filtered
+      </q-chip>
+    </div>
+
     <!-- Loading -->
     <div v-if="boardStore.loading" class="flex flex-center q-py-xl">
       <q-spinner color="teal-5" size="48px" />
@@ -48,6 +80,7 @@
         <template #item="{ element: col }">
           <kanban-column
             :column="col"
+            :card-filter="cardFilter"
             @open-card="openCard"
             @delete="confirmDeleteColumn"
             @delete-card="confirmDeleteCard"
@@ -141,6 +174,82 @@ const newColTitle = ref('')
 const isConnected = ref(false)
 const cardExternalUpdate = ref(null) // { actorName, type }
 const kanbanScrollEl = ref(null) // ref to the horizontal scroll container
+
+// ─── Filters ─────────────────────────────────────────────────────────────────
+const showFilters = ref(false)
+const filterMembers = ref([])
+const filterLabels = ref([])
+const filterTypes = ref([])
+const filterStatuses = ref([])
+const filterDateFrom = ref(null)
+const filterDateTo = ref(null)
+
+const statusOptions = ['OPEN', 'IN_PROGRESS', 'DONE', 'BLOCKED', 'CANCELLED']
+
+const memberOptions = computed(() => {
+  const members = boardStore.board?.members || []
+  return members.map(m => {
+    const u = m.user || m
+    return {
+      id: u.id,
+      displayName: [u.firstName, u.lastName].filter(Boolean).join(' ') || u.userName
+    }
+  })
+})
+
+const labelOptions = computed(() => boardStore.board?.labels || [])
+const typeOptions = computed(() => boardStore.board?.types || [])
+
+const hasActiveFilters = computed(() =>
+  filterMembers.value.length > 0 ||
+  filterLabels.value.length > 0 ||
+  filterTypes.value.length > 0 ||
+  filterStatuses.value.length > 0 ||
+  filterDateFrom.value ||
+  filterDateTo.value
+)
+
+const clearFilters = () => {
+  filterMembers.value = []
+  filterLabels.value = []
+  filterTypes.value = []
+  filterStatuses.value = []
+  filterDateFrom.value = null
+  filterDateTo.value = null
+}
+
+const cardFilter = computed(() => {
+  if (!hasActiveFilters.value) return null
+  return (card) => {
+    // Member filter
+    if (filterMembers.value.length > 0) {
+      const cardMemberIds = (card.members || []).map(m => m.id)
+      if (!filterMembers.value.some(id => cardMemberIds.includes(id))) return false
+    }
+    // Label filter
+    if (filterLabels.value.length > 0) {
+      const cardLabelIds = (card.labels || []).map(l => l.id)
+      if (!filterLabels.value.some(id => cardLabelIds.includes(id))) return false
+    }
+    // Type filter
+    if (filterTypes.value.length > 0) {
+      const cardTypeIds = (card.types || []).map(t => t.id)
+      if (!filterTypes.value.some(id => cardTypeIds.includes(id))) return false
+    }
+    // Status filter
+    if (filterStatuses.value.length > 0) {
+      if (!filterStatuses.value.includes(card.status)) return false
+    }
+    // Date range filter
+    if (filterDateFrom.value || filterDateTo.value) {
+      const cardDate = card.createdAt ? card.createdAt.substring(0, 10) : null
+      if (!cardDate) return false
+      if (filterDateFrom.value && cardDate < filterDateFrom.value) return false
+      if (filterDateTo.value && cardDate > filterDateTo.value) return false
+    }
+    return true
+  }
+})
 
 const canManage = computed(() => {
   if (authStore.isAdmin) return true
@@ -341,6 +450,12 @@ onUnmounted(() => {
   background: #111;
   flex-shrink: 0;
   border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+.filter-bar {
+  background: #111;
+  flex-shrink: 0;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  overflow-x: auto;
 }
 .kanban-scroll {
   flex: 1;
