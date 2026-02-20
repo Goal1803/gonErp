@@ -67,13 +67,6 @@
         style="display: none"
         @change="onImagesSelected"
       />
-      <!-- Send button -->
-      <q-btn
-        icon="send" color="teal-6" unelevated dense
-        :loading="sending"
-        :disable="!canSend"
-        @click="sendComment"
-      />
     </div>
   </div>
 </template>
@@ -142,19 +135,27 @@ const onInput = () => {
 }
 
 const onKeydown = (e) => {
-  if (!showMentions.value || !filteredMembers.value.length) return
+  // @mention dropdown is open — handle navigation
+  if (showMentions.value && filteredMembers.value.length) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      mentionIndex.value = (mentionIndex.value + 1) % filteredMembers.value.length
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      mentionIndex.value = (mentionIndex.value - 1 + filteredMembers.value.length) % filteredMembers.value.length
+    } else if (e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault()
+      selectMention(filteredMembers.value[mentionIndex.value])
+    } else if (e.key === 'Escape') {
+      showMentions.value = false
+    }
+    return
+  }
 
-  if (e.key === 'ArrowDown') {
+  // Enter to send (Shift+Enter for newline)
+  if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault()
-    mentionIndex.value = (mentionIndex.value + 1) % filteredMembers.value.length
-  } else if (e.key === 'ArrowUp') {
-    e.preventDefault()
-    mentionIndex.value = (mentionIndex.value - 1 + filteredMembers.value.length) % filteredMembers.value.length
-  } else if (e.key === 'Enter' || e.key === 'Tab') {
-    e.preventDefault()
-    selectMention(filteredMembers.value[mentionIndex.value])
-  } else if (e.key === 'Escape') {
-    showMentions.value = false
+    if (canSend.value && !sending.value) sendComment()
   }
 }
 
