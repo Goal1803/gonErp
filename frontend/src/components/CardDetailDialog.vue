@@ -86,10 +86,11 @@
             <q-icon name="subject" /> Description
           </div>
           <q-editor
+            ref="descEditor"
             v-model="detail.description"
             dark
             min-height="120px"
-            class="q-mb-lg"
+            class="q-mb-lg desc-editor"
             style="
               background: #1a1a1a;
               border: 1px solid rgba(255, 255, 255, 0.1);
@@ -99,8 +100,21 @@
               ['bold', 'italic', 'underline', 'strike'],
               ['unordered', 'ordered'],
               ['link', 'fullscreen'],
+              ['insert_image'],
             ]"
+            :definitions="{ insert_image: { icon: 'image', tip: 'Insert image', handler: triggerDescImageUpload } }"
+            @paste="onDescPaste"
+            @drop.prevent="onDescDrop"
+            @dragover.prevent
             @blur="saveField('description', detail.description)"
+          />
+          <input
+            ref="descImageInput"
+            type="file"
+            accept="image/*"
+            multiple
+            style="display: none"
+            @change="onDescImageSelected"
           />
 
           <!-- Images -->
@@ -922,6 +936,124 @@ const sendingComment = ref(false);
 const attachFile = ref(null);
 const imageFile = ref(null);
 const coverFile = ref(null);
+const descEditor = ref(null);
+const descImageInput = ref(null);
+let savedSelection = null;
+
+const saveCaretPosition = () => {
+  const sel = window.getSelection();
+  if (sel.rangeCount > 0) {
+    savedSelection = sel.getRangeAt(0).cloneRange();
+  }
+};
+
+const restoreCaretPosition = () => {
+  if (savedSelection) {
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(savedSelection);
+    savedSelection = null;
+  }
+};
+
+const insertHtmlAtCaret = (html) => {
+  restoreCaretPosition();
+  const sel = window.getSelection();
+  if (!sel.rangeCount) {
+    // Fallback: append to end of editor content
+    detail.value.description = (detail.value.description || "") + html;
+    return;
+  }
+  const range = sel.getRangeAt(0);
+  range.deleteContents();
+  const temp = document.createElement("div");
+  temp.innerHTML = html;
+  const frag = document.createDocumentFragment();
+  let lastNode;
+  while (temp.firstChild) {
+    lastNode = frag.appendChild(temp.firstChild);
+  }
+  range.insertNode(frag);
+  if (lastNode) {
+    const newRange = document.createRange();
+    newRange.setStartAfter(lastNode);
+    newRange.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(newRange);
+  }
+};
+
+const uploadAndInsertImage = async (file) => {
+  if (!file || !detail.value) return;
+  // Show inline placeholder while uploading
+  const placeholderId = "img-ph-" + Date.now();
+  insertHtmlAtCaret(
+    `<span id="${placeholderId}" style="display:inline-block;background:#2a2a2a;border-radius:6px;padding:8px 16px;margin:8px 0;color:#888;font-size:0.8rem">Uploading image...</span>`
+  );
+  // Sync model with contenteditable
+  const editorEl = descEditor.value?.$el?.querySelector(".q-editor__content");
+  if (editorEl) detail.value.description = editorEl.innerHTML;
+
+  const fd = new FormData();
+  fd.append("file", file);
+  try {
+    const res = await cardApi.uploadAttachment(detail.value.id, fd);
+    const url = res.data.data.url;
+    detail.value.attachments.push(res.data.data);
+    // Replace placeholder with actual image
+    const imgTag = `<img src="${url}" style="display:block;max-width:66%;height:auto;border-radius:6px;margin:8px 0" />`;
+    detail.value.description = detail.value.description.replace(
+      new RegExp(`<span[^>]*id="${placeholderId}"[^>]*>.*?</span>`),
+      imgTag
+    );
+    saveField("description", detail.value.description);
+  } catch {
+    // Remove placeholder on failure
+    detail.value.description = detail.value.description.replace(
+      new RegExp(`<span[^>]*id="${placeholderId}"[^>]*>.*?</span>`),
+      ""
+    );
+    $q.notify({ type: "negative", message: "Image upload failed" });
+  }
+};
+
+const triggerDescImageUpload = () => {
+  saveCaretPosition();
+  descImageInput.value?.click();
+};
+
+const onDescImageSelected = (e) => {
+  const files = e.target.files;
+  if (!files?.length) return;
+  for (const file of files) {
+    uploadAndInsertImage(file);
+  }
+  e.target.value = "";
+};
+
+const onDescPaste = (e) => {
+  const items = e.clipboardData?.items;
+  if (!items) return;
+  for (const item of items) {
+    if (item.type.startsWith("image/")) {
+      e.preventDefault();
+      saveCaretPosition();
+      uploadAndInsertImage(item.getAsFile());
+      return;
+    }
+  }
+};
+
+const onDescDrop = (e) => {
+  const files = e.dataTransfer?.files;
+  if (!files) return;
+  for (const file of files) {
+    if (file.type.startsWith("image/")) {
+      uploadAndInsertImage(file);
+      return;
+    }
+  }
+};
 
 const statusOptions = ["OPEN", "IN_PROGRESS", "DONE", "BLOCKED", "CANCELLED"];
 
@@ -1387,5 +1519,19 @@ const removeMember = async (user) => {
   right: 16px;
   display: flex;
   gap: 8px;
+}
+
+/* Description editor embedded images */
+.desc-editor :deep(.q-editor__content img) {
+  display: block;
+  max-width: 66%;
+  height: auto;
+  border-radius: 6px;
+  margin: 8px 0;
+  object-fit: contain;
+}
+.desc-editor :deep(.q-editor__content) {
+  min-height: 120px;
+  overflow-wrap: break-word;
 }
 </style>
