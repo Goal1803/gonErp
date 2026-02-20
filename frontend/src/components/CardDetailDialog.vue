@@ -66,9 +66,9 @@
         />
       </div>
 
-      <div class="col row no-wrap overflow-hidden" v-if="detail">
+      <div class="col row no-wrap" style="min-height: 0" v-if="detail">
         <!-- LEFT: main content -->
-        <div class="col q-pa-lg overflow-y-auto" style="max-width: 680px">
+        <div class="col q-pa-lg" style="max-width: 680px; overflow-y: auto; min-height: 0">
           <!-- Card name -->
           <q-input
             v-model="detail.name"
