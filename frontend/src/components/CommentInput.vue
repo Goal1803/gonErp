@@ -25,16 +25,17 @@
     <!-- Input area with @mention -->
     <div class="row q-gutter-sm items-end">
       <div class="col" style="position: relative">
-        <q-input
-          ref="inputRef"
-          v-model="text"
-          outlined dark color="teal-5" dense
-          placeholder="Write a comment..."
-          type="textarea"
-          rows="2"
-          @keydown="onKeydown"
-          @update:model-value="onInput"
-        />
+        <div class="mention-editor-wrap" @click="focusEditor">
+          <div
+            ref="editorRef"
+            contenteditable="true"
+            class="mention-editor"
+            :class="{ 'is-empty': !hasContent }"
+            @input="onEditorInput"
+            @keydown="onKeydown"
+            @paste="onPaste"
+          ></div>
+        </div>
         <!-- @mention autocomplete dropdown -->
         <div
           v-if="showMentions && filteredMembers.length"
@@ -86,17 +87,18 @@ const props = defineProps({
 const emit = defineEmits(['commented', 'cancel-reply'])
 
 const $q = useQuasar()
-const text = ref('')
 const sending = ref(false)
-const imageFiles = ref([])       // Array of File objects
-const imagePreviews = ref([])    // Array of { url, file }
-const inputRef = ref(null)
+const imageFiles = ref([])
+const imagePreviews = ref([])
+const editorRef = ref(null)
+const hasContent = ref(false)
 
 // @mention state
 const showMentions = ref(false)
 const mentionQuery = ref('')
 const mentionIndex = ref(0)
-const mentionStart = ref(-1)
+let mentionTextNode = null
+let mentionAtOffset = -1
 
 const filteredMembers = computed(() => {
   if (!mentionQuery.value) return props.taggableUsers.slice(0, 8)
@@ -108,24 +110,36 @@ const filteredMembers = computed(() => {
   ).slice(0, 8)
 })
 
-const canSend = computed(() => text.value.trim() || imageFiles.value.length)
+const canSend = computed(() => hasContent.value || imageFiles.value.length)
 
-const onInput = () => {
+const focusEditor = () => {
+  editorRef.value?.focus()
+}
+
+const onEditorInput = () => {
+  hasContent.value = !!editorRef.value?.textContent?.trim()
   requestAnimationFrame(() => {
-    const val = text.value
-    const textarea = inputRef.value?.$el?.querySelector('textarea')
-    if (!textarea) return
-    const cursorPos = textarea.selectionStart
-    const beforeCursor = val.substring(0, cursorPos)
-
-    const atIndex = beforeCursor.lastIndexOf('@')
+    const sel = window.getSelection()
+    if (!sel.rangeCount || !editorRef.value?.contains(sel.focusNode)) {
+      showMentions.value = false
+      return
+    }
+    const node = sel.focusNode
+    if (node.nodeType !== Node.TEXT_NODE) {
+      showMentions.value = false
+      return
+    }
+    const cursorOffset = sel.focusOffset
+    const textBefore = node.textContent.substring(0, cursorOffset)
+    const atIndex = textBefore.lastIndexOf('@')
     if (atIndex >= 0) {
-      const afterAt = beforeCursor.substring(atIndex + 1)
-      const charBefore = atIndex > 0 ? beforeCursor[atIndex - 1] : ' '
+      const afterAt = textBefore.substring(atIndex + 1)
+      const charBefore = atIndex > 0 ? textBefore[atIndex - 1] : ' '
       if ((charBefore === ' ' || charBefore === '\n' || atIndex === 0) && !/\s/.test(afterAt)) {
         showMentions.value = true
         mentionQuery.value = afterAt
-        mentionStart.value = atIndex
+        mentionTextNode = node
+        mentionAtOffset = atIndex
         mentionIndex.value = 0
         return
       }
@@ -156,23 +170,99 @@ const onKeydown = (e) => {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault()
     if (canSend.value && !sending.value) sendComment()
+  } else if (e.key === 'Enter' && e.shiftKey) {
+    e.preventDefault()
+    const sel = window.getSelection()
+    if (!sel.rangeCount) return
+    const range = sel.getRangeAt(0)
+    range.deleteContents()
+    const br = document.createElement('br')
+    range.insertNode(br)
+    range.setStartAfter(br)
+    range.collapse(true)
+    sel.removeAllRanges()
+    sel.addRange(range)
+    hasContent.value = true
   }
 }
 
-const selectMention = (user) => {
-  const textarea = inputRef.value?.$el?.querySelector('textarea')
-  if (!textarea) return
-  const cursorPos = textarea.selectionStart
-  const before = text.value.substring(0, mentionStart.value)
-  const after = text.value.substring(cursorPos)
-  text.value = before + '@' + user.userName + ' ' + after
-  showMentions.value = false
+const onPaste = (e) => {
+  e.preventDefault()
+  const text = e.clipboardData?.getData('text/plain') || ''
+  const sel = window.getSelection()
+  if (!sel.rangeCount) return
+  const range = sel.getRangeAt(0)
+  range.deleteContents()
+  const textNode = document.createTextNode(text)
+  range.insertNode(textNode)
+  range.setStartAfter(textNode)
+  range.collapse(true)
+  sel.removeAllRanges()
+  sel.addRange(range)
+  hasContent.value = true
+}
 
-  const newPos = mentionStart.value + user.userName.length + 2
-  requestAnimationFrame(() => {
-    textarea.focus()
-    textarea.setSelectionRange(newPos, newPos)
-  })
+const selectMention = (user) => {
+  if (!mentionTextNode || !editorRef.value) return
+  const sel = window.getSelection()
+  if (!sel.rangeCount) return
+  const cursorOffset = sel.focusOffset
+
+  const fullText = mentionTextNode.textContent
+  const beforeAt = fullText.substring(0, mentionAtOffset)
+  const afterCursor = fullText.substring(cursorOffset)
+
+  // Build mention token
+  const span = document.createElement('span')
+  span.className = 'mention-token'
+  span.contentEditable = 'false'
+  span.dataset.username = user.userName
+  const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.userName
+  span.textContent = '@' + fullName
+
+  // Replace text node with: [beforeAt text] [mention token] [space + afterCursor text]
+  const parent = mentionTextNode.parentNode
+  if (beforeAt) {
+    parent.insertBefore(document.createTextNode(beforeAt), mentionTextNode)
+  }
+  parent.insertBefore(span, mentionTextNode)
+  const afterNode = document.createTextNode('\u00A0' + afterCursor)
+  parent.insertBefore(afterNode, mentionTextNode)
+  parent.removeChild(mentionTextNode)
+
+  // Place cursor after the space
+  const range = document.createRange()
+  range.setStart(afterNode, 1)
+  range.collapse(true)
+  sel.removeAllRanges()
+  sel.addRange(range)
+
+  showMentions.value = false
+  mentionTextNode = null
+  hasContent.value = true
+}
+
+// Serialize editor DOM to text with @[userName] notation
+const getEditorContent = () => {
+  if (!editorRef.value) return ''
+  let result = ''
+  const walk = (node) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      result += node.textContent.replace(/\u00A0/g, ' ')
+    } else if (node.nodeName === 'BR') {
+      result += '\n'
+    } else if (node.classList?.contains('mention-token')) {
+      result += '@[' + node.dataset.username + ']'
+    } else {
+      const isBlock = ['DIV', 'P'].includes(node.nodeName)
+      if (isBlock && result.length > 0 && !result.endsWith('\n')) {
+        result += '\n'
+      }
+      for (const child of node.childNodes) walk(child)
+    }
+  }
+  for (const child of editorRef.value.childNodes) walk(child)
+  return result
 }
 
 const onImagesSelected = (e) => {
@@ -210,17 +300,19 @@ const sendComment = async () => {
       uploadedUrls.push(imgRes.data.data.url)
     }
 
-    // Extract mentioned user IDs
+    const content = getEditorContent()
+
+    // Extract mentioned user IDs from @[userName] tokens
     const mentionedUserIds = []
-    const mentionRegex = /@(\w+)/g
+    const mentionRegex = /@\[([^\]]+)\]/g
     let match
-    while ((match = mentionRegex.exec(text.value)) !== null) {
+    while ((match = mentionRegex.exec(content)) !== null) {
       const user = props.taggableUsers.find(u => u.userName === match[1])
       if (user) mentionedUserIds.push(user.id)
     }
 
     const data = {
-      content: text.value.trim() || null,
+      content: content.trim() || null,
       imageUrls: uploadedUrls.length ? uploadedUrls : null,
       parentCommentId: props.replyTo?.id || null,
       mentionedUserIds: mentionedUserIds.length ? mentionedUserIds : null,
@@ -228,7 +320,9 @@ const sendComment = async () => {
     const res = await cardApi.addComment(props.cardId, data)
     emit('commented', res.data.data)
 
-    text.value = ''
+    // Clear
+    editorRef.value.innerHTML = ''
+    hasContent.value = false
     clearImages()
   } catch {
     $q.notify({ type: 'negative', message: 'Failed to add comment' })
@@ -240,7 +334,7 @@ const sendComment = async () => {
 watch(() => props.replyTo, (v) => {
   if (v) {
     requestAnimationFrame(() => {
-      inputRef.value?.$el?.querySelector('textarea')?.focus()
+      editorRef.value?.focus()
     })
   }
 })
@@ -278,6 +372,43 @@ watch(() => props.replyTo, (v) => {
   top: -4px;
   right: -4px;
   background: rgba(0, 0, 0, 0.7);
+}
+
+/* Contenteditable mention editor */
+.mention-editor-wrap {
+  border: 1px solid rgba(38, 166, 154, 0.5);
+  border-radius: 4px;
+  padding: 8px 12px;
+  min-height: 52px;
+  max-height: 200px;
+  overflow-y: auto;
+  cursor: text;
+  transition: border-color 0.2s;
+}
+.mention-editor-wrap:focus-within {
+  border-color: #26a69a;
+}
+.mention-editor {
+  outline: none;
+  color: #e0e0e0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  position: relative;
+}
+.mention-editor.is-empty::before {
+  content: 'Write a comment...';
+  color: rgba(255, 255, 255, 0.3);
+  pointer-events: none;
+}
+.mention-editor :deep(.mention-token) {
+  color: #4fc3f7;
+  font-weight: 600;
+  background: rgba(79, 195, 247, 0.1);
+  border-radius: 3px;
+  padding: 1px 3px;
+  user-select: all;
 }
 
 .mention-dropdown {

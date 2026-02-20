@@ -950,6 +950,7 @@
             :comment="c"
             :current-user="authStore.currentUser"
             :is-admin="authStore.isAdmin"
+            :members="allBoardMemberUsers"
             @delete="deleteComment($event)"
             @react="handleReaction($event)"
             @reply="replyTo = $event"

@@ -1,6 +1,6 @@
 <template>
   <div class="comment-item-wrap" :style="{ marginLeft: isReply ? '32px' : '0' }">
-    <div class="comment-item">
+    <div class="comment-item" ref="commentEl">
       <!-- Header: avatar, name, timestamp, delete -->
       <div class="row items-center q-gutter-xs q-mb-xs">
         <UserAvatar :user="comment.author" size="24px" />
@@ -24,7 +24,24 @@
         class="text-grey-3 comment-content"
         style="font-size: 0.85rem; margin-left: 32px"
         v-html="highlightedContent"
+        @mouseover="onMentionHover"
+        @mouseout="onMentionOut"
       />
+
+      <!-- Mention hover tooltip -->
+      <div
+        v-if="hoveredMention"
+        class="mention-tooltip"
+        :style="mentionTooltipStyle"
+        @mouseenter="keepTooltip"
+        @mouseleave="hideTooltip"
+      >
+        <UserAvatar :user="hoveredMention" size="40px" />
+        <div>
+          <div class="mention-tooltip-name">{{ hoveredMention.firstName }} {{ hoveredMention.lastName }}</div>
+          <div class="mention-tooltip-username">@{{ hoveredMention.userName }}</div>
+        </div>
+      </div>
 
       <!-- Image grid -->
       <div
@@ -93,6 +110,7 @@
         :is-reply="true"
         :current-user="currentUser"
         :is-admin="isAdmin"
+        :members="members"
         @delete="$emit('delete', $event)"
         @react="$emit('react', $event)"
         @view-images="$emit('view-images', $event)"
@@ -110,11 +128,16 @@ const props = defineProps({
   isReply: { type: Boolean, default: false },
   currentUser: { type: Object, default: null },
   isAdmin: { type: Boolean, default: false },
+  members: { type: Array, default: () => [] },
 })
 
 defineEmits(['delete', 'react', 'reply', 'view-images'])
 
 const showLikers = ref(false)
+const commentEl = ref(null)
+const hoveredMention = ref(null)
+const mentionTooltipStyle = ref({})
+let tooltipTimer = null
 
 const canDelete = computed(() =>
   props.isAdmin || props.comment.author.userName === props.currentUser?.userName
@@ -122,13 +145,53 @@ const canDelete = computed(() =>
 
 const likeInfo = computed(() => props.comment.reactions?.LIKE || null)
 
+const memberMap = computed(() => {
+  const map = new Map()
+  for (const u of props.members) {
+    if (u.userName) map.set(u.userName, u)
+  }
+  return map
+})
+
 const highlightedContent = computed(() => {
   if (!props.comment.content) return ''
-  return props.comment.content.replace(
-    /@(\w+)/g,
-    '<span class="mention-highlight">@$1</span>'
-  )
+  // Match bracket notation @[userName] (supports spaces) and legacy @word
+  return props.comment.content.replace(/@\[([^\]]+)\]|@(\w+)/g, (match, bracketName, plainName) => {
+    const userName = bracketName || plainName
+    const user = memberMap.value.get(userName)
+    if (user) {
+      const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ') || userName
+      return `<span class="mention-highlight" data-mention-username="${userName}">${fullName}</span>`
+    }
+    return `<span class="mention-highlight">${match}</span>`
+  })
 })
+
+const onMentionHover = (e) => {
+  const el = e.target.closest('.mention-highlight')
+  if (!el) return
+  clearTimeout(tooltipTimer)
+  const userName = el.dataset.mentionUsername
+  if (!userName) return
+  const user = memberMap.value.get(userName)
+  if (!user) return
+  hoveredMention.value = user
+  const rect = el.getBoundingClientRect()
+  const parentRect = commentEl.value.getBoundingClientRect()
+  mentionTooltipStyle.value = {
+    top: (rect.bottom - parentRect.top + 4) + 'px',
+    left: (rect.left - parentRect.left) + 'px',
+  }
+}
+
+const onMentionOut = (e) => {
+  const related = e.relatedTarget
+  if (related?.closest?.('.mention-tooltip') || related?.closest?.('.mention-highlight')) return
+  tooltipTimer = setTimeout(() => { hoveredMention.value = null }, 150)
+}
+
+const keepTooltip = () => clearTimeout(tooltipTimer)
+const hideTooltip = () => { hoveredMention.value = null }
 
 const formatDate = (d) => (d ? new Date(d).toLocaleString() : '')
 
@@ -147,6 +210,7 @@ const downloadFile = async (url) => {
 
 <style scoped>
 .comment-item {
+  position: relative;
   background: #1a1a1a;
   border-radius: 6px;
   padding: 10px;
@@ -155,6 +219,34 @@ const downloadFile = async (url) => {
 .comment-content :deep(.mention-highlight) {
   color: #4fc3f7;
   font-weight: 600;
+  cursor: pointer;
+}
+.comment-content :deep(.mention-highlight:hover) {
+  text-decoration: underline;
+}
+
+/* Mention hover tooltip */
+.mention-tooltip {
+  position: absolute;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: #252525;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+.mention-tooltip-name {
+  color: #e0e0e0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.mention-tooltip-username {
+  color: #9e9e9e;
+  font-size: 0.75rem;
 }
 
 /* Image grid — 4 per row */
