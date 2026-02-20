@@ -1,5 +1,14 @@
 <template>
   <div class="kanban-card" :data-card-id="card.id" @click="$emit('open', card)">
+    <!-- Delete button (visible on hover) -->
+    <q-btn
+      flat round dense icon="close" color="grey-6" size="xs"
+      class="card-delete-btn"
+      @click.stop="$emit('delete', card)"
+    >
+      <q-tooltip>Delete card</q-tooltip>
+    </q-btn>
+
     <!-- Main image (always square, image fits without cropping) -->
     <div v-if="card.mainImageUrl" class="card-cover">
       <img :src="card.mainImageUrl" class="card-cover-inner" alt="" />
@@ -57,7 +66,7 @@
 import UserAvatar from 'src/components/UserAvatar.vue'
 
 defineProps({ card: { type: Object, required: true } })
-defineEmits(['open'])
+defineEmits(['open', 'delete'])
 
 const statusColor = (s) => ({
   OPEN: 'grey-7', IN_PROGRESS: 'blue-7', DONE: 'green-8', BLOCKED: 'red-8', CANCELLED: 'grey-9'
@@ -66,6 +75,7 @@ const statusColor = (s) => ({
 
 <style scoped>
 .kanban-card {
+  position: relative;
   background: #1e1e1e;
   border: 1px solid rgba(255,255,255,0.07);
   border-radius: 8px;
@@ -76,6 +86,18 @@ const statusColor = (s) => ({
 .kanban-card:hover {
   box-shadow: 0 4px 16px rgba(0,0,0,0.4);
   transform: translateY(-1px);
+}
+.card-delete-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 2;
+  opacity: 0;
+  background: rgba(0, 0, 0, 0.6);
+  transition: opacity 0.15s;
+}
+.kanban-card:hover .card-delete-btn {
+  opacity: 1;
 }
 .card-cover {
   position: relative;

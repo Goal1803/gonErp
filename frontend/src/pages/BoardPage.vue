@@ -50,6 +50,7 @@
             :column="col"
             @open-card="openCard"
             @delete="confirmDeleteColumn"
+            @delete-card="confirmDeleteCard"
             @refresh="refreshBoard"
             @drag-start="onDragStart"
             @drag-end="onDragEnd"
@@ -86,6 +87,7 @@
       :board-columns="boardStore.board?.columns || []"
       :external-update="cardExternalUpdate"
       @updated="refreshBoard"
+      @deleted="refreshBoard"
       @dismiss-update="cardExternalUpdate = null"
     />
 
@@ -115,7 +117,7 @@ import draggable from 'vuedraggable'
 import { useBoardStore } from 'src/stores/boardStore'
 import { useAuthStore } from 'src/stores/authStore'
 import { useBoardSocket } from 'src/composables/useBoardSocket'
-import { columnApi } from 'src/api/tasks'
+import { columnApi, cardApi } from 'src/api/tasks'
 import { TAB_ID } from 'src/boot/axios'
 import KanbanColumn from 'src/components/KanbanColumn.vue'
 import CardDetailDialog from 'src/components/CardDetailDialog.vue'
@@ -192,6 +194,24 @@ const confirmDeleteColumn = (columnId) => {
       await refreshBoard()
     } catch (err) {
       $q.notify({ type: 'negative', message: err.response?.data?.message || 'Failed to delete column' })
+    }
+  })
+}
+
+const confirmDeleteCard = (card) => {
+  $q.dialog({
+    title: 'Delete Card',
+    message: `Delete "${card.name}"? This cannot be undone.`,
+    cancel: true,
+    persistent: true,
+    dark: true,
+    color: 'red-5'
+  }).onOk(async () => {
+    try {
+      await cardApi.delete(card.id)
+      await refreshBoard()
+    } catch (err) {
+      $q.notify({ type: 'negative', message: err.response?.data?.message || 'Failed to delete card' })
     }
   })
 }

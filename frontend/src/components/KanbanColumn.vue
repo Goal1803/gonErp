@@ -44,7 +44,7 @@
         class="col-cards-inner"
       >
         <template #item="{ element }">
-          <kanban-card :card="element" @open="$emit('open-card', element)" />
+          <kanban-card :card="element" @open="$emit('open-card', element)" @delete="$emit('delete-card', $event)" />
         </template>
       </draggable>
     </div>
@@ -84,7 +84,7 @@ import { columnApi, cardApi } from 'src/api/tasks'
 import { useBoardStore } from 'src/stores/boardStore'
 
 const props = defineProps({ column: { type: Object, required: true } })
-const emit = defineEmits(['open-card', 'delete', 'refresh', 'drag-start', 'drag-end'])
+const emit = defineEmits(['open-card', 'delete', 'delete-card', 'refresh', 'drag-start', 'drag-end'])
 const $q = useQuasar()
 const boardStore = useBoardStore()
 

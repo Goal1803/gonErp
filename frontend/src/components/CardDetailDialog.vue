@@ -26,6 +26,9 @@
           >{{ detail?.stage }}</q-chip
         >
         <q-space />
+        <q-btn flat round dense icon="delete" color="red-4" @click="confirmDeleteCard">
+          <q-tooltip>Delete card</q-tooltip>
+        </q-btn>
         <q-btn flat round dense icon="close" color="grey-5" v-close-popup />
       </q-card-section>
 
@@ -1079,7 +1082,7 @@ const props = defineProps({
   boardColumns: { type: Array, default: () => [] },
   externalUpdate: { type: Object, default: null }, // { actorName, type }
 });
-const emit = defineEmits(["update:modelValue", "updated", "dismiss-update"]);
+const emit = defineEmits(["update:modelValue", "updated", "deleted", "dismiss-update"]);
 const $q = useQuasar();
 const authStore = useAuthStore();
 
@@ -1642,6 +1645,25 @@ const refreshDetail = async () => {
   } catch {
     /* silent */
   }
+};
+
+const confirmDeleteCard = () => {
+  $q.dialog({
+    title: 'Delete Card',
+    message: `Delete "${detail.value?.name}"? This cannot be undone.`,
+    cancel: true,
+    persistent: true,
+    dark: true,
+    color: 'red-5',
+  }).onOk(async () => {
+    try {
+      await cardApi.delete(detail.value.id);
+      show.value = false;
+      emit("deleted");
+    } catch {
+      $q.notify({ type: "negative", message: "Failed to delete card" });
+    }
+  });
 };
 
 const formatDate = (d) => (d ? new Date(d).toLocaleString() : "");
