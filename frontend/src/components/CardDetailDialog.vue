@@ -76,6 +76,8 @@
             <img
               :src="detail.mainImageUrl"
               class="cover-image"
+              style="cursor: pointer"
+              @click="openSlideshow({ images: [detail.mainImageUrl], index: 0 })"
             />
             <div class="cover-image-actions">
               <q-btn
