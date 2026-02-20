@@ -136,9 +136,9 @@
           </q-card>
         </q-dialog>
 
-        <div class="col row no-wrap" style="min-height: 0">
+        <div class="col row no-wrap justify-center" style="min-height: 0">
         <!-- LEFT: main content -->
-        <div class="col q-pa-lg" style="max-width: 680px; overflow-y: auto; min-height: 0">
+        <div class="q-pa-lg" style="width: 680px; max-width: 680px; overflow-y: auto; min-height: 0">
           <!-- Card name -->
           <q-input
             v-model="detail.name"
