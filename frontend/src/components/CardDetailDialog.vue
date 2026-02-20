@@ -85,29 +85,71 @@
           <div class="text-caption text-grey-5 q-mb-xs row items-center gap-2">
             <q-icon name="subject" /> Description
           </div>
-          <q-editor
-            ref="descEditor"
-            v-model="detail.description"
-            dark
-            min-height="120px"
-            class="q-mb-lg desc-editor"
-            style="
-              background: #1a1a1a;
-              border: 1px solid rgba(255, 255, 255, 0.1);
-              border-radius: 6px;
-            "
-            :toolbar="[
-              ['bold', 'italic', 'underline', 'strike'],
-              ['unordered', 'ordered'],
-              ['link', 'fullscreen'],
-              ['insert_image'],
-            ]"
-            :definitions="{ insert_image: { icon: 'image', tip: 'Insert image', handler: triggerDescImageUpload } }"
-            @paste="onDescPaste"
-            @drop.prevent="onDescDrop"
-            @dragover.prevent
-            @blur="saveField('description', detail.description)"
-          />
+          <div
+            class="desc-editor-wrap"
+            :class="{ 'desc-collapsed': !descExpanded }"
+            @mousemove="onDescMouseMove"
+            @mouseleave="hideDescImgOverlay"
+            @click="expandDesc"
+          >
+            <q-editor
+              ref="descEditor"
+              v-model="detail.description"
+              dark
+              min-height="120px"
+              class="desc-editor"
+              :class="{ 'q-mb-lg': descExpanded }"
+              style="
+                background: #1a1a1a;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                border-radius: 6px;
+              "
+              :toolbar="[
+                ['bold', 'italic', 'underline', 'strike'],
+                ['unordered', 'ordered'],
+                ['link', 'fullscreen'],
+                ['insert_image'],
+              ]"
+              :definitions="{ insert_image: { icon: 'image', tip: 'Insert image', handler: triggerDescImageUpload } }"
+              @blur="onDescBlur"
+            />
+            <!-- Fade overlay + expand bar when collapsed -->
+            <div v-if="!descExpanded && descOverflows" class="desc-fade-overlay" @click="expandDesc">
+              <div class="desc-expand-bar">
+                <q-icon name="unfold_more" size="18px" />
+                <span>Show more</span>
+                <q-icon name="unfold_more" size="18px" />
+              </div>
+            </div>
+            <!-- Floating overlay for description images -->
+            <div
+              v-if="descImgOverlay.visible"
+              class="desc-img-overlay"
+              :style="descImgOverlay.style"
+              @mouseenter="descImgOverlay.locked = true"
+              @mouseleave="hideDescImgOverlay"
+            >
+              <q-btn
+                flat round dense icon="zoom_in" color="white" size="sm"
+                @click.stop="viewDescImage"
+              >
+                <q-tooltip>View</q-tooltip>
+              </q-btn>
+              <q-btn
+                flat round dense icon="delete" color="red-4" size="sm"
+                @click.stop="deleteDescImage"
+              >
+                <q-tooltip>Delete</q-tooltip>
+              </q-btn>
+            </div>
+          </div>
+          <!-- Collapse bar when expanded -->
+          <div v-if="descExpanded && descOverflows" class="desc-collapse-bar q-mb-lg" @click="descExpanded = false">
+            <q-icon name="unfold_less" size="18px" />
+            <span>Show less</span>
+            <q-icon name="unfold_less" size="18px" />
+          </div>
+          <div v-if="!descExpanded" class="q-mb-lg" />
           <input
             ref="descImageInput"
             type="file"
@@ -875,7 +917,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from "vue";
+import { ref, computed, watch, onBeforeUnmount, nextTick } from "vue";
 import { useQuasar } from "quasar";
 import { cardApi, boardApi } from "src/api/tasks";
 import { useAuthStore } from "src/stores/authStore";
@@ -940,6 +982,96 @@ const descEditor = ref(null);
 const descImageInput = ref(null);
 let savedSelection = null;
 
+// ─── Description expand / collapse ───────────────────────────────────────────
+const descExpanded = ref(false);
+const descOverflows = ref(false);
+let _descResizeObserver = null;
+
+const checkDescOverflow = () => {
+  const el = descEditor.value?.$el?.querySelector('.q-editor__content');
+  if (el) descOverflows.value = el.scrollHeight > 500;
+};
+
+const scheduleOverflowCheck = () => {
+  // q-editor needs time to render content into contenteditable
+  nextTick(() => setTimeout(checkDescOverflow, 150));
+};
+
+const setupDescResizeObserver = () => {
+  cleanupDescResizeObserver();
+  const el = descEditor.value?.$el?.querySelector('.q-editor__content');
+  if (!el) return;
+  _descResizeObserver = new ResizeObserver(checkDescOverflow);
+  _descResizeObserver.observe(el);
+};
+
+const cleanupDescResizeObserver = () => {
+  if (_descResizeObserver) {
+    _descResizeObserver.disconnect();
+    _descResizeObserver = null;
+  }
+};
+
+const expandDesc = () => {
+  if (!descExpanded.value) descExpanded.value = true;
+};
+
+const onDescBlur = () => {
+  saveField('description', detail.value.description);
+  scheduleOverflowCheck();
+};
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ─── Description image hover overlay ─────────────────────────────────────────
+const descImgOverlay = ref({ visible: false, locked: false, style: {}, targetImg: null });
+
+const onDescMouseMove = (e) => {
+  if (descImgOverlay.value.locked) return;
+  const img = e.target.closest?.('.q-editor__content img') || (e.target.tagName === 'IMG' && e.target.closest('.q-editor__content') ? e.target : null);
+  if (img) {
+    const wrapEl = e.currentTarget;
+    const wrapRect = wrapEl.getBoundingClientRect();
+    const imgRect = img.getBoundingClientRect();
+    descImgOverlay.value = {
+      visible: true,
+      locked: false,
+      targetImg: img,
+      style: {
+        top: (imgRect.top - wrapRect.top) + 'px',
+        left: (imgRect.left - wrapRect.left) + 'px',
+        width: imgRect.width + 'px',
+        height: imgRect.height + 'px',
+      },
+    };
+  } else if (!descImgOverlay.value.locked) {
+    descImgOverlay.value.visible = false;
+  }
+};
+
+const hideDescImgOverlay = () => {
+  descImgOverlay.value = { visible: false, locked: false, style: {}, targetImg: null };
+};
+
+const viewDescImage = () => {
+  const img = descImgOverlay.value.targetImg;
+  if (img) lightboxUrl.value = img.src;
+  hideDescImgOverlay();
+};
+
+const deleteDescImage = () => {
+  const img = descImgOverlay.value.targetImg;
+  if (img) {
+    img.remove();
+    const editorEl = descEditor.value?.$el?.querySelector('.q-editor__content');
+    if (editorEl) {
+      detail.value.description = editorEl.innerHTML;
+      saveField('description', detail.value.description);
+    }
+  }
+  hideDescImgOverlay();
+};
+// ─────────────────────────────────────────────────────────────────────────────
+
 const saveCaretPosition = () => {
   const sel = window.getSelection();
   if (sel.rangeCount > 0) {
@@ -999,7 +1131,6 @@ const uploadAndInsertImage = async (file) => {
   try {
     const res = await cardApi.uploadAttachment(detail.value.id, fd);
     const url = res.data.data.url;
-    detail.value.attachments.push(res.data.data);
     // Replace placeholder with actual image
     const imgTag = `<img src="${url}" style="display:block;max-width:66%;height:auto;border-radius:6px;margin:8px 0" />`;
     detail.value.description = detail.value.description.replace(
@@ -1037,6 +1168,7 @@ const onDescPaste = (e) => {
   for (const item of items) {
     if (item.type.startsWith("image/")) {
       e.preventDefault();
+      e.stopImmediatePropagation();
       saveCaretPosition();
       uploadAndInsertImage(item.getAsFile());
       return;
@@ -1045,6 +1177,8 @@ const onDescPaste = (e) => {
 };
 
 const onDescDrop = (e) => {
+  e.preventDefault();
+  e.stopImmediatePropagation();
   const files = e.dataTransfer?.files;
   if (!files) return;
   for (const file of files) {
@@ -1055,11 +1189,49 @@ const onDescDrop = (e) => {
   }
 };
 
+// Attach paste/drop listeners directly on the contenteditable element
+// so we intercept BEFORE q-editor's own handling
+let _contentEl = null;
+const attachEditorListeners = () => {
+  const el = descEditor.value?.$el?.querySelector('.q-editor__content');
+  if (el && el !== _contentEl) {
+    if (_contentEl) {
+      _contentEl.removeEventListener('paste', onDescPaste, true);
+      _contentEl.removeEventListener('drop', onDescDrop, true);
+      _contentEl.removeEventListener('dragover', preventDragover, true);
+    }
+    _contentEl = el;
+    el.addEventListener('paste', onDescPaste, true);
+    el.addEventListener('drop', onDescDrop, true);
+    el.addEventListener('dragover', preventDragover, true);
+  }
+};
+const preventDragover = (e) => e.preventDefault();
+
+watch(() => [props.modelValue, detail.value], () => {
+  if (props.modelValue && detail.value) {
+    nextTick(attachEditorListeners);
+  }
+});
+
+onBeforeUnmount(() => {
+  if (_contentEl) {
+    _contentEl.removeEventListener('paste', onDescPaste, true);
+    _contentEl.removeEventListener('drop', onDescDrop, true);
+    _contentEl.removeEventListener('dragover', preventDragover, true);
+  }
+  cleanupDescResizeObserver();
+});
+
 const statusOptions = ["OPEN", "IN_PROGRESS", "DONE", "BLOCKED", "CANCELLED"];
 
 const IMAGE_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp", "image/svg+xml"];
 const isImage = (att) => IMAGE_TYPES.includes(att.fileType?.toLowerCase());
-const imageAttachments = computed(() => detail.value?.attachments?.filter(isImage) || []);
+const imageAttachments = computed(() => {
+  const all = detail.value?.attachments?.filter(isImage) || [];
+  const desc = detail.value?.description || '';
+  return all.filter((img) => !desc.includes(img.url));
+});
 const fileAttachments = computed(() => detail.value?.attachments?.filter((a) => !isImage(a)) || []);
 const lightboxUrl = ref(null);
 const showLightbox = computed({
@@ -1234,9 +1406,12 @@ watch(
   async ([open, id]) => {
     if (open && id) {
       detail.value = null;
+      descExpanded.value = false;
       try {
         const res = await cardApi.getById(id);
         detail.value = res.data.data;
+        scheduleOverflowCheck();
+        nextTick(setupDescResizeObserver);
       } catch {
         $q.notify({ type: "negative", message: "Failed to load card" });
       }
@@ -1521,6 +1696,76 @@ const removeMember = async (user) => {
   gap: 8px;
 }
 
+/* Description editor wrapper for image overlay */
+.desc-editor-wrap {
+  position: relative;
+  transition: max-height 0.3s ease;
+}
+.desc-editor-wrap.desc-collapsed {
+  max-height: 500px;
+  overflow: hidden;
+  cursor: pointer;
+}
+.desc-editor-wrap.desc-collapsed .desc-editor :deep(.q-editor__toolbar) {
+  display: none;
+}
+
+/* Fade overlay at bottom of collapsed description */
+.desc-fade-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 100px;
+  background: linear-gradient(transparent 0%, #111 75%);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 5;
+}
+.desc-expand-bar {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #80cbc4;
+  background: rgba(38, 166, 154, 0.12);
+  border: 1px solid rgba(38, 166, 154, 0.25);
+  border-radius: 6px;
+  transition: background 0.15s, border-color 0.15s;
+}
+.desc-expand-bar:hover {
+  background: rgba(38, 166, 154, 0.22);
+  border-color: rgba(38, 166, 154, 0.45);
+}
+
+/* Collapse bar below expanded description */
+.desc-collapse-bar {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #80cbc4;
+  background: rgba(38, 166, 154, 0.12);
+  border: 1px solid rgba(38, 166, 154, 0.25);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.desc-collapse-bar:hover {
+  background: rgba(38, 166, 154, 0.22);
+  border-color: rgba(38, 166, 154, 0.45);
+}
+
 /* Description editor embedded images */
 .desc-editor :deep(.q-editor__content img) {
   display: block;
@@ -1533,5 +1778,24 @@ const removeMember = async (user) => {
 .desc-editor :deep(.q-editor__content) {
   min-height: 120px;
   overflow-wrap: break-word;
+}
+
+/* Floating overlay on description images */
+.desc-img-overlay {
+  position: absolute;
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 4px;
+  padding: 6px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 10;
+  transition: opacity 0.15s;
+}
+.desc-img-overlay .q-btn {
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
 }
 </style>
