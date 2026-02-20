@@ -53,6 +53,13 @@ public class BoardController {
         return ResponseEntity.ok(ApiResponse.ok("Member added successfully", null));
     }
 
+    @PatchMapping("/{id}/members/{userId}")
+    public ResponseEntity<ApiResponse<Void>> updateMemberRole(
+            @PathVariable Long id, @PathVariable Long userId, @RequestBody BoardMemberRequest request) {
+        boardService.updateMemberRole(id, userId, request);
+        return ResponseEntity.ok(ApiResponse.ok("Member role updated successfully", null));
+    }
+
     @DeleteMapping("/{id}/members/{userId}")
     public ResponseEntity<ApiResponse<Void>> removeMember(
             @PathVariable Long id, @PathVariable Long userId) {

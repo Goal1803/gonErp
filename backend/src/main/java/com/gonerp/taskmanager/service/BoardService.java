@@ -125,9 +125,26 @@ public class BoardService {
         }
     }
 
+    public void updateMemberRole(Long boardId, Long userId, BoardMemberRequest request) {
+        Board board = getBoardOrThrow(boardId);
+        checkManageAccess(board);
+        BoardMember member = boardMemberRepository.findByBoardIdAndUserId(boardId, userId)
+                .orElseThrow(() -> new EntityNotFoundException("Member not found"));
+        if (member.getRole() == BoardMemberRole.OWNER) {
+            throw new AccessDeniedException("Cannot change the role of the board owner");
+        }
+        member.setRole(request.getRole());
+        boardMemberRepository.save(member);
+    }
+
     public void removeMember(Long boardId, Long userId) {
         Board board = getBoardOrThrow(boardId);
         checkManageAccess(board);
+        BoardMember member = boardMemberRepository.findByBoardIdAndUserId(boardId, userId)
+                .orElseThrow(() -> new EntityNotFoundException("Member not found"));
+        if (member.getRole() == BoardMemberRole.OWNER) {
+            throw new AccessDeniedException("Cannot remove the board owner");
+        }
         boardMemberRepository.deleteByBoardIdAndUserId(boardId, userId);
     }
 

@@ -7,6 +7,7 @@ export const boardApi = {
   update: (id, data) => api.put(`/tasks/boards/${id}`, data),
   delete: (id) => api.delete(`/tasks/boards/${id}`),
   addMember: (id, data) => api.post(`/tasks/boards/${id}/members`, data),
+  updateMemberRole: (id, userId, data) => api.patch(`/tasks/boards/${id}/members/${userId}`, data),
   removeMember: (id, userId) => api.delete(`/tasks/boards/${id}/members/${userId}`),
   getLabels: (id) => api.get(`/tasks/boards/${id}/labels`),
   createLabel: (id, data) => api.post(`/tasks/boards/${id}/labels`, data),
