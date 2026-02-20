@@ -78,7 +78,7 @@
               <q-btn
                 flat dense icon="image" color="white" size="sm" label="Replace"
                 style="background: rgba(0,0,0,0.55); border-radius: 6px"
-                @click="$refs.coverImageInput.click()"
+                @click="showCoverPicker = true"
               />
               <q-btn
                 flat dense icon="delete" color="red-3" size="sm" label="Remove"
@@ -91,7 +91,7 @@
             <q-btn
               flat dense icon="add_photo_alternate" color="grey-5"
               label="Add cover image" size="sm"
-              @click="$refs.coverImageInput.click()"
+              @click="showCoverPicker = true"
             />
           </div>
           <input
@@ -102,6 +102,39 @@
             @change="onCoverImageSelected"
           />
         </div>
+
+        <!-- Cover image picker dialog -->
+        <q-dialog v-model="showCoverPicker" position="top">
+          <q-card dark style="background: #1e1e1e; width: 360px; border-radius: 10px; margin-top: 80px">
+            <q-card-section class="q-pb-none q-pt-sm q-px-sm">
+              <div class="row items-center">
+                <span class="text-grey-3" style="font-size: 0.82rem; font-weight: 600">Cover image</span>
+                <q-space />
+                <q-btn flat round dense icon="close" color="grey-5" size="xs" v-close-popup />
+              </div>
+            </q-card-section>
+            <q-card-section class="q-pt-sm q-px-sm q-pb-sm">
+              <div v-if="coverPickerImages.length" class="cover-pick-grid q-mb-sm">
+                <div
+                  v-for="img in coverPickerImages"
+                  :key="img.id"
+                  class="cover-pick-item"
+                  @click="setCoverFromExisting(img); showCoverPicker = false"
+                >
+                  <img :src="img.url" />
+                </div>
+              </div>
+              <div v-else class="text-grey-6 text-center q-py-md" style="font-size: 0.78rem">
+                No other images on this card.
+              </div>
+              <q-btn
+                flat dense icon="upload" color="teal-4"
+                label="Upload new" size="sm" class="full-width"
+                @click="$refs.coverImageInput.click(); showCoverPicker = false"
+              />
+            </q-card-section>
+          </q-card>
+        </q-dialog>
 
         <div class="col row no-wrap" style="min-height: 0">
         <!-- LEFT: main content -->
@@ -1027,6 +1060,7 @@ const sendingComment = ref(false);
 const attachFile = ref(null);
 const imageFile = ref(null);
 const newLink = ref({ url: '', title: '' });
+const showCoverPicker = ref(false);
 const addingLink = ref(false);
 const descEditor = ref(null);
 const descImageInput = ref(null);
@@ -1282,6 +1316,10 @@ const imageAttachments = computed(() => {
   const desc = detail.value?.description || '';
   return all.filter((img) => !desc.includes(img.url));
 });
+const allCardImages = computed(() => detail.value?.attachments?.filter(isImage) || []);
+const coverPickerImages = computed(() =>
+  allCardImages.value.filter((img) => img.url !== detail.value?.mainImageUrl)
+);
 const fileAttachments = computed(() => detail.value?.attachments?.filter((a) => !isImage(a)) || []);
 const lightboxUrl = ref(null);
 const showLightbox = computed({
@@ -1543,6 +1581,16 @@ const deleteAttachment = async (att) => {
     );
   } catch {
     $q.notify({ type: "negative", message: "Failed" });
+  }
+};
+
+const setCoverFromExisting = async (img) => {
+  try {
+    await cardApi.update(detail.value.id, { mainImageUrl: img.url });
+    detail.value.mainImageUrl = img.url;
+    emit("updated");
+  } catch {
+    $q.notify({ type: "negative", message: "Failed to set cover" });
   }
 };
 
@@ -1920,6 +1968,41 @@ const deleteLink = async (link) => {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* Cover image picker grid */
+.cover-pick-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.cover-pick-item {
+  position: relative;
+  cursor: pointer;
+  border-radius: 4px;
+  border: 2px solid transparent;
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+.cover-pick-item img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  display: block;
+  transition: opacity 0.15s;
+}
+.cover-pick-item:hover img {
+  opacity: 0.75;
+}
+.cover-pick-item.cover-pick-active {
+  border-color: #26a69a;
+}
+.cover-pick-check {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 50%;
 }
 
 /* Metadata section */
