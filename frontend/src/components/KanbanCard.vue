@@ -37,12 +37,11 @@
           </div>
           <!-- Member avatars -->
           <div v-if="card.members?.length" class="row" style="gap:-4px">
-            <q-avatar v-for="(m, i) in card.members.slice(0,3)" :key="m.id"
-              color="teal-8" text-color="white" size="18px"
-              :style="{ marginLeft: i > 0 ? '-6px' : '0', fontSize:'0.6rem', zIndex: 3-i }"
+            <div v-for="(m, i) in card.members.slice(0,3)" :key="m.id"
+              :style="{ marginLeft: i > 0 ? '-6px' : '0', zIndex: 3-i }"
               :title="m.userName">
-              {{ (m.firstName || m.userName)[0].toUpperCase() }}
-            </q-avatar>
+              <UserAvatar :user="m" size="18px" />
+            </div>
           </div>
         </div>
       </div>
@@ -51,6 +50,8 @@
 </template>
 
 <script setup>
+import UserAvatar from 'src/components/UserAvatar.vue'
+
 defineProps({ card: { type: Object, required: true } })
 defineEmits(['open'])
 

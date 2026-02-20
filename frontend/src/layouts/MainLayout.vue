@@ -32,13 +32,8 @@
             text-color="white"
             class="text-weight-medium"
           />
-          <q-btn
-            flat
-            round
-            dense
-            icon="person"
-            color="white"
-          >
+          <q-btn flat round dense>
+            <UserAvatar :user="authStore.currentUser" size="32px" />
             <q-tooltip>{{ authStore.currentUser?.userName }}</q-tooltip>
             <q-menu>
               <q-list dense style="min-width: 160px">
@@ -210,6 +205,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from 'src/stores/authStore'
 import { useQuasar } from 'quasar'
+import UserAvatar from 'src/components/UserAvatar.vue'
 
 const $q = useQuasar()
 const router = useRouter()

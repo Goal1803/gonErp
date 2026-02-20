@@ -38,6 +38,9 @@ public class AuthController {
                 .token(token)
                 .tokenType("Bearer")
                 .userName(user.getUserName())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .avatarUrl(user.getAvatarUrl())
                 .role(user.getRole().getName().name())
                 .userId(user.getId())
                 .build();
@@ -50,6 +53,9 @@ public class AuthController {
         User user = userRepository.findByUserName(authentication.getName()).orElseThrow();
         AuthResponse response = AuthResponse.builder()
                 .userName(user.getUserName())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .avatarUrl(user.getAvatarUrl())
                 .role(user.getRole().getName().name())
                 .userId(user.getId())
                 .build();

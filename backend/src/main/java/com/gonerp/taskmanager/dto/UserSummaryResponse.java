@@ -9,6 +9,7 @@ public class UserSummaryResponse {
     private String userName;
     private String firstName;
     private String lastName;
+    private String avatarUrl;
 
     public static UserSummaryResponse from(User user) {
         UserSummaryResponse r = new UserSummaryResponse();
@@ -16,6 +17,7 @@ public class UserSummaryResponse {
         r.userName = user.getUserName();
         r.firstName = user.getFirstName();
         r.lastName = user.getLastName();
+        r.avatarUrl = user.getAvatarUrl();
         return r;
     }
 }

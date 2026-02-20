@@ -9,6 +9,9 @@ import com.gonerp.usermanager.repository.UserRepository;
 import com.gonerp.usermanager.repository.UserRoleRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -18,8 +21,15 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -29,6 +39,9 @@ public class UserService implements UserDetailsService {
     private final UserRepository userRepository;
     private final UserRoleRepository userRoleRepository;
     private final PasswordEncoder passwordEncoder;
+
+    @Value("${app.upload.users}")
+    private String uploadDir;
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
@@ -120,5 +133,56 @@ public class UserService implements UserDetailsService {
             throw new EntityNotFoundException("User not found with id: " + id);
         }
         userRepository.deleteById(id);
+    }
+
+    public UserResponse uploadAvatar(Long userId, MultipartFile file) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException("User not found with id: " + userId));
+        deletePhysicalFile(user.getAvatarUrl());
+        String filename = storeFile(file);
+        user.setAvatarUrl("/api/users/files/" + filename);
+        return UserResponse.from(userRepository.save(user));
+    }
+
+    public UserResponse deleteAvatar(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException("User not found with id: " + userId));
+        deletePhysicalFile(user.getAvatarUrl());
+        user.setAvatarUrl(null);
+        return UserResponse.from(userRepository.save(user));
+    }
+
+    public Resource loadFileAsResource(String filename) {
+        try {
+            Path filePath = Paths.get(uploadDir).resolve(filename).normalize();
+            Resource resource = new UrlResource(filePath.toUri());
+            if (resource.exists() && resource.isReadable()) return resource;
+            throw new RuntimeException("File not found: " + filename);
+        } catch (Exception e) {
+            throw new RuntimeException("File not found: " + filename, e);
+        }
+    }
+
+    private String storeFile(MultipartFile file) {
+        try {
+            Path uploadPath = Paths.get(uploadDir);
+            if (!Files.exists(uploadPath)) Files.createDirectories(uploadPath);
+            String original = file.getOriginalFilename();
+            String ext = (original != null && original.contains("."))
+                    ? original.substring(original.lastIndexOf('.')) : "";
+            String filename = UUID.randomUUID() + ext;
+            Files.copy(file.getInputStream(), uploadPath.resolve(filename), StandardCopyOption.REPLACE_EXISTING);
+            return filename;
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to store file", e);
+        }
+    }
+
+    private void deletePhysicalFile(String url) {
+        if (url == null || !url.startsWith("/api/users/files/")) return;
+        String filename = url.substring("/api/users/files/".length());
+        try {
+            Files.deleteIfExists(Paths.get(uploadDir).resolve(filename));
+        } catch (IOException ignored) {}
     }
 }

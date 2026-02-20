@@ -7,13 +7,21 @@ import com.gonerp.usermanager.model.enums.UserStatus;
 import com.gonerp.usermanager.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
 @RestController
 @RequestMapping("/api/users")
@@ -60,5 +68,31 @@ public class UserController {
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<UserResponse>> softDelete(@PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.ok("User deleted successfully", userService.softDelete(id)));
+    }
+
+    @PostMapping("/{id}/avatar")
+    public ResponseEntity<ApiResponse<UserResponse>> uploadAvatar(@PathVariable Long id,
+                                                                   @RequestParam("file") MultipartFile file) {
+        return ResponseEntity.ok(ApiResponse.ok("Avatar uploaded", userService.uploadAvatar(id, file)));
+    }
+
+    @DeleteMapping("/{id}/avatar")
+    public ResponseEntity<ApiResponse<UserResponse>> deleteAvatar(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.ok("Avatar removed", userService.deleteAvatar(id)));
+    }
+
+    @GetMapping("/files/{filename:.+}")
+    @PreAuthorize("permitAll()")
+    public ResponseEntity<Resource> serveFile(@PathVariable String filename) {
+        Resource resource = userService.loadFileAsResource(filename);
+        String contentType = "application/octet-stream";
+        try {
+            contentType = Files.probeContentType(Paths.get(filename));
+            if (contentType == null) contentType = "application/octet-stream";
+        } catch (IOException ignored) {}
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(contentType))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + resource.getFilename() + "\"")
+                .body(resource);
     }
 }

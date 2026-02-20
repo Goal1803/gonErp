@@ -76,6 +76,12 @@
       class="premium-card"
       @request="onRequest"
     >
+      <template #body-cell-avatar="props">
+        <q-td :props="props">
+          <UserAvatar :user="props.row" size="32px" />
+        </q-td>
+      </template>
+
       <template #body-cell-status="props">
         <q-td :props="props">
           <span
@@ -161,6 +167,7 @@ import { ref, onMounted } from 'vue'
 import { useQuasar } from 'quasar'
 import { userApi, userRoleApi } from 'src/api/users'
 import UserFormDialog from 'src/components/UserFormDialog.vue'
+import UserAvatar from 'src/components/UserAvatar.vue'
 
 const $q = useQuasar()
 
@@ -189,6 +196,7 @@ const statusOptions = [
 
 const columns = [
   { name: 'id', label: 'ID', field: 'id', sortable: true, align: 'left', style: 'width: 60px' },
+  { name: 'avatar', label: '', field: 'avatarUrl', align: 'center', style: 'width: 48px' },
   { name: 'userName', label: 'Username', field: 'userName', sortable: true, align: 'left' },
   { name: 'firstName', label: 'First Name', field: 'firstName', sortable: true, align: 'left' },
   { name: 'lastName', label: 'Last Name', field: 'lastName', sortable: true, align: 'left' },

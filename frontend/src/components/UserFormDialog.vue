@@ -13,6 +13,19 @@
 
       <q-card-section class="q-pa-lg">
         <q-form @submit="handleSubmit" class="q-gutter-y-md">
+          <!-- Avatar section -->
+          <div class="flex items-center gap-3 q-mb-md" v-if="isEdit">
+            <UserAvatar :user="avatarUser" size="64px" />
+            <div>
+              <q-btn flat dense color="teal-5" icon="upload" label="Upload photo" size="sm"
+                @click="$refs.avatarInput.click()" :loading="uploadingAvatar" />
+              <q-btn v-if="currentAvatarUrl" flat dense color="red-4" icon="delete" label="Remove" size="sm"
+                class="q-ml-xs" @click="removeAvatar" />
+              <input ref="avatarInput" type="file" accept="image/*" style="display:none"
+                @change="onAvatarSelected" />
+            </div>
+          </div>
+
           <div class="row q-col-gutter-md">
             <!-- Username -->
             <div class="col-12">
@@ -134,6 +147,7 @@
 import { ref, computed, watch } from 'vue'
 import { useQuasar } from 'quasar'
 import { userApi } from 'src/api/users'
+import UserAvatar from 'src/components/UserAvatar.vue'
 
 const props = defineProps({
   modelValue: Boolean,
@@ -167,6 +181,48 @@ const defaultForm = {
 
 const form = ref({ ...defaultForm })
 
+const currentAvatarUrl = ref(null)
+const uploadingAvatar = ref(false)
+
+const avatarUser = computed(() => ({
+  firstName: form.value.firstName,
+  lastName: form.value.lastName,
+  userName: form.value.userName,
+  avatarUrl: currentAvatarUrl.value,
+  id: props.user?.id
+}))
+
+const onAvatarSelected = async (e) => {
+  const file = e.target.files?.[0]
+  if (!file || !props.user?.id) return
+  uploadingAvatar.value = true
+  try {
+    const fd = new FormData()
+    fd.append('file', file)
+    const res = await userApi.uploadAvatar(props.user.id, fd)
+    currentAvatarUrl.value = res.data.data.avatarUrl
+    $q.notify({ type: 'positive', message: 'Avatar uploaded' })
+    emit('saved')
+  } catch {
+    $q.notify({ type: 'negative', message: 'Avatar upload failed' })
+  } finally {
+    uploadingAvatar.value = false
+    e.target.value = ''
+  }
+}
+
+const removeAvatar = async () => {
+  if (!props.user?.id) return
+  try {
+    await userApi.deleteAvatar(props.user.id)
+    currentAvatarUrl.value = null
+    $q.notify({ type: 'positive', message: 'Avatar removed' })
+    emit('saved')
+  } catch {
+    $q.notify({ type: 'negative', message: 'Failed to remove avatar' })
+  }
+}
+
 const statusOptions = [
   { label: 'Active', value: 'ACTIVE' },
   { label: 'Pending', value: 'PENDING' },
@@ -188,8 +244,10 @@ watch(() => props.user, (u) => {
       password: '',
       roleId: u.role?.id || null
     }
+    currentAvatarUrl.value = u.avatarUrl || null
   } else {
     form.value = { ...defaultForm }
+    currentAvatarUrl.value = null
   }
 }, { immediate: true })
 

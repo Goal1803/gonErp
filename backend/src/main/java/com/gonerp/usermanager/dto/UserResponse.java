@@ -17,6 +17,7 @@ public class UserResponse {
     private String lastName;
     private LocalDate dateOfBirth;
     private UserStatus status;
+    private String avatarUrl;
     private UserRoleResponse role;
     private LocalDateTime createdAt;
     private String createdBy;
@@ -31,6 +32,7 @@ public class UserResponse {
                 .lastName(user.getLastName())
                 .dateOfBirth(user.getDateOfBirth())
                 .status(user.getStatus())
+                .avatarUrl(user.getAvatarUrl())
                 .role(user.getRole() != null ? UserRoleResponse.from(user.getRole()) : null)
                 .createdAt(user.getCreatedAt())
                 .createdBy(user.getCreatedBy())

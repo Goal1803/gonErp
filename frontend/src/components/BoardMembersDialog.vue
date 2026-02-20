@@ -14,9 +14,7 @@
         <q-list dark dense>
           <q-item v-for="m in members" :key="m.id">
             <q-item-section avatar>
-              <q-avatar color="teal-8" text-color="white" size="sm">
-                {{ (m.user.firstName || m.user.userName)[0].toUpperCase() }}
-              </q-avatar>
+              <UserAvatar :user="m.user" size="32px" />
             </q-item-section>
             <q-item-section>
               <q-item-label class="text-white">{{ m.user.firstName }} {{ m.user.lastName }}</q-item-label>
@@ -53,6 +51,7 @@ import { ref, computed, watch } from 'vue'
 import { useQuasar } from 'quasar'
 import { boardApi } from 'src/api/tasks'
 import { userApi } from 'src/api/users'
+import UserAvatar from 'src/components/UserAvatar.vue'
 
 const props = defineProps({
   modelValue: Boolean,

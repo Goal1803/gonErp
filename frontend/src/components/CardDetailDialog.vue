@@ -163,14 +163,7 @@
             class="comment-item q-mb-sm"
           >
             <div class="row items-center q-gutter-xs q-mb-xs">
-              <q-avatar
-                color="teal-8"
-                text-color="white"
-                size="24px"
-                style="font-size: 0.65rem"
-              >
-                {{ (c.author.firstName || c.author.userName)[0].toUpperCase() }}
-              </q-avatar>
+              <UserAvatar :user="c.author" size="24px" />
               <span class="text-grey-4" style="font-size: 0.8rem">{{
                 c.author.userName
               }}</span>
@@ -718,18 +711,11 @@
               <q-icon name="group" size="xs" /> Members
             </div>
             <div class="row q-gutter-xs q-mb-xs">
-              <q-avatar
-                v-for="m in detail.members"
-                :key="m.id"
-                color="teal-8"
-                text-color="white"
-                size="28px"
-                style="font-size: 0.7rem; cursor: pointer"
-                :title="m.userName"
-                @click="removeMember(m)"
-              >
-                {{ (m.firstName || m.userName)[0].toUpperCase() }}
-              </q-avatar>
+              <div v-for="m in detail.members" :key="m.id"
+                style="cursor: pointer" :title="m.userName"
+                @click="removeMember(m)">
+                <UserAvatar :user="m" size="28px" />
+              </div>
             </div>
             <q-btn-dropdown
               flat
@@ -748,14 +734,7 @@
                   @click="addMember(u)"
                 >
                   <q-item-section avatar>
-                    <q-avatar
-                      color="teal-8"
-                      text-color="white"
-                      size="24px"
-                      style="font-size: 0.65rem"
-                    >
-                      {{ (u.firstName || u.userName)[0].toUpperCase() }}
-                    </q-avatar>
+                    <UserAvatar :user="u" size="24px" />
                   </q-item-section>
                   <q-item-section
                     >{{ u.firstName }} {{ u.lastName }}</q-item-section
@@ -820,6 +799,7 @@ import { ref, computed, watch } from "vue";
 import { useQuasar } from "quasar";
 import { cardApi, boardApi } from "src/api/tasks";
 import { useAuthStore } from "src/stores/authStore";
+import UserAvatar from "src/components/UserAvatar.vue";
 
 // ─── Label color presets ──────────────────────────────────────────────────────
 const LABEL_PRESETS = [
