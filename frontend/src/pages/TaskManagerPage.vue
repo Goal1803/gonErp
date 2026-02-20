@@ -62,9 +62,12 @@
                           <q-item-section>Edit</q-item-section>
                         </q-item>
                         <q-item clickable v-close-popup @click="confirmDelete(board)"
-                          class="text-red-4">
-                          <q-item-section avatar><q-icon name="delete" size="xs" color="red-4" /></q-item-section>
-                          <q-item-section>Delete</q-item-section>
+                          :class="board.boardType === 'POD_DESIGN' ? 'text-orange-4' : 'text-red-4'">
+                          <q-item-section avatar>
+                            <q-icon :name="board.boardType === 'POD_DESIGN' ? 'archive' : 'delete'" size="xs"
+                              :color="board.boardType === 'POD_DESIGN' ? 'orange-4' : 'red-4'" />
+                          </q-item-section>
+                          <q-item-section>{{ board.boardType === 'POD_DESIGN' ? 'Deactivate' : 'Delete' }}</q-item-section>
                         </q-item>
                       </q-list>
                     </q-menu>
@@ -73,6 +76,9 @@
 
                 <!-- Meta row -->
                 <div class="row items-center q-gutter-sm q-mt-sm">
+                  <q-chip v-if="board.boardType === 'POD_DESIGN'" dense color="deep-purple-9" text-color="purple-2" size="sm" icon="palette">
+                    POD Design
+                  </q-chip>
                   <q-chip dense color="grey-9" text-color="grey-4" size="sm" icon="view_column">
                     {{ board.columnCount || 0 }} columns
                   </q-chip>
@@ -142,20 +148,23 @@ const onSaved = () => {
 }
 
 const confirmDelete = (board) => {
+  const isPodDesign = board.boardType === 'POD_DESIGN'
   $q.dialog({
-    title: 'Delete Board',
-    message: `Delete board "${board.name}"? This cannot be undone.`,
+    title: isPodDesign ? 'Deactivate Board' : 'Delete Board',
+    message: isPodDesign
+      ? `Deactivate board "${board.name}"? The board will be hidden but its design cards will remain accessible in the Designs page.`
+      : `Delete board "${board.name}"? This cannot be undone.`,
     cancel: true,
     persistent: true,
     dark: true,
-    color: 'red-5'
+    color: isPodDesign ? 'orange-5' : 'red-5'
   }).onOk(async () => {
     try {
       await boardApi.delete(board.id)
-      $q.notify({ type: 'positive', message: 'Board deleted' })
+      $q.notify({ type: 'positive', message: isPodDesign ? 'Board deactivated' : 'Board deleted' })
       loadBoards()
     } catch (err) {
-      $q.notify({ type: 'negative', message: err.response?.data?.message || 'Failed to delete' })
+      $q.notify({ type: 'negative', message: err.response?.data?.message || 'Failed' })
     }
   })
 }

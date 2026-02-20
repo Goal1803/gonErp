@@ -46,4 +46,8 @@ public class User extends BaseModel {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "role_id", nullable = false)
     private UserRole role;
+
+    @Column(name = "designs_manager", nullable = false, columnDefinition = "boolean default false")
+    @Builder.Default
+    private boolean designsManager = false;
 }

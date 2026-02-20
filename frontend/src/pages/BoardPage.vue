@@ -91,8 +91,8 @@
         </template>
       </draggable>
 
-      <!-- Add column -->
-      <div class="add-col-wrap">
+      <!-- Add column (hidden for POD_DESIGN boards) -->
+      <div v-if="!isPodDesign" class="add-col-wrap">
         <div v-if="!addingColumn">
           <q-btn flat icon="add" label="Add column" color="grey-5"
             style="white-space:nowrap" @click="addingColumn = true" />
@@ -109,11 +109,12 @@
       </div>
     </div>
 
-    <!-- Card detail dialog -->
+    <!-- Card detail dialog (pass boardType) -->
     <card-detail-dialog
       v-model="showCard"
       :card-id="selectedCardId"
       :board-id="boardId"
+      :board-type="boardStore.board?.boardType || 'GENERAL'"
       :board-labels="boardStore.board?.labels || []"
       :board-types="boardStore.board?.types || []"
       :board-members="boardStore.board?.members || []"
@@ -250,6 +251,8 @@ const cardFilter = computed(() => {
     return true
   }
 })
+
+const isPodDesign = computed(() => boardStore.board?.boardType === 'POD_DESIGN')
 
 const canManage = computed(() => {
   if (authStore.isAdmin) return true

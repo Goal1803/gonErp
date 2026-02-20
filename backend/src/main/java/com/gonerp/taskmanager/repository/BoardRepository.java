@@ -11,9 +11,9 @@ import java.util.List;
 @Repository
 public interface BoardRepository extends JpaRepository<Board, Long> {
 
-    @Query("SELECT DISTINCT b FROM Board b JOIN FETCH b.owner WHERE b.owner.id = :userId OR EXISTS (SELECT m FROM BoardMember m WHERE m.board = b AND m.user.id = :userId)")
+    @Query("SELECT DISTINCT b FROM Board b JOIN FETCH b.owner WHERE b.active = true AND (b.owner.id = :userId OR EXISTS (SELECT m FROM BoardMember m WHERE m.board = b AND m.user.id = :userId))")
     List<Board> findAllVisibleToUser(@Param("userId") Long userId);
 
-    @Query("SELECT DISTINCT b FROM Board b JOIN FETCH b.owner")
+    @Query("SELECT DISTINCT b FROM Board b JOIN FETCH b.owner WHERE b.active = true")
     List<Board> findAllWithOwner();
 }

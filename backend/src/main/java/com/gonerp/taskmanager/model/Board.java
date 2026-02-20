@@ -1,6 +1,7 @@
 package com.gonerp.taskmanager.model;
 
 import com.gonerp.common.BaseModel;
+import com.gonerp.taskmanager.model.enums.BoardType;
 import com.gonerp.usermanager.model.User;
 import jakarta.persistence.*;
 import lombok.*;
@@ -30,6 +31,15 @@ public class Board extends BaseModel {
     @Column(name = "cover_color", length = 20)
     @Builder.Default
     private String coverColor = "#2E7D32";
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "board_type", length = 30, columnDefinition = "varchar(30) default 'GENERAL'")
+    @Builder.Default
+    private BoardType boardType = BoardType.GENERAL;
+
+    @Column(nullable = false, columnDefinition = "boolean default true")
+    @Builder.Default
+    private boolean active = true;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "owner_id", nullable = false)

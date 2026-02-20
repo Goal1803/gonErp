@@ -47,6 +47,18 @@ const routes = [
         name: 'board',
         component: () => import('pages/BoardPage.vue'),
         meta: { title: 'Board' }
+      },
+      {
+        path: 'designs',
+        name: 'designs',
+        component: () => import('pages/DesignsPage.vue'),
+        meta: { title: 'Designs' }
+      },
+      {
+        path: 'admin/lookups',
+        name: 'lookups',
+        component: () => import('pages/LookupManagerPage.vue'),
+        meta: { title: 'Lookups', requiresAdmin: true }
       }
     ]
   },

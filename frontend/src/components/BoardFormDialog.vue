@@ -21,6 +21,16 @@
           <template #prepend><q-icon name="notes" color="grey-5" /></template>
         </q-input>
 
+        <q-select v-if="!isEdit" v-model="form.boardType" :options="boardTypeOptions" emit-value map-options
+          outlined dark color="teal-5" label="Board Type">
+          <template #prepend><q-icon name="category" color="grey-5" /></template>
+        </q-select>
+
+        <div v-if="!isEdit && form.boardType === 'POD_DESIGN'" class="text-caption text-amber-4 q-pa-sm"
+          style="background: rgba(255,183,77,0.08); border-radius: 6px; border: 1px solid rgba(255,183,77,0.2)">
+          POD Design boards have 10 fixed columns (Draft, Idea, Doing, etc.) that cannot be added, deleted, or renamed.
+        </div>
+
         <div>
           <div class="text-caption text-grey-5 q-mb-sm">Cover Color</div>
           <div class="row q-gutter-sm">
@@ -53,15 +63,19 @@ const emit = defineEmits(['update:modelValue', 'saved'])
 const $q = useQuasar()
 
 const colorOptions = ['#2E7D32', '#1565C0', '#6A1B9A', '#AD1457', '#E65100', '#F9A825', '#00695C', '#37474F']
+const boardTypeOptions = [
+  { label: 'General', value: 'GENERAL' },
+  { label: 'POD Design', value: 'POD_DESIGN' }
+]
 
 const show = computed({ get: () => props.modelValue, set: v => emit('update:modelValue', v) })
 const isEdit = computed(() => !!props.board)
 const saving = ref(false)
-const form = ref({ name: '', description: '', coverColor: '#2E7D32' })
+const form = ref({ name: '', description: '', coverColor: '#2E7D32', boardType: 'GENERAL' })
 
 watch(() => props.board, b => {
-  if (b) form.value = { name: b.name || '', description: b.description || '', coverColor: b.coverColor || '#2E7D32' }
-  else form.value = { name: '', description: '', coverColor: '#2E7D32' }
+  if (b) form.value = { name: b.name || '', description: b.description || '', coverColor: b.coverColor || '#2E7D32', boardType: b.boardType || 'GENERAL' }
+  else form.value = { name: '', description: '', coverColor: '#2E7D32', boardType: 'GENERAL' }
 }, { immediate: true })
 
 const handleSubmit = async () => {

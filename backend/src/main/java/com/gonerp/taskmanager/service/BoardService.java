@@ -3,6 +3,7 @@ package com.gonerp.taskmanager.service;
 import com.gonerp.taskmanager.dto.*;
 import com.gonerp.taskmanager.model.*;
 import com.gonerp.taskmanager.model.enums.BoardMemberRole;
+import com.gonerp.taskmanager.model.enums.BoardType;
 import com.gonerp.taskmanager.repository.*;
 import com.gonerp.usermanager.model.User;
 import com.gonerp.usermanager.repository.UserRepository;
@@ -21,10 +22,16 @@ import java.util.List;
 public class BoardService {
 
     private final BoardRepository boardRepository;
+    private final BoardColumnRepository boardColumnRepository;
     private final BoardMemberRepository boardMemberRepository;
     private final CardLabelRepository cardLabelRepository;
     private final CardTypeRepository cardTypeRepository;
     private final UserRepository userRepository;
+
+    private static final List<String> POD_DESIGN_COLUMNS = List.of(
+            "Draft", "Idea", "Doing", "Checking", "Need to Fix",
+            "Fixing", "Fix-Checking", "Done", "Listed", "Canceled"
+    );
 
     private User getCurrentUser() {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -102,16 +109,35 @@ public class BoardService {
 
     public BoardSummaryResponse create(BoardRequest request) {
         User user = getCurrentUser();
+        BoardType boardType = BoardType.GENERAL;
+        if (request.getBoardType() != null) {
+            try {
+                boardType = BoardType.valueOf(request.getBoardType());
+            } catch (IllegalArgumentException ignored) {}
+        }
         Board board = Board.builder()
                 .name(request.getName())
                 .description(request.getDescription())
                 .coverColor(request.getCoverColor() != null ? request.getCoverColor() : "#2E7D32")
+                .boardType(boardType)
                 .owner(user)
                 .build();
         board = boardRepository.save(board);
         BoardMember ownerMember = BoardMember.builder()
                 .board(board).user(user).role(BoardMemberRole.OWNER).build();
         boardMemberRepository.save(ownerMember);
+
+        if (boardType == BoardType.POD_DESIGN) {
+            for (int i = 0; i < POD_DESIGN_COLUMNS.size(); i++) {
+                BoardColumn column = BoardColumn.builder()
+                        .title(POD_DESIGN_COLUMNS.get(i))
+                        .position(i + 1)
+                        .board(board)
+                        .build();
+                boardColumnRepository.save(column);
+            }
+        }
+
         return BoardSummaryResponse.from(board);
     }
 
@@ -130,7 +156,12 @@ public class BoardService {
         if (!isSystemAdmin() && !board.getOwner().getId().equals(user.getId())) {
             throw new AccessDeniedException("Only the board owner or system admin can delete this board");
         }
-        boardRepository.delete(board);
+        if (board.getBoardType() == BoardType.POD_DESIGN) {
+            board.setActive(false);
+            boardRepository.save(board);
+        } else {
+            boardRepository.delete(board);
+        }
     }
 
     public void addMember(Long boardId, BoardMemberRequest request) {

@@ -5,6 +5,7 @@ import com.gonerp.taskmanager.dto.ColumnResponse;
 import com.gonerp.taskmanager.dto.ReorderRequest;
 import com.gonerp.taskmanager.model.Board;
 import com.gonerp.taskmanager.model.BoardColumn;
+import com.gonerp.taskmanager.model.enums.BoardType;
 import com.gonerp.taskmanager.repository.BoardColumnRepository;
 import com.gonerp.taskmanager.repository.BoardMemberRepository;
 import com.gonerp.taskmanager.repository.BoardRepository;
@@ -57,6 +58,9 @@ public class ColumnService {
         Board board = boardRepository.findById(boardId)
                 .orElseThrow(() -> new EntityNotFoundException("Board not found: " + boardId));
         checkAccess(board);
+        if (board.getBoardType() == BoardType.POD_DESIGN) {
+            throw new IllegalStateException("Cannot add columns to a POD Design board");
+        }
         int position = boardColumnRepository.countByBoardId(boardId) + 1;
         BoardColumn column = BoardColumn.builder()
                 .title(request.getTitle())
@@ -74,6 +78,9 @@ public class ColumnService {
         BoardColumn column = boardColumnRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Column not found: " + id));
         checkAccess(column.getBoard());
+        if (column.getBoard().getBoardType() == BoardType.POD_DESIGN) {
+            throw new IllegalStateException("Cannot rename columns in a POD Design board");
+        }
         column.setTitle(request.getTitle());
         column = boardColumnRepository.save(column);
         String actor = getCurrentUser().getUserName();
@@ -86,6 +93,9 @@ public class ColumnService {
         BoardColumn column = boardColumnRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Column not found: " + id));
         checkAccess(column.getBoard());
+        if (column.getBoard().getBoardType() == BoardType.POD_DESIGN) {
+            throw new IllegalStateException("Cannot delete columns from a POD Design board");
+        }
         Long boardId = column.getBoard().getId();
         Long columnId = column.getId();
         String actor = getCurrentUser().getUserName();

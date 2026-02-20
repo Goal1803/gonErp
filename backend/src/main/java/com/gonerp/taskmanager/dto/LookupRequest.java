@@ -4,10 +4,8 @@ import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 @Data
-public class BoardRequest {
-    @NotBlank(message = "Board name is required")
+public class LookupRequest {
+    @NotBlank(message = "Name is required")
     private String name;
     private String description;
-    private String coverColor;
-    private String boardType;
 }

@@ -126,6 +126,22 @@
             </q-item-section>
           </q-item>
 
+          <q-item
+            v-if="authStore.isAdmin"
+            clickable
+            v-ripple
+            to="/admin/lookups"
+            exact
+            class="rounded-borders q-mb-xs"
+          >
+            <q-item-section avatar>
+              <q-icon name="settings" />
+            </q-item-section>
+            <q-item-section>
+              <q-item-label>Lookups</q-item-label>
+            </q-item-section>
+          </q-item>
+
           <!-- Content Section -->
           <q-item-label header class="text-grey-6 text-uppercase text-caption q-mb-xs q-mt-sm">
             Content
@@ -158,6 +174,22 @@
             </q-item-section>
             <q-item-section>
               <q-item-label>Task Manager</q-item-label>
+            </q-item-section>
+          </q-item>
+
+          <!-- Designs -->
+          <q-item
+            clickable
+            v-ripple
+            to="/designs"
+            exact
+            class="rounded-borders q-mb-xs"
+          >
+            <q-item-section avatar>
+              <q-icon name="palette" />
+            </q-item-section>
+            <q-item-section>
+              <q-item-label>Designs</q-item-label>
             </q-item-section>
           </q-item>
 

@@ -704,6 +704,14 @@
 
           </div>
 
+          <!-- Design Detail Section (POD_DESIGN boards only) -->
+          <DesignDetailSection
+            v-if="props.boardType === 'POD_DESIGN' && detail?.id"
+            :card-id="detail.id"
+            :board-members="props.boardMembers"
+            @updated="emit('updated')"
+          />
+
           <!-- Description -->
           <div class="text-caption text-grey-5 q-mb-xs row items-center gap-2">
             <q-icon name="subject" /> Description
@@ -1041,6 +1049,7 @@ import { useAuthStore } from "src/stores/authStore";
 import UserAvatar from "src/components/UserAvatar.vue";
 import CommentItem from "src/components/CommentItem.vue";
 import CommentInput from "src/components/CommentInput.vue";
+import DesignDetailSection from "src/components/DesignDetailSection.vue";
 
 // ─── Label color presets ──────────────────────────────────────────────────────
 const LABEL_PRESETS = [
@@ -1078,6 +1087,7 @@ const props = defineProps({
   modelValue: Boolean,
   cardId: { type: Number, default: null },
   boardId: { type: Number, default: null },
+  boardType: { type: String, default: 'GENERAL' },
   boardLabels: { type: Array, default: () => [] },
   boardTypes: { type: Array, default: () => [] },
   boardMembers: { type: Array, default: () => [] },

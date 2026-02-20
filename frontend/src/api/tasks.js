@@ -52,3 +52,42 @@ export const cardApi = {
   addLink: (id, data) => api.post(`/tasks/cards/${id}/links`, data),
   deleteLink: (id, linkId) => api.delete(`/tasks/cards/${id}/links/${linkId}`)
 }
+
+export const designApi = {
+  getDetail: (cardId) => api.get(`/tasks/cards/${cardId}/design`),
+  updateDetail: (cardId, data) => api.put(`/tasks/cards/${cardId}/design`, data),
+  uploadPng: (cardId, formData) => api.post(`/tasks/cards/${cardId}/design/png`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }, timeout: 300000
+  }),
+  deletePng: (cardId) => api.delete(`/tasks/cards/${cardId}/design/png`),
+  uploadPsd: (cardId, formData) => api.post(`/tasks/cards/${cardId}/design/psd`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }, timeout: 300000
+  }),
+  deletePsd: (cardId) => api.delete(`/tasks/cards/${cardId}/design/psd`),
+  uploadMockup: (cardId, formData) => api.post(`/tasks/cards/${cardId}/design/mockups`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }, timeout: 300000
+  }),
+  deleteMockup: (cardId, mockupId) => api.delete(`/tasks/cards/${cardId}/design/mockups/${mockupId}`),
+  setMainMockup: (cardId, mockupId) => api.patch(`/tasks/cards/${cardId}/design/mockups/${mockupId}/main`),
+  addDesigner: (cardId, userId) => api.post(`/tasks/cards/${cardId}/design/designers/${userId}`),
+  removeDesigner: (cardId, userId) => api.delete(`/tasks/cards/${cardId}/design/designers/${userId}`)
+}
+
+export const lookupApi = {
+  getProductTypes: () => api.get('/tasks/product-types'),
+  createProductType: (data) => api.post('/tasks/product-types', data),
+  updateProductType: (id, data) => api.put(`/tasks/product-types/${id}`, data),
+  deleteProductType: (id) => api.delete(`/tasks/product-types/${id}`),
+  getNiches: () => api.get('/tasks/niches'),
+  createNiche: (data) => api.post('/tasks/niches', data),
+  updateNiche: (id, data) => api.put(`/tasks/niches/${id}`, data),
+  deleteNiche: (id) => api.delete(`/tasks/niches/${id}`),
+  getOccasions: () => api.get('/tasks/occasions'),
+  createOccasion: (data) => api.post('/tasks/occasions', data),
+  updateOccasion: (id, data) => api.put(`/tasks/occasions/${id}`, data),
+  deleteOccasion: (id) => api.delete(`/tasks/occasions/${id}`)
+}
+
+export const designsApi = {
+  getAll: (params) => api.get('/tasks/designs', { params })
+}

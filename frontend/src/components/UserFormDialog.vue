@@ -104,6 +104,12 @@
               />
             </div>
 
+            <!-- Designs Manager -->
+            <div class="col-12">
+              <q-toggle v-model="form.designsManager" label="Designs Manager" dark color="teal-5" />
+              <div class="text-caption text-grey-6 q-ml-sm">Allow this user to see all designs in the Designs page</div>
+            </div>
+
             <!-- Password -->
             <div class="col-12">
               <q-input
@@ -176,7 +182,8 @@ const defaultForm = {
   dateOfBirth: null,
   status: 'PENDING',
   password: '',
-  roleId: null
+  roleId: null,
+  designsManager: false
 }
 
 const form = ref({ ...defaultForm })
@@ -242,7 +249,8 @@ watch(() => props.user, (u) => {
       dateOfBirth: u.dateOfBirth || null,
       status: u.status || 'PENDING',
       password: '',
-      roleId: u.role?.id || null
+      roleId: u.role?.id || null,
+      designsManager: u.designsManager || false
     }
     currentAvatarUrl.value = u.avatarUrl || null
   } else {

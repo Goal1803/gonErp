@@ -43,6 +43,7 @@ public class AuthController {
                 .avatarUrl(user.getAvatarUrl())
                 .role(user.getRole().getName().name())
                 .userId(user.getId())
+                .designsManager(user.isDesignsManager())
                 .build();
 
         return ResponseEntity.ok(ApiResponse.ok("Login successful", response));
@@ -58,6 +59,7 @@ public class AuthController {
                 .avatarUrl(user.getAvatarUrl())
                 .role(user.getRole().getName().name())
                 .userId(user.getId())
+                .designsManager(user.isDesignsManager())
                 .build();
         return ResponseEntity.ok(ApiResponse.ok(response));
     }

@@ -1,6 +1,7 @@
 package com.gonerp.taskmanager.dto;
 
 import com.gonerp.taskmanager.model.Board;
+import com.gonerp.taskmanager.model.enums.BoardType;
 import lombok.Builder;
 import lombok.Data;
 
@@ -13,6 +14,7 @@ public class BoardSummaryResponse {
     private String name;
     private String description;
     private String coverColor;
+    private BoardType boardType;
     private String ownerName;
     private Long ownerId;
     private int memberCount;
@@ -25,6 +27,7 @@ public class BoardSummaryResponse {
                 .name(board.getName())
                 .description(board.getDescription())
                 .coverColor(board.getCoverColor())
+                .boardType(board.getBoardType())
                 .ownerName(board.getOwner().getUserName())
                 .ownerId(board.getOwner().getId())
                 .memberCount(board.getMembers().size())

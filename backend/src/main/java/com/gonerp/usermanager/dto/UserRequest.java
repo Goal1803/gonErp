@@ -26,4 +26,6 @@ public class UserRequest {
 
     @NotNull(message = "Role ID is required")
     private Long roleId;
+
+    private Boolean designsManager;
 }

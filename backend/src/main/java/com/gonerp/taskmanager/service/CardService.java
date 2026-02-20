@@ -2,6 +2,7 @@ package com.gonerp.taskmanager.service;
 
 import com.gonerp.taskmanager.dto.*;
 import com.gonerp.taskmanager.model.*;
+import com.gonerp.taskmanager.model.enums.BoardType;
 import com.gonerp.taskmanager.model.enums.CardStatus;
 import com.gonerp.taskmanager.repository.*;
 import com.gonerp.taskmanager.websocket.BoardEventPublisher;
@@ -42,6 +43,7 @@ public class CardService {
     private final CardTypeRepository cardTypeRepository;
     private final CardMemberRepository cardMemberRepository;
     private final CommentReactionRepository commentReactionRepository;
+    private final DesignDetailRepository designDetailRepository;
     private final UserRepository userRepository;
     private final BoardEventPublisher eventPublisher;
 
@@ -78,7 +80,12 @@ public class CardService {
         Card card = getCardOrThrow(id);
         checkBoardAccess(card.getColumn());
         User currentUser = getCurrentUser();
-        return CardDetailResponse.from(card, currentUser.getId());
+        CardDetailResponse response = CardDetailResponse.from(card, currentUser.getId());
+        if (card.getColumn().getBoard().getBoardType() == BoardType.POD_DESIGN) {
+            designDetailRepository.findByCardId(id).ifPresent(dd ->
+                    response.setDesignDetail(DesignDetailResponse.from(dd)));
+        }
+        return response;
     }
 
     public CardDetailResponse create(Long columnId, CardRequest request) {
@@ -95,8 +102,18 @@ public class CardService {
                 .column(column)
                 .build();
         card = cardRepository.save(card);
-        String actor = getCurrentUser().getUserName();
+        User currentUser = getCurrentUser();
+        String actor = currentUser.getUserName();
         logActivity(card, actor + " created this card");
+
+        if (column.getBoard().getBoardType() == BoardType.POD_DESIGN) {
+            DesignDetail dd = DesignDetail.builder()
+                    .card(card)
+                    .seller(currentUser)
+                    .build();
+            designDetailRepository.save(dd);
+        }
+
         eventPublisher.publish(column.getBoard().getId(), "CARD_CREATED",
                 card.getId(), columnId, actor, CardSummaryResponse.from(card));
         return CardDetailResponse.from(card);
@@ -145,6 +162,20 @@ public class CardService {
         card.setStage(targetColumn.getTitle());
         card.setPosition(request.getPosition());
         cardRepository.save(card);
+
+        // Handle approvalDate for POD_DESIGN boards
+        if (card.getColumn().getBoard().getBoardType() == BoardType.POD_DESIGN) {
+            designDetailRepository.findByCardId(card.getId()).ifPresent(dd -> {
+                if ("Done".equals(targetColumn.getTitle()) && dd.getApprovalDate() == null) {
+                    dd.setApprovalDate(java.time.LocalDateTime.now());
+                    designDetailRepository.save(dd);
+                } else if (!"Done".equals(targetColumn.getTitle()) && dd.getApprovalDate() != null) {
+                    dd.setApprovalDate(null);
+                    designDetailRepository.save(dd);
+                }
+            });
+        }
+
         String actor = getCurrentUser().getUserName();
         if (!oldStage.equals(targetColumn.getTitle())) {
             logActivity(card, actor + " moved this card from \"" + oldStage + "\" to \"" + targetColumn.getTitle() + "\"");

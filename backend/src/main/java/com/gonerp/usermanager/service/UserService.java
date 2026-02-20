@@ -89,6 +89,7 @@ public class UserService implements UserDetailsService {
                 .status(request.getStatus() != null ? request.getStatus() : UserStatus.PENDING)
                 .password(passwordEncoder.encode(request.getPassword()))
                 .role(role)
+                .designsManager(request.getDesignsManager() != null && request.getDesignsManager())
                 .build();
 
         return UserResponse.from(userRepository.save(user));
@@ -117,6 +118,9 @@ public class UserService implements UserDetailsService {
             user.setPassword(passwordEncoder.encode(request.getPassword()));
         }
         user.setRole(role);
+        if (request.getDesignsManager() != null) {
+            user.setDesignsManager(request.getDesignsManager());
+        }
 
         return UserResponse.from(userRepository.save(user));
     }

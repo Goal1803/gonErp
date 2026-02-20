@@ -19,6 +19,7 @@ public class UserResponse {
     private UserStatus status;
     private String avatarUrl;
     private UserRoleResponse role;
+    private boolean designsManager;
     private LocalDateTime createdAt;
     private String createdBy;
     private LocalDateTime lastUpdatedAt;
@@ -34,6 +35,7 @@ public class UserResponse {
                 .status(user.getStatus())
                 .avatarUrl(user.getAvatarUrl())
                 .role(user.getRole() != null ? UserRoleResponse.from(user.getRole()) : null)
+                .designsManager(user.isDesignsManager())
                 .createdAt(user.getCreatedAt())
                 .createdBy(user.getCreatedBy())
                 .lastUpdatedAt(user.getLastUpdatedAt())

@@ -31,6 +31,7 @@ public class CardDetailResponse {
     private String createdBy;
     private LocalDateTime lastUpdatedAt;
     private String lastUpdatedBy;
+    private DesignDetailResponse designDetail;
 
     public static CardDetailResponse from(Card card) {
         return from(card, null);
