@@ -83,6 +83,7 @@
       :board-labels="boardStore.board?.labels || []"
       :board-types="boardStore.board?.types || []"
       :board-members="boardStore.board?.members || []"
+      :board-columns="boardStore.board?.columns || []"
       :external-update="cardExternalUpdate"
       @updated="refreshBoard"
       @dismiss-update="cardExternalUpdate = null"

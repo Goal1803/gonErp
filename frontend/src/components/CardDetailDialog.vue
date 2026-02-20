@@ -166,17 +166,34 @@
                   dark
                   dense
                   color="teal-5"
-                  @update:model-value="saveField('status', detail.status)"
                 />
               </div>
-              <div>
+              <div style="min-width: 160px">
                 <div class="sidebar-label">
                   <q-icon name="view_column" size="xs" /> Stage
                 </div>
-                <q-chip color="teal-9" text-color="teal-3" dense>{{
-                  detail.stage
-                }}</q-chip>
+                <q-select
+                  v-model="detail.columnId"
+                  :options="stageOptions"
+                  outlined
+                  dark
+                  dense
+                  color="teal-5"
+                  emit-value
+                  map-options
+                />
               </div>
+              <q-btn
+                v-if="hasStatusStageChanges"
+                label="Save"
+                color="teal-6"
+                unelevated
+                dense
+                size="sm"
+                :loading="savingStatusStage"
+                style="margin-bottom: 1px"
+                @click="saveStatusStage"
+              />
             </div>
 
             <!-- Labels -->
@@ -1059,6 +1076,7 @@ const props = defineProps({
   boardLabels: { type: Array, default: () => [] },
   boardTypes: { type: Array, default: () => [] },
   boardMembers: { type: Array, default: () => [] },
+  boardColumns: { type: Array, default: () => [] },
   externalUpdate: { type: Object, default: null }, // { actorName, type }
 });
 const emit = defineEmits(["update:modelValue", "updated", "dismiss-update"]);
@@ -1323,6 +1341,49 @@ onBeforeUnmount(() => {
 
 const statusOptions = ["OPEN", "IN_PROGRESS", "DONE", "BLOCKED", "CANCELLED"];
 
+const stageOptions = computed(() =>
+  props.boardColumns
+    .slice()
+    .sort((a, b) => a.position - b.position)
+    .map((col) => ({ label: col.title, value: col.id }))
+);
+
+// ─── Status / Stage save with button ─────────────────────────────────────────
+const originalStatus = ref(null);
+const originalColumnId = ref(null);
+const savingStatusStage = ref(false);
+
+const hasStatusStageChanges = computed(() =>
+  detail.value &&
+  (detail.value.status !== originalStatus.value ||
+   detail.value.columnId !== originalColumnId.value)
+);
+
+const saveStatusStage = async () => {
+  if (!detail.value || !hasStatusStageChanges.value) return;
+  savingStatusStage.value = true;
+  try {
+    // Save status if changed
+    if (detail.value.status !== originalStatus.value) {
+      await cardApi.update(detail.value.id, { status: detail.value.status });
+      originalStatus.value = detail.value.status;
+    }
+    // Move card if stage changed
+    if (detail.value.columnId !== originalColumnId.value) {
+      await cardApi.move(detail.value.id, { targetColumnId: detail.value.columnId, position: 0 });
+      const col = props.boardColumns.find((c) => c.id === detail.value.columnId);
+      if (col) detail.value.stage = col.title;
+      originalColumnId.value = detail.value.columnId;
+    }
+    emit("updated");
+  } catch {
+    $q.notify({ type: "negative", message: "Failed to save changes" });
+  } finally {
+    savingStatusStage.value = false;
+  }
+};
+// ─────────────────────────────────────────────────────────────────────────────
+
 const IMAGE_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp", "image/svg+xml"];
 const isImage = (att) => IMAGE_TYPES.includes(att.fileType?.toLowerCase());
 const imageAttachments = computed(() => {
@@ -1559,6 +1620,8 @@ watch(
       try {
         const res = await cardApi.getById(id);
         detail.value = res.data.data;
+        originalStatus.value = detail.value.status;
+        originalColumnId.value = detail.value.columnId;
         scheduleOverflowCheck();
         nextTick(setupDescResizeObserver);
       } catch {
@@ -1573,6 +1636,8 @@ const refreshDetail = async () => {
   try {
     const res = await cardApi.getById(detail.value.id);
     detail.value = res.data.data;
+    originalStatus.value = detail.value.status;
+    originalColumnId.value = detail.value.columnId;
     emit("dismiss-update");
   } catch {
     /* silent */
