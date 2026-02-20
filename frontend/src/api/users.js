@@ -15,7 +15,8 @@ export const userApi = {
   update: (id, data) => api.put(`/users/${id}`, data),
   delete: (id) => api.delete(`/users/${id}`),
   uploadAvatar: (id, formData) => api.post(`/users/${id}/avatar`, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 300000
   }),
   deleteAvatar: (id) => api.delete(`/users/${id}/avatar`)
 }

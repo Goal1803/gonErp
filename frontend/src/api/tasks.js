@@ -33,7 +33,8 @@ export const cardApi = {
   addComment: (id, content) => api.post(`/tasks/cards/${id}/comments`, { content }),
   deleteComment: (id, commentId) => api.delete(`/tasks/cards/${id}/comments/${commentId}`),
   uploadAttachment: (id, formData) => api.post(`/tasks/cards/${id}/attachments`, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 300000
   }),
   deleteAttachment: (id, attachmentId) => api.delete(`/tasks/cards/${id}/attachments/${attachmentId}`),
   addLabel: (id, labelId) => api.post(`/tasks/cards/${id}/labels/${labelId}`),

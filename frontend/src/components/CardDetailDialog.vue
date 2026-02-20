@@ -103,55 +103,100 @@
             @blur="saveField('description', detail.description)"
           />
 
-          <!-- Attachments -->
-          <div class="text-caption text-grey-5 q-mb-xs row items-center gap-2">
-            <q-icon name="attach_file" /> Attachments
-          </div>
-          <q-list dense class="q-mb-md">
-            <q-item v-for="att in detail.attachments" :key="att.id" dense>
-              <q-item-section avatar>
-                <q-icon name="insert_drive_file" color="teal-4" />
-              </q-item-section>
-              <q-item-section>
-                <a
-                  :href="att.url"
-                  target="_blank"
-                  class="text-teal-4"
-                  style="text-decoration: none"
-                  >{{ att.name }}</a
-                >
-                <q-item-label caption class="text-grey-6"
-                  >{{ att.fileType }} · {{ att.createdBy }}</q-item-label
-                >
-              </q-item-section>
-              <q-item-section side>
-                <q-btn
-                  flat
-                  round
-                  dense
-                  icon="delete"
-                  color="red-4"
-                  size="xs"
-                  @click="deleteAttachment(att)"
+          <!-- Images -->
+          <div class="q-mb-md">
+            <div class="text-caption text-grey-5 q-mb-xs row items-center gap-2">
+              <q-icon name="image" /> Images
+            </div>
+            <div v-if="imageAttachments.length" class="image-grid q-mb-sm">
+              <div
+                v-for="img in imageAttachments"
+                :key="img.id"
+                class="image-thumb-wrap"
+              >
+                <img
+                  :src="img.url"
+                  class="image-thumb"
+                  @click.stop="lightboxUrl = img.url"
                 />
-              </q-item-section>
-            </q-item>
-          </q-list>
-          <q-file
-            v-model="attachFile"
-            outlined
-            dark
-            color="teal-5"
-            dense
-            label="Attach a file"
-            accept="*/*"
-            class="q-mb-lg"
-            @update:model-value="uploadAttachment"
-          >
-            <template #prepend
-              ><q-icon name="upload" color="grey-5"
-            /></template>
-          </q-file>
+                <div class="image-thumb-actions">
+                  <q-btn
+                    flat round dense icon="download" color="white" size="xs"
+                    @click.stop="downloadFile(img.url, img.name)"
+                  />
+                  <q-btn
+                    flat round dense icon="close" color="red-4" size="xs"
+                    @click.stop="deleteAttachment(img)"
+                  />
+                </div>
+                <div class="image-thumb-name text-grey-5">{{ img.name }}</div>
+              </div>
+            </div>
+            <q-file
+              v-model="imageFile"
+              outlined
+              dark
+              color="teal-5"
+              dense
+              label="Upload image"
+              accept="image/*"
+              @update:model-value="uploadAttachment"
+            >
+              <template #prepend
+                ><q-icon name="add_photo_alternate" color="grey-5"
+              /></template>
+            </q-file>
+          </div>
+
+          <!-- Files -->
+          <div class="q-mb-lg">
+            <div class="text-caption text-grey-5 q-mb-xs row items-center gap-2">
+              <q-icon name="attach_file" /> Files
+            </div>
+            <q-list v-if="fileAttachments.length" dense class="q-mb-sm">
+              <q-item v-for="att in fileAttachments" :key="att.id" dense>
+                <q-item-section avatar>
+                  <q-icon name="insert_drive_file" color="teal-4" />
+                </q-item-section>
+                <q-item-section>
+                  <a
+                    :href="att.url"
+                    target="_blank"
+                    class="text-teal-4"
+                    style="text-decoration: none"
+                    >{{ att.name }}</a
+                  >
+                  <q-item-label caption class="text-grey-6"
+                    >{{ att.fileType }} · {{ att.createdBy }}</q-item-label
+                  >
+                </q-item-section>
+                <q-item-section side>
+                  <q-btn
+                    flat
+                    round
+                    dense
+                    icon="delete"
+                    color="red-4"
+                    size="xs"
+                    @click="deleteAttachment(att)"
+                  />
+                </q-item-section>
+              </q-item>
+            </q-list>
+            <q-file
+              v-model="attachFile"
+              outlined
+              dark
+              color="teal-5"
+              dense
+              label="Attach a file"
+              @update:model-value="uploadAttachment"
+            >
+              <template #prepend
+                ><q-icon name="upload_file" color="grey-5"
+              /></template>
+            </q-file>
+          </div>
 
           <!-- Comments -->
           <div class="text-caption text-grey-5 q-mb-sm row items-center gap-2">
@@ -791,6 +836,27 @@
         <q-spinner color="teal-5" size="40px" />
       </div>
     </q-card>
+
+    <!-- Image lightbox -->
+    <q-dialog v-model="showLightbox" maximized transition-show="fade" transition-hide="fade">
+      <div class="lightbox-backdrop" @click="lightboxUrl = null">
+        <img :src="lightboxUrl" class="lightbox-img" @click.stop />
+        <div class="lightbox-toolbar" @click.stop>
+          <q-btn
+            flat round dense icon="download" color="white" size="md"
+            @click="downloadFile(lightboxUrl, lightboxFilename)"
+          >
+            <q-tooltip>Download</q-tooltip>
+          </q-btn>
+          <q-btn
+            flat round dense icon="close" color="white" size="md"
+            @click="lightboxUrl = null"
+          >
+            <q-tooltip>Close</q-tooltip>
+          </q-btn>
+        </div>
+      </div>
+    </q-dialog>
   </q-dialog>
 </template>
 
@@ -854,9 +920,39 @@ const detail = ref(null);
 const newComment = ref("");
 const sendingComment = ref(false);
 const attachFile = ref(null);
+const imageFile = ref(null);
 const coverFile = ref(null);
 
 const statusOptions = ["OPEN", "IN_PROGRESS", "DONE", "BLOCKED", "CANCELLED"];
+
+const IMAGE_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/gif", "image/webp", "image/svg+xml"];
+const isImage = (att) => IMAGE_TYPES.includes(att.fileType?.toLowerCase());
+const imageAttachments = computed(() => detail.value?.attachments?.filter(isImage) || []);
+const fileAttachments = computed(() => detail.value?.attachments?.filter((a) => !isImage(a)) || []);
+const lightboxUrl = ref(null);
+const showLightbox = computed({
+  get: () => !!lightboxUrl.value,
+  set: (v) => { if (!v) lightboxUrl.value = null; },
+});
+const lightboxFilename = computed(() => {
+  if (!lightboxUrl.value) return "image";
+  const img = imageAttachments.value.find((a) => a.url === lightboxUrl.value);
+  return img?.name || lightboxUrl.value.split("/").pop();
+});
+
+const downloadFile = async (url, filename) => {
+  try {
+    const res = await fetch(url);
+    const blob = await res.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = filename || url.split("/").pop();
+    a.click();
+    URL.revokeObjectURL(a.href);
+  } catch {
+    $q.notify({ type: "negative", message: "Download failed" });
+  }
+};
 
 // ─── Label management state ───────────────────────────────────────────────────
 // Local copy of board labels so we can push newly created ones immediately
@@ -1076,6 +1172,7 @@ const uploadAttachment = async (file) => {
     const res = await cardApi.uploadAttachment(detail.value.id, fd);
     detail.value.attachments.push(res.data.data);
     attachFile.value = null;
+    imageFile.value = null;
   } catch {
     $q.notify({ type: "negative", message: "Upload failed" });
   }
@@ -1220,5 +1317,75 @@ const removeMember = async (user) => {
 /* Label row hover */
 .label-row:hover {
   background: rgba(255, 255, 255, 0.05);
+}
+
+/* Image thumbnails grid */
+.image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 8px;
+}
+.image-thumb-wrap {
+  position: relative;
+}
+.image-thumb {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.15s;
+}
+.image-thumb:hover {
+  opacity: 0.85;
+  transform: scale(1.03);
+}
+.image-thumb-actions {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.image-thumb-actions .q-btn {
+  background: rgba(0, 0, 0, 0.6);
+}
+.image-thumb-wrap:hover .image-thumb-actions {
+  opacity: 1;
+}
+.image-thumb-name {
+  font-size: 0.68rem;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Lightbox */
+.lightbox-backdrop {
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: zoom-out;
+}
+.lightbox-img {
+  max-width: 90vw;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: 6px;
+  cursor: default;
+}
+.lightbox-toolbar {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  gap: 8px;
 }
 </style>
