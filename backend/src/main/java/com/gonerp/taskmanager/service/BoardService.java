@@ -75,7 +75,29 @@ public class BoardService {
                 .stream().map(LabelResponse::from).toList();
         List<TypeResponse> types = cardTypeRepository.findByBoardId(id)
                 .stream().map(TypeResponse::from).toList();
-        return BoardResponse.from(board, labels, types);
+
+        BoardResponse response = BoardResponse.from(board, labels, types);
+
+        // Regular members only see cards they are a member of;
+        // system admins, board owners, and board admins see all cards.
+        if (!isSystemAdmin()) {
+            User user = getCurrentUser();
+            boolean isBoardOwner = board.getOwner().getId().equals(user.getId());
+            boolean isBoardAdmin = boardMemberRepository.findByBoardIdAndUserId(id, user.getId())
+                    .map(m -> m.getRole() == BoardMemberRole.ADMIN || m.getRole() == BoardMemberRole.OWNER)
+                    .orElse(false);
+            if (!isBoardOwner && !isBoardAdmin) {
+                Long uid = user.getId();
+                for (ColumnResponse col : response.getColumns()) {
+                    col.setCards(col.getCards().stream()
+                            .filter(card -> card.getMembers() != null &&
+                                    card.getMembers().stream().anyMatch(m -> m.getId().equals(uid)))
+                            .toList());
+                }
+            }
+        }
+
+        return response;
     }
 
     public BoardSummaryResponse create(BoardRequest request) {
