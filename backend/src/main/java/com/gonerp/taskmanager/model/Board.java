@@ -1,6 +1,7 @@
 package com.gonerp.taskmanager.model;
 
 import com.gonerp.common.BaseModel;
+import com.gonerp.organization.model.Organization;
 import com.gonerp.taskmanager.model.enums.BoardType;
 import com.gonerp.usermanager.model.User;
 import jakarta.persistence.*;
@@ -53,4 +54,8 @@ public class Board extends BaseModel {
     @OneToMany(mappedBy = "board", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<BoardMember> members = new ArrayList<>();
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "organization_id")
+    private Organization organization;
 }

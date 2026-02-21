@@ -38,7 +38,7 @@ class UserControllerTest {
     void findAll_asAdmin_returnsUsers() throws Exception {
         UserResponse user = UserResponse.builder()
                 .id(1L).userName("john").firstName("John").status(UserStatus.ACTIVE).build();
-        when(userService.findAll(any(), any(), any())).thenReturn(new PageImpl<>(List.of(user)));
+        when(userService.findAll(any(), any(), any(), any())).thenReturn(new PageImpl<>(List.of(user)));
 
         mockMvc.perform(get("/api/users"))
                 .andExpect(status().isOk())

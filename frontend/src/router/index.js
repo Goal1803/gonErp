@@ -34,31 +34,49 @@ const routes = [
         path: 'images',
         name: 'images',
         component: () => import('pages/ImageManagerPage.vue'),
-        meta: { title: 'Image Manager' }
+        meta: { title: 'Image Manager', requiresModule: 'hasImageManager' }
       },
       {
         path: 'tasks',
         name: 'tasks',
         component: () => import('pages/TaskManagerPage.vue'),
-        meta: { title: 'Task Manager' }
+        meta: { title: 'Task Manager', requiresModule: 'hasTaskManager' }
       },
       {
         path: 'tasks/:boardId',
         name: 'board',
         component: () => import('pages/BoardPage.vue'),
-        meta: { title: 'Board' }
+        meta: { title: 'Board', requiresModule: 'hasTaskManager' }
       },
       {
         path: 'designs',
         name: 'designs',
         component: () => import('pages/DesignsPage.vue'),
-        meta: { title: 'Designs' }
+        meta: { title: 'Designs', requiresModule: 'hasDesigns' }
       },
       {
         path: 'admin/lookups',
         name: 'lookups',
         component: () => import('pages/LookupManagerPage.vue'),
         meta: { title: 'Lookups', requiresAdmin: true }
+      },
+      {
+        path: 'organizations',
+        name: 'organizations',
+        component: () => import('pages/OrganizationManagerPage.vue'),
+        meta: { title: 'Organizations', requiresSuperAdmin: true }
+      },
+      {
+        path: 'organization-types',
+        name: 'organizationTypes',
+        component: () => import('pages/OrgTypeManagerPage.vue'),
+        meta: { title: 'Organization Types', requiresSuperAdmin: true }
+      },
+      {
+        path: 'org-structure',
+        name: 'orgStructure',
+        component: () => import('pages/OrgStructurePage.vue'),
+        meta: { title: 'Organization Structure', requiresAdmin: true }
       }
     ]
   },
@@ -86,7 +104,15 @@ export default route(function () {
       return next('/dashboard')
     }
 
+    if (to.meta.requiresSuperAdmin && !authStore.isSuperAdmin) {
+      return next('/dashboard')
+    }
+
     if (to.meta.requiresAdmin && !authStore.isAdmin) {
+      return next('/dashboard')
+    }
+
+    if (to.meta.requiresModule && !authStore[to.meta.requiresModule]) {
       return next('/dashboard')
     }
 

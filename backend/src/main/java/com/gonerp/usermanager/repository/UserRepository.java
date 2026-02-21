@@ -21,6 +21,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("""
         SELECT u FROM User u
         WHERE (:status IS NULL OR u.status = :status)
+          AND (:organizationId IS NULL OR u.organization.id = :organizationId)
           AND (:search IS NULL OR :search = ''
               OR LOWER(u.userName) LIKE LOWER(CONCAT('%', :search, '%'))
               OR LOWER(u.firstName) LIKE LOWER(CONCAT('%', :search, '%'))
@@ -28,7 +29,26 @@ public interface UserRepository extends JpaRepository<User, Long> {
         """)
     Page<User> findAllWithFilters(
             @Param("status") UserStatus status,
+            @Param("organizationId") Long organizationId,
             @Param("search") String search,
             Pageable pageable
     );
+
+    @Query("""
+        SELECT u FROM User u
+        WHERE u.organization.id = :orgId
+          AND (:status IS NULL OR u.status = :status)
+          AND (:search IS NULL OR :search = ''
+              OR LOWER(u.userName) LIKE LOWER(CONCAT('%', :search, '%'))
+              OR LOWER(u.firstName) LIKE LOWER(CONCAT('%', :search, '%'))
+              OR LOWER(u.lastName) LIKE LOWER(CONCAT('%', :search, '%')))
+        """)
+    Page<User> findAllByOrganizationWithFilters(
+            @Param("orgId") Long orgId,
+            @Param("status") UserStatus status,
+            @Param("search") String search,
+            Pageable pageable
+    );
+
+    long countByOrganizationId(Long organizationId);
 }

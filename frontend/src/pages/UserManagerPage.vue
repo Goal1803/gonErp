@@ -38,6 +38,21 @@
             </template>
           </q-input>
         </div>
+        <div v-if="authStore.isSuperAdmin" class="col-xs-12 col-sm-3">
+          <q-select
+            v-model="filter.organizationId"
+            :options="orgFilterOptions"
+            label="Filter by Organization"
+            outlined
+            dense
+            dark
+            color="green-5"
+            clearable
+            emit-value
+            map-options
+            @update:model-value="loadUsers"
+          />
+        </div>
         <div class="col-xs-12 col-sm-3">
           <q-select
             v-model="filter.status"
@@ -67,7 +82,7 @@
     <!-- Users Table -->
     <q-table
       :rows="users"
-      :columns="columns"
+      :columns="computedColumns"
       :loading="loading"
       :pagination="pagination"
       row-key="id"
@@ -103,10 +118,40 @@
             dense
             square
             :label="props.row.role?.name"
-            :color="props.row.role?.name === 'ADMIN' ? 'green-9' : 'grey-9'"
+            :color="roleColor(props.row.role?.name)"
             text-color="white"
             size="sm"
           />
+        </q-td>
+      </template>
+
+      <template #body-cell-organizationName="props">
+        <q-td :props="props">
+          {{ props.value || '-' }}
+        </q-td>
+      </template>
+
+      <template #body-cell-staffRoles="props">
+        <q-td :props="props">
+          <q-chip v-for="r in (props.row.staffRoles || [])" :key="r" dense size="sm"
+            color="teal-9" text-color="white" :label="r" class="q-mr-xs" />
+          <span v-if="!props.row.staffRoles?.length" class="text-grey-7">-</span>
+        </q-td>
+      </template>
+
+      <template #body-cell-departments="props">
+        <q-td :props="props">
+          <q-chip v-for="d in (props.row.departments || [])" :key="d" dense size="sm"
+            color="blue-9" text-color="white" :label="d" class="q-mr-xs" />
+          <span v-if="!props.row.departments?.length" class="text-grey-7">-</span>
+        </q-td>
+      </template>
+
+      <template #body-cell-userGroups="props">
+        <q-td :props="props">
+          <q-chip v-for="g in (props.row.userGroups || [])" :key="g" dense size="sm"
+            color="purple-9" text-color="white" :label="g" class="q-mr-xs" />
+          <span v-if="!props.row.userGroups?.length" class="text-grey-7">-</span>
         </q-td>
       </template>
 
@@ -157,27 +202,38 @@
       v-model="dialog.show"
       :user="dialog.user"
       :roles="roles"
+      :staff-roles-options="staffRolesOptions"
+      :departments-options="departmentsOptions"
+      :user-groups-options="userGroupsOptions"
       @saved="onUserSaved"
     />
   </q-page>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useQuasar } from 'quasar'
+import { useAuthStore } from 'src/stores/authStore'
 import { userApi, userRoleApi } from 'src/api/users'
+import { orgApi, orgStructureApi } from 'src/api/organizations'
 import UserFormDialog from 'src/components/UserFormDialog.vue'
 import UserAvatar from 'src/components/UserAvatar.vue'
 
 const $q = useQuasar()
+const authStore = useAuthStore()
 
 const users = ref([])
 const roles = ref([])
 const loading = ref(false)
+const staffRolesOptions = ref([])
+const departmentsOptions = ref([])
+const userGroupsOptions = ref([])
+const organizations = ref([])
 
 const filter = ref({
   search: '',
-  status: null
+  status: null,
+  organizationId: null
 })
 
 const pagination = ref({
@@ -194,19 +250,41 @@ const statusOptions = [
   { label: 'Deleted', value: 'DELETED' }
 ]
 
-const columns = [
+const orgFilterOptions = computed(() =>
+  organizations.value.map(o => ({ label: o.name, value: o.id }))
+)
+
+const baseColumns = [
   { name: 'id', label: 'ID', field: 'id', sortable: true, align: 'left', style: 'width: 60px' },
   { name: 'avatar', label: '', field: 'avatarUrl', align: 'center', style: 'width: 48px' },
   { name: 'userName', label: 'Username', field: 'userName', sortable: true, align: 'left' },
   { name: 'firstName', label: 'First Name', field: 'firstName', sortable: true, align: 'left' },
-  { name: 'lastName', label: 'Last Name', field: 'lastName', sortable: true, align: 'left' },
-  { name: 'dateOfBirth', label: 'Date of Birth', field: 'dateOfBirth', align: 'left' },
-  { name: 'role', label: 'Role', field: 'role', align: 'left' },
-  { name: 'status', label: 'Status', field: 'status', sortable: true, align: 'left' },
-  { name: 'actions', label: 'Actions', field: 'actions', align: 'center' }
+  { name: 'lastName', label: 'Last Name', field: 'lastName', sortable: true, align: 'left' }
 ]
 
+const computedColumns = computed(() => {
+  const cols = [...baseColumns]
+  if (authStore.isSuperAdmin) {
+    cols.push({ name: 'organizationName', label: 'Organization', field: 'organizationName', align: 'left' })
+  }
+  cols.push(
+    { name: 'role', label: 'Role', field: 'role', align: 'left' },
+    { name: 'staffRoles', label: 'Staff Roles', field: 'staffRoles', align: 'left' },
+    { name: 'departments', label: 'Departments', field: 'departments', align: 'left' },
+    { name: 'userGroups', label: 'User Groups', field: 'userGroups', align: 'left' },
+    { name: 'status', label: 'Status', field: 'status', sortable: true, align: 'left' },
+    { name: 'actions', label: 'Actions', field: 'actions', align: 'center' }
+  )
+  return cols
+})
+
 const dialog = ref({ show: false, user: null })
+
+const roleColor = (name) => {
+  if (name === 'SUPER_ADMIN') return 'purple-9'
+  if (name === 'ADMIN') return 'green-9'
+  return 'grey-9'
+}
 
 const formatDate = (date) => {
   if (!date) return '-'
@@ -223,6 +301,7 @@ const loadUsers = async () => {
       sortDir: pagination.value.descending ? 'desc' : 'asc'
     }
     if (filter.value.status) params.status = filter.value.status
+    if (filter.value.organizationId) params.organizationId = filter.value.organizationId
     if (filter.value.search) params.search = filter.value.search
 
     const res = await userApi.getAll(params)
@@ -242,6 +321,32 @@ const loadRoles = async () => {
     roles.value = res.data.data
   } catch {
     $q.notify({ type: 'negative', message: 'Failed to load roles' })
+  }
+}
+
+const loadOrganizations = async () => {
+  if (!authStore.isSuperAdmin) return
+  try {
+    const res = await orgApi.getAll()
+    organizations.value = res.data.data || []
+  } catch {
+    // Organizations list is optional for filtering
+  }
+}
+
+const loadStructureOptions = async () => {
+  if (authStore.isSuperAdmin) return
+  try {
+    const [sr, dept, ug] = await Promise.all([
+      orgStructureApi.getStaffRoles(),
+      orgStructureApi.getDepartments(),
+      orgStructureApi.getUserGroups()
+    ])
+    staffRolesOptions.value = sr.data.data || []
+    departmentsOptions.value = dept.data.data || []
+    userGroupsOptions.value = ug.data.data || []
+  } catch {
+    // Structure options are optional
   }
 }
 
@@ -285,5 +390,7 @@ const onUserSaved = () => {
 onMounted(() => {
   loadUsers()
   loadRoles()
+  loadOrganizations()
+  loadStructureOptions()
 })
 </script>

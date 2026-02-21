@@ -1,5 +1,7 @@
 package com.gonerp.taskmanager.service;
 
+import com.gonerp.common.OrgContext;
+import com.gonerp.organization.model.Organization;
 import com.gonerp.taskmanager.dto.*;
 import com.gonerp.taskmanager.model.*;
 import com.gonerp.taskmanager.model.enums.BoardMemberRole;
@@ -40,8 +42,9 @@ public class BoardService {
     }
 
     private boolean isSystemAdmin() {
-        return SecurityContextHolder.getContext().getAuthentication().getAuthorities()
-                .stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        var authorities = SecurityContextHolder.getContext().getAuthentication().getAuthorities();
+        return authorities.stream().anyMatch(a ->
+                a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ROLE_SUPER_ADMIN"));
     }
 
     private Board getBoardOrThrow(Long id) {
@@ -69,9 +72,19 @@ public class BoardService {
 
     public List<BoardSummaryResponse> findAll() {
         User user = getCurrentUser();
-        List<Board> boards = isSystemAdmin()
-                ? boardRepository.findAllWithOwner()
-                : boardRepository.findAllVisibleToUser(user.getId());
+        if (OrgContext.isSuperAdmin()) {
+            return boardRepository.findAllWithOwner().stream()
+                    .map(BoardSummaryResponse::from).toList();
+        }
+        Organization org = user.getOrganization();
+        List<Board> boards;
+        if (isSystemAdmin() && org != null) {
+            boards = boardRepository.findAllByOrganizationId(org.getId());
+        } else if (org != null) {
+            boards = boardRepository.findAllVisibleToUserInOrg(user.getId(), org.getId());
+        } else {
+            boards = boardRepository.findAllVisibleToUser(user.getId());
+        }
         return boards.stream().map(BoardSummaryResponse::from).toList();
     }
 
@@ -121,6 +134,7 @@ public class BoardService {
                 .coverColor(request.getCoverColor() != null ? request.getCoverColor() : "#2E7D32")
                 .boardType(boardType)
                 .owner(user)
+                .organization(user.getOrganization())
                 .build();
         board = boardRepository.save(board);
         BoardMember ownerMember = BoardMember.builder()

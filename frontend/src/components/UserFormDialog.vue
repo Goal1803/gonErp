@@ -110,6 +110,42 @@
               <div class="text-caption text-grey-6 q-ml-sm">Allow this user to see all designs in the Designs page</div>
             </div>
 
+            <!-- Staff Roles Assignment -->
+            <div class="col-12" v-if="staffRolesOptions.length">
+              <q-select
+                v-model="form.staffRoleIds"
+                :options="staffRoleSelectOptions"
+                label="Staff Roles"
+                outlined dark color="green-5"
+                multiple emit-value map-options
+                use-chips
+              />
+            </div>
+
+            <!-- Departments Assignment -->
+            <div class="col-12" v-if="departmentsOptions.length">
+              <q-select
+                v-model="form.departmentIds"
+                :options="departmentSelectOptions"
+                label="Departments"
+                outlined dark color="green-5"
+                multiple emit-value map-options
+                use-chips
+              />
+            </div>
+
+            <!-- User Groups Assignment -->
+            <div class="col-12" v-if="userGroupsOptions.length">
+              <q-select
+                v-model="form.userGroupIds"
+                :options="userGroupSelectOptions"
+                label="User Groups"
+                outlined dark color="green-5"
+                multiple emit-value map-options
+                use-chips
+              />
+            </div>
+
             <!-- Password -->
             <div class="col-12">
               <q-input
@@ -153,12 +189,16 @@
 import { ref, computed, watch } from 'vue'
 import { useQuasar } from 'quasar'
 import { userApi } from 'src/api/users'
+import { orgStructureApi } from 'src/api/organizations'
 import UserAvatar from 'src/components/UserAvatar.vue'
 
 const props = defineProps({
   modelValue: Boolean,
   user: { type: Object, default: null },
-  roles: { type: Array, default: () => [] }
+  roles: { type: Array, default: () => [] },
+  staffRolesOptions: { type: Array, default: () => [] },
+  departmentsOptions: { type: Array, default: () => [] },
+  userGroupsOptions: { type: Array, default: () => [] }
 })
 
 const emit = defineEmits(['update:modelValue', 'saved'])
@@ -183,7 +223,10 @@ const defaultForm = {
   status: 'PENDING',
   password: '',
   roleId: null,
-  designsManager: false
+  designsManager: false,
+  staffRoleIds: [],
+  departmentIds: [],
+  userGroupIds: []
 }
 
 const form = ref({ ...defaultForm })
@@ -198,6 +241,18 @@ const avatarUser = computed(() => ({
   avatarUrl: currentAvatarUrl.value,
   id: props.user?.id
 }))
+
+const staffRoleSelectOptions = computed(() =>
+  props.staffRolesOptions.map(r => ({ label: r.name, value: r.id }))
+)
+
+const departmentSelectOptions = computed(() =>
+  props.departmentsOptions.map(d => ({ label: d.name, value: d.id }))
+)
+
+const userGroupSelectOptions = computed(() =>
+  props.userGroupsOptions.map(g => ({ label: g.name, value: g.id }))
+)
 
 const onAvatarSelected = async (e) => {
   const file = e.target.files?.[0]
@@ -240,6 +295,14 @@ const roleOptions = computed(() =>
   props.roles.map(r => ({ label: r.name, value: r.id }))
 )
 
+// Helper to find IDs from names
+const findIdsByNames = (names, options) => {
+  if (!names || !options) return []
+  return options
+    .filter(o => names.includes(o.name))
+    .map(o => o.id)
+}
+
 watch(() => props.user, (u) => {
   if (u) {
     form.value = {
@@ -250,30 +313,79 @@ watch(() => props.user, (u) => {
       status: u.status || 'PENDING',
       password: '',
       roleId: u.role?.id || null,
-      designsManager: u.designsManager || false
+      designsManager: u.designsManager || false,
+      staffRoleIds: findIdsByNames(u.staffRoles, props.staffRolesOptions),
+      departmentIds: findIdsByNames(u.departments, props.departmentsOptions),
+      userGroupIds: findIdsByNames(u.userGroups, props.userGroupsOptions)
     }
     currentAvatarUrl.value = u.avatarUrl || null
   } else {
-    form.value = { ...defaultForm }
+    form.value = { ...defaultForm, staffRoleIds: [], departmentIds: [], userGroupIds: [] }
     currentAvatarUrl.value = null
   }
 }, { immediate: true })
 
+const syncAssignments = async (userId) => {
+  if (!props.staffRolesOptions.length) return
+
+  const currentSR = findIdsByNames(props.user?.staffRoles, props.staffRolesOptions)
+  const currentDept = findIdsByNames(props.user?.departments, props.departmentsOptions)
+  const currentUG = findIdsByNames(props.user?.userGroups, props.userGroupsOptions)
+
+  // Staff Roles
+  const toAddSR = form.value.staffRoleIds.filter(id => !currentSR.includes(id))
+  const toRemoveSR = currentSR.filter(id => !form.value.staffRoleIds.includes(id))
+  for (const id of toAddSR) await orgStructureApi.assignStaffRole(userId, id)
+  for (const id of toRemoveSR) await orgStructureApi.removeStaffRole(userId, id)
+
+  // Departments
+  const toAddDept = form.value.departmentIds.filter(id => !currentDept.includes(id))
+  const toRemoveDept = currentDept.filter(id => !form.value.departmentIds.includes(id))
+  for (const id of toAddDept) await orgStructureApi.assignDepartment(userId, id)
+  for (const id of toRemoveDept) await orgStructureApi.removeDepartment(userId, id)
+
+  // User Groups
+  const toAddUG = form.value.userGroupIds.filter(id => !currentUG.includes(id))
+  const toRemoveUG = currentUG.filter(id => !form.value.userGroupIds.includes(id))
+  for (const id of toAddUG) await orgStructureApi.assignUserGroup(userId, id)
+  for (const id of toRemoveUG) await orgStructureApi.removeUserGroup(userId, id)
+}
+
 const handleSubmit = async () => {
   saving.value = true
   try {
-    const payload = { ...form.value }
-    if (isEdit.value && !payload.password) {
-      delete payload.password
+    const payload = {
+      userName: form.value.userName,
+      firstName: form.value.firstName,
+      lastName: form.value.lastName,
+      dateOfBirth: form.value.dateOfBirth,
+      status: form.value.status,
+      roleId: form.value.roleId,
+      designsManager: form.value.designsManager
+    }
+    if (form.value.password) {
+      payload.password = form.value.password
     }
 
+    let userId
     if (isEdit.value) {
       await userApi.update(props.user.id, payload)
+      userId = props.user.id
       $q.notify({ type: 'positive', message: 'User updated successfully' })
     } else {
-      await userApi.create(payload)
+      if (!payload.password) {
+        $q.notify({ type: 'negative', message: 'Password is required' })
+        saving.value = false
+        return
+      }
+      const res = await userApi.create(payload)
+      userId = res.data.data.id
       $q.notify({ type: 'positive', message: 'User created successfully' })
     }
+
+    // Sync structure assignments
+    await syncAssignments(userId)
+
     emit('saved')
   } catch (err) {
     const msg = err.response?.data?.message || 'Operation failed'

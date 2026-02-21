@@ -28,7 +28,7 @@
             dense
             square
             :label="authStore.currentUser?.role"
-            :color="authStore.isAdmin ? 'green-8' : 'grey-8'"
+            :color="roleChipColor"
             text-color="white"
             class="text-weight-medium"
           />
@@ -74,8 +74,12 @@
       <div class="q-pa-md flex items-center gap-2" style="border-bottom: 1px solid rgba(46,125,50,0.2)">
         <q-icon name="business" color="green-5" size="md" />
         <div>
-          <div class="text-weight-bold text-white" style="font-size: 0.85rem">gonERP System</div>
-          <div class="text-caption text-grey-5">Enterprise Resource Planning</div>
+          <div class="text-weight-bold text-white" style="font-size: 0.85rem">
+            {{ authStore.isSuperAdmin ? 'gonERP Platform' : (authStore.organizationName || 'gonERP System') }}
+          </div>
+          <div class="text-caption text-grey-5">
+            {{ authStore.isSuperAdmin ? 'Super Admin Console' : 'Enterprise Resource Planning' }}
+          </div>
         </div>
       </div>
 
@@ -100,6 +104,31 @@
               <q-item-label>Dashboard</q-item-label>
             </q-item-section>
           </q-item>
+
+          <!-- Platform Section (SUPER_ADMIN only) -->
+          <template v-if="authStore.isSuperAdmin">
+            <q-item-label header class="text-grey-6 text-uppercase text-caption q-mb-xs q-mt-sm">
+              Platform
+            </q-item-label>
+
+            <q-item clickable v-ripple to="/organizations" exact class="rounded-borders q-mb-xs">
+              <q-item-section avatar>
+                <q-icon name="corporate_fare" />
+              </q-item-section>
+              <q-item-section>
+                <q-item-label>Organizations</q-item-label>
+              </q-item-section>
+            </q-item>
+
+            <q-item clickable v-ripple to="/organization-types" exact class="rounded-borders q-mb-xs">
+              <q-item-section avatar>
+                <q-icon name="account_tree" />
+              </q-item-section>
+              <q-item-section>
+                <q-item-label>Organization Types</q-item-label>
+              </q-item-section>
+            </q-item>
+          </template>
 
           <!-- Admin Section -->
           <q-item-label
@@ -142,12 +171,29 @@
             </q-item-section>
           </q-item>
 
+          <!-- Organization Section (ADMIN only, not SUPER_ADMIN) -->
+          <template v-if="authStore.isAdmin && !authStore.isSuperAdmin">
+            <q-item-label header class="text-grey-6 text-uppercase text-caption q-mb-xs q-mt-sm">
+              Organization
+            </q-item-label>
+
+            <q-item clickable v-ripple to="/org-structure" exact class="rounded-borders q-mb-xs">
+              <q-item-section avatar>
+                <q-icon name="account_tree" />
+              </q-item-section>
+              <q-item-section>
+                <q-item-label>Org Structure</q-item-label>
+              </q-item-section>
+            </q-item>
+          </template>
+
           <!-- Content Section -->
           <q-item-label header class="text-grey-6 text-uppercase text-caption q-mb-xs q-mt-sm">
             Content
           </q-item-label>
 
           <q-item
+            v-if="authStore.hasImageManager"
             clickable
             v-ripple
             to="/images"
@@ -164,6 +210,7 @@
 
           <!-- Task Manager -->
           <q-item
+            v-if="authStore.hasTaskManager"
             clickable
             v-ripple
             to="/tasks"
@@ -179,6 +226,7 @@
 
           <!-- Designs -->
           <q-item
+            v-if="authStore.hasDesigns"
             clickable
             v-ripple
             to="/designs"
@@ -233,7 +281,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from 'src/stores/authStore'
 import { useQuasar } from 'quasar'
@@ -248,6 +296,12 @@ const leftDrawerOpen = ref(true)
 const toggleLeftDrawer = () => {
   leftDrawerOpen.value = !leftDrawerOpen.value
 }
+
+const roleChipColor = computed(() => {
+  if (authStore.isSuperAdmin) return 'purple-8'
+  if (authStore.currentUser?.role === 'ADMIN') return 'green-8'
+  return 'grey-8'
+})
 
 const comingSoon = [
   { label: 'Finance', icon: 'account_balance' },

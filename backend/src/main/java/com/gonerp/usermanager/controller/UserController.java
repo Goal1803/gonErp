@@ -26,7 +26,7 @@ import java.nio.file.Paths;
 @RestController
 @RequestMapping("/api/users")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
 public class UserController {
 
     private final UserService userService;
@@ -34,6 +34,7 @@ public class UserController {
     @GetMapping
     public ResponseEntity<ApiResponse<Page<UserResponse>>> findAll(
             @RequestParam(required = false) UserStatus status,
+            @RequestParam(required = false) Long organizationId,
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
@@ -45,7 +46,7 @@ public class UserController {
                 : Sort.by(sortBy).ascending();
         PageRequest pageable = PageRequest.of(page, size, sort);
 
-        return ResponseEntity.ok(ApiResponse.ok(userService.findAll(status, search, pageable)));
+        return ResponseEntity.ok(ApiResponse.ok(userService.findAll(status, organizationId, search, pageable)));
     }
 
     @GetMapping("/{id}")

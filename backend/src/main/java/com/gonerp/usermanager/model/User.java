@@ -1,11 +1,17 @@
 package com.gonerp.usermanager.model;
 
 import com.gonerp.common.BaseModel;
+import com.gonerp.organization.model.Organization;
+import com.gonerp.organization.model.UserDepartment;
+import com.gonerp.organization.model.UserStaffRole;
+import com.gonerp.organization.model.UserUserGroup;
 import com.gonerp.usermanager.model.enums.UserStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "users")
@@ -50,4 +56,20 @@ public class User extends BaseModel {
     @Column(name = "designs_manager", nullable = false, columnDefinition = "boolean default false")
     @Builder.Default
     private boolean designsManager = false;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "organization_id")
+    private Organization organization;
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<UserStaffRole> staffRoles = new ArrayList<>();
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<UserDepartment> departments = new ArrayList<>();
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<UserUserGroup> userGroups = new ArrayList<>();
 }

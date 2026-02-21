@@ -62,9 +62,9 @@ class UserServiceTest {
     @Test
     void findAll_returnsPageOfUsers() {
         Page<User> page = new PageImpl<>(List.of(testUser));
-        when(userRepository.findAllWithFilters(any(), any(), any())).thenReturn(page);
+        when(userRepository.findAllWithFilters(any(), any(), any(), any())).thenReturn(page);
 
-        Page<UserResponse> result = userService.findAll(null, null, PageRequest.of(0, 10));
+        Page<UserResponse> result = userService.findAll(null, null, null, PageRequest.of(0, 10));
 
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().get(0).getUserName()).isEqualTo("john");

@@ -19,4 +19,10 @@ public class AuthResponse {
     private String role;
     private Long userId;
     private boolean designsManager;
+    private Long organizationId;
+    private String organizationName;
+    private String organizationSlug;
+    private boolean moduleTaskManager;
+    private boolean moduleImageManager;
+    private boolean moduleDesigns;
 }

@@ -1,5 +1,7 @@
 package com.gonerp.usermanager.service;
 
+import com.gonerp.common.OrgContext;
+import com.gonerp.organization.model.Organization;
 import com.gonerp.usermanager.dto.UserRequest;
 import com.gonerp.usermanager.dto.UserResponse;
 import com.gonerp.usermanager.model.User;
@@ -59,8 +61,13 @@ public class UserService implements UserDetailsService {
                 .build();
     }
 
-    public Page<UserResponse> findAll(UserStatus status, String search, Pageable pageable) {
-        return userRepository.findAllWithFilters(status, search, pageable)
+    public Page<UserResponse> findAll(UserStatus status, Long organizationId, String search, Pageable pageable) {
+        if (OrgContext.isSuperAdmin()) {
+            return userRepository.findAllWithFilters(status, organizationId, search, pageable)
+                    .map(UserResponse::from);
+        }
+        Organization org = OrgContext.requireOrganization(userRepository);
+        return userRepository.findAllByOrganizationWithFilters(org.getId(), status, search, pageable)
                 .map(UserResponse::from);
     }
 
@@ -81,6 +88,8 @@ public class UserService implements UserDetailsService {
         UserRole role = userRoleRepository.findById(request.getRoleId())
                 .orElseThrow(() -> new EntityNotFoundException("UserRole not found with id: " + request.getRoleId()));
 
+        Organization org = OrgContext.isSuperAdmin() ? null : OrgContext.getCurrentOrganization(userRepository);
+
         User user = User.builder()
                 .userName(request.getUserName())
                 .firstName(request.getFirstName())
@@ -90,6 +99,7 @@ public class UserService implements UserDetailsService {
                 .password(passwordEncoder.encode(request.getPassword()))
                 .role(role)
                 .designsManager(request.getDesignsManager() != null && request.getDesignsManager())
+                .organization(org)
                 .build();
 
         return UserResponse.from(userRepository.save(user));
