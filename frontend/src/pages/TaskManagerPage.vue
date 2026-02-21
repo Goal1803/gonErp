@@ -10,6 +10,9 @@
         <div class="text-caption text-grey-5 q-mt-xs">Manage your Kanban boards</div>
       </div>
       <q-space />
+      <q-btn v-if="authStore.isAdmin || authStore.isSuperAdmin" flat round icon="settings" color="grey-5" class="q-mr-sm" @click="showConfigDialog = true">
+        <q-tooltip>Task Config</q-tooltip>
+      </q-btn>
       <q-btn icon="add" label="New Board" color="teal-6" unelevated @click="openCreate" />
     </div>
 
@@ -104,21 +107,28 @@
       :board="editingBoard"
       @saved="onSaved"
     />
+
+    <!-- Task Config dialog -->
+    <task-config-dialog v-model="showConfigDialog" />
   </q-page>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useQuasar } from 'quasar'
+import { useAuthStore } from 'src/stores/authStore'
 import { boardApi } from 'src/api/tasks'
 import BoardFormDialog from 'src/components/BoardFormDialog.vue'
+import TaskConfigDialog from 'src/components/TaskConfigDialog.vue'
 
 const $q = useQuasar()
+const authStore = useAuthStore()
 
 const boards = ref([])
 const loading = ref(false)
 const showForm = ref(false)
 const editingBoard = ref(null)
+const showConfigDialog = ref(false)
 
 const loadBoards = async () => {
   loading.value = true

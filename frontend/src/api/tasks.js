@@ -91,3 +91,35 @@ export const lookupApi = {
 export const designsApi = {
   getAll: (params) => api.get('/tasks/designs', { params })
 }
+
+export const taskConfigApi = {
+  getStaffRoles: () => api.get('/tasks/config/staff-roles'),
+  createStaffRole: (data) => api.post('/tasks/config/staff-roles', data),
+  updateStaffRole: (id, data) => api.put(`/tasks/config/staff-roles/${id}`, data),
+  deleteStaffRole: (id) => api.delete(`/tasks/config/staff-roles/${id}`),
+  getUserGroups: () => api.get('/tasks/config/user-groups'),
+  createUserGroup: (data) => api.post('/tasks/config/user-groups', data),
+  updateUserGroup: (id, data) => api.put(`/tasks/config/user-groups/${id}`, data),
+  deleteUserGroup: (id) => api.delete(`/tasks/config/user-groups/${id}`),
+  getUsers: () => api.get('/tasks/config/users'),
+  assignStaffRole: (userId, roleId) => api.post(`/tasks/config/users/${userId}/staff-roles/${roleId}`),
+  removeStaffRole: (userId, roleId) => api.delete(`/tasks/config/users/${userId}/staff-roles/${roleId}`),
+  assignUserGroup: (userId, groupId) => api.post(`/tasks/config/users/${userId}/user-groups/${groupId}`),
+  removeUserGroup: (userId, groupId) => api.delete(`/tasks/config/users/${userId}/user-groups/${groupId}`)
+}
+
+export const designConfigApi = {
+  getStaffRoles: () => api.get('/tasks/designs/config/staff-roles'),
+  createStaffRole: (data) => api.post('/tasks/designs/config/staff-roles', data),
+  updateStaffRole: (id, data) => api.put(`/tasks/designs/config/staff-roles/${id}`, data),
+  deleteStaffRole: (id) => api.delete(`/tasks/designs/config/staff-roles/${id}`),
+  getUserGroups: () => api.get('/tasks/designs/config/user-groups'),
+  createUserGroup: (data) => api.post('/tasks/designs/config/user-groups', data),
+  updateUserGroup: (id, data) => api.put(`/tasks/designs/config/user-groups/${id}`, data),
+  deleteUserGroup: (id) => api.delete(`/tasks/designs/config/user-groups/${id}`),
+  getUsers: () => api.get('/tasks/designs/config/users'),
+  assignStaffRole: (userId, roleId) => api.post(`/tasks/designs/config/users/${userId}/staff-roles/${roleId}`),
+  removeStaffRole: (userId, roleId) => api.delete(`/tasks/designs/config/users/${userId}/staff-roles/${roleId}`),
+  assignUserGroup: (userId, groupId) => api.post(`/tasks/designs/config/users/${userId}/user-groups/${groupId}`),
+  removeUserGroup: (userId, groupId) => api.delete(`/tasks/designs/config/users/${userId}/user-groups/${groupId}`)
+}

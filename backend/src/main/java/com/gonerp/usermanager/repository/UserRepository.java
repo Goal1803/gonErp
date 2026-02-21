@@ -51,4 +51,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     );
 
     long countByOrganizationId(Long organizationId);
+
+    java.util.List<User> findByOrganizationId(Long organizationId);
 }

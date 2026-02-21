@@ -9,6 +9,11 @@
         </div>
         <div class="text-caption text-grey-5 q-mt-xs">All POD Design cards across boards</div>
       </div>
+      <q-space />
+      <q-btn v-if="authStore.isAdmin" flat round icon="settings" color="teal-5"
+        @click="showConfigDialog = true">
+        <q-tooltip>Design Config</q-tooltip>
+      </q-btn>
     </div>
 
     <div class="q-px-xl q-pb-xl">
@@ -87,16 +92,22 @@
 
     <!-- Design View Dialog -->
     <design-view-dialog v-model="showDesignDialog" :design="selectedDesign" />
+
+    <!-- Design Config Dialog -->
+    <design-config-dialog v-model="showConfigDialog" />
   </q-page>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useQuasar } from 'quasar'
+import { useAuthStore } from 'src/stores/authStore'
 import { designsApi, lookupApi } from 'src/api/tasks'
 import DesignViewDialog from 'src/components/DesignViewDialog.vue'
+import DesignConfigDialog from 'src/components/DesignConfigDialog.vue'
 
 const $q = useQuasar()
+const authStore = useAuthStore()
 
 const loading = ref(false)
 const designs = ref([])
@@ -104,6 +115,7 @@ const page = ref(1)
 const totalPages = ref(0)
 const showDesignDialog = ref(false)
 const selectedDesign = ref(null)
+const showConfigDialog = ref(false)
 
 const stageOptions = ['Draft', 'Idea', 'Doing', 'Checking', 'Need to Fix', 'Fixing', 'Fix-Checking', 'Done', 'Listed', 'Canceled']
 const statusOptions = ['OPEN', 'IN_PROGRESS', 'DONE', 'BLOCKED', 'CANCELLED']
