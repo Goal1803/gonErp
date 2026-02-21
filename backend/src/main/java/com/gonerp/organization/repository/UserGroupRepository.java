@@ -12,4 +12,12 @@ public interface UserGroupRepository extends JpaRepository<UserGroup, Long> {
     List<UserGroup> findByOrgTypeId(Long orgTypeId);
 
     List<UserGroup> findByOrganizationId(Long organizationId);
+
+    boolean existsByNameAndOrgTypeId(String name, Long orgTypeId);
+
+    boolean existsByNameAndOrganizationId(String name, Long organizationId);
+
+    boolean existsByNameAndOrgTypeIdAndIdNot(String name, Long orgTypeId, Long id);
+
+    boolean existsByNameAndOrganizationIdAndIdNot(String name, Long organizationId, Long id);
 }

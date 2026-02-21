@@ -12,4 +12,12 @@ public interface DepartmentRepository extends JpaRepository<Department, Long> {
     List<Department> findByOrgTypeId(Long orgTypeId);
 
     List<Department> findByOrganizationId(Long organizationId);
+
+    boolean existsByNameAndOrgTypeId(String name, Long orgTypeId);
+
+    boolean existsByNameAndOrganizationId(String name, Long organizationId);
+
+    boolean existsByNameAndOrgTypeIdAndIdNot(String name, Long orgTypeId, Long id);
+
+    boolean existsByNameAndOrganizationIdAndIdNot(String name, Long organizationId, Long id);
 }

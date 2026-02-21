@@ -41,6 +41,9 @@ public class OrgStructureService {
     public OrgStructureResponse createDefaultStaffRole(Long orgTypeId, OrgStructureRequest request) {
         OrganizationType orgType = orgTypeRepository.findById(orgTypeId)
                 .orElseThrow(() -> new EntityNotFoundException("Org type not found: " + orgTypeId));
+        if (staffRoleRepository.existsByNameAndOrgTypeId(request.getName(), orgTypeId)) {
+            throw new IllegalArgumentException("Staff role '" + request.getName() + "' already exists for this org type");
+        }
         StaffRole role = StaffRole.builder()
                 .name(request.getName()).description(request.getDescription()).orgType(orgType).build();
         return toResponse(staffRoleRepository.save(role), true);
@@ -58,6 +61,9 @@ public class OrgStructureService {
     public OrgStructureResponse createDefaultDepartment(Long orgTypeId, OrgStructureRequest request) {
         OrganizationType orgType = orgTypeRepository.findById(orgTypeId)
                 .orElseThrow(() -> new EntityNotFoundException("Org type not found: " + orgTypeId));
+        if (departmentRepository.existsByNameAndOrgTypeId(request.getName(), orgTypeId)) {
+            throw new IllegalArgumentException("Department '" + request.getName() + "' already exists for this org type");
+        }
         Department dept = Department.builder()
                 .name(request.getName()).description(request.getDescription()).orgType(orgType).build();
         return toResponse(departmentRepository.save(dept), true);
@@ -75,6 +81,9 @@ public class OrgStructureService {
     public OrgStructureResponse createDefaultUserGroup(Long orgTypeId, OrgStructureRequest request) {
         OrganizationType orgType = orgTypeRepository.findById(orgTypeId)
                 .orElseThrow(() -> new EntityNotFoundException("Org type not found: " + orgTypeId));
+        if (userGroupRepository.existsByNameAndOrgTypeId(request.getName(), orgTypeId)) {
+            throw new IllegalArgumentException("User group '" + request.getName() + "' already exists for this org type");
+        }
         UserGroup group = UserGroup.builder()
                 .name(request.getName()).description(request.getDescription()).orgType(orgType).build();
         return toResponse(userGroupRepository.save(group), true);
@@ -138,6 +147,9 @@ public class OrgStructureService {
 
     public OrgStructureResponse createOrgStaffRole(OrgStructureRequest request) {
         Organization org = OrgContext.requireOrganization(userRepository);
+        if (staffRoleRepository.existsByNameAndOrganizationId(request.getName(), org.getId())) {
+            throw new IllegalArgumentException("Staff role '" + request.getName() + "' already exists in this organization");
+        }
         StaffRole role = StaffRole.builder()
                 .name(request.getName()).description(request.getDescription()).organization(org).build();
         return toResponse(staffRoleRepository.save(role), false);
@@ -148,6 +160,9 @@ public class OrgStructureService {
                 .orElseThrow(() -> new EntityNotFoundException("Staff role not found: " + id));
         if (role.getOrgType() != null) {
             throw new AccessDeniedException("Cannot edit a default staff role");
+        }
+        if (staffRoleRepository.existsByNameAndOrganizationIdAndIdNot(request.getName(), role.getOrganization().getId(), id)) {
+            throw new IllegalArgumentException("Staff role '" + request.getName() + "' already exists in this organization");
         }
         role.setName(request.getName());
         role.setDescription(request.getDescription());
@@ -165,6 +180,9 @@ public class OrgStructureService {
 
     public OrgStructureResponse createOrgDepartment(OrgStructureRequest request) {
         Organization org = OrgContext.requireOrganization(userRepository);
+        if (departmentRepository.existsByNameAndOrganizationId(request.getName(), org.getId())) {
+            throw new IllegalArgumentException("Department '" + request.getName() + "' already exists in this organization");
+        }
         Department dept = Department.builder()
                 .name(request.getName()).description(request.getDescription()).organization(org).build();
         return toResponse(departmentRepository.save(dept), false);
@@ -175,6 +193,9 @@ public class OrgStructureService {
                 .orElseThrow(() -> new EntityNotFoundException("Department not found: " + id));
         if (dept.getOrgType() != null) {
             throw new AccessDeniedException("Cannot edit a default department");
+        }
+        if (departmentRepository.existsByNameAndOrganizationIdAndIdNot(request.getName(), dept.getOrganization().getId(), id)) {
+            throw new IllegalArgumentException("Department '" + request.getName() + "' already exists in this organization");
         }
         dept.setName(request.getName());
         dept.setDescription(request.getDescription());
@@ -192,6 +213,9 @@ public class OrgStructureService {
 
     public OrgStructureResponse createOrgUserGroup(OrgStructureRequest request) {
         Organization org = OrgContext.requireOrganization(userRepository);
+        if (userGroupRepository.existsByNameAndOrganizationId(request.getName(), org.getId())) {
+            throw new IllegalArgumentException("User group '" + request.getName() + "' already exists in this organization");
+        }
         UserGroup group = UserGroup.builder()
                 .name(request.getName()).description(request.getDescription()).organization(org).build();
         return toResponse(userGroupRepository.save(group), false);
@@ -202,6 +226,9 @@ public class OrgStructureService {
                 .orElseThrow(() -> new EntityNotFoundException("User group not found: " + id));
         if (group.getOrgType() != null) {
             throw new AccessDeniedException("Cannot edit a default user group");
+        }
+        if (userGroupRepository.existsByNameAndOrganizationIdAndIdNot(request.getName(), group.getOrganization().getId(), id)) {
+            throw new IllegalArgumentException("User group '" + request.getName() + "' already exists in this organization");
         }
         group.setName(request.getName());
         group.setDescription(request.getDescription());

@@ -12,4 +12,12 @@ public interface StaffRoleRepository extends JpaRepository<StaffRole, Long> {
     List<StaffRole> findByOrgTypeId(Long orgTypeId);
 
     List<StaffRole> findByOrganizationId(Long organizationId);
+
+    boolean existsByNameAndOrgTypeId(String name, Long orgTypeId);
+
+    boolean existsByNameAndOrganizationId(String name, Long organizationId);
+
+    boolean existsByNameAndOrgTypeIdAndIdNot(String name, Long orgTypeId, Long id);
+
+    boolean existsByNameAndOrganizationIdAndIdNot(String name, Long organizationId, Long id);
 }
