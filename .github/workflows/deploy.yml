@@ -1,0 +1,100 @@
+# ============================================================
+# gonErp CI/CD — Build, Push to GHCR, Deploy to VPS
+# ============================================================
+#
+# FIRST-TIME SERVER SETUP (one-time manual steps):
+#
+#   1. Create a DigitalOcean droplet (Ubuntu 24.04, 2GB+ RAM)
+#
+#   2. SSH into the droplet and install Docker:
+#        curl -fsSL https://get.docker.com | sh
+#        systemctl enable docker
+#
+#   3. Create app directory and copy config:
+#        mkdir -p /opt/gonerp
+#        # scp docker-compose.yml and .env to /opt/gonerp/
+#
+#   4. Configure firewall:
+#        ufw allow 22
+#        ufw allow 80
+#        ufw allow 443
+#        ufw enable
+#
+#   5. Login to GHCR on the server:
+#        echo $GHCR_TOKEN | docker login ghcr.io -u <github-user> --password-stdin
+#
+#   6. Add these GitHub Secrets (Settings → Secrets → Actions):
+#        VPS_HOST     — droplet IP address
+#        VPS_USER     — ssh user (root or deploy)
+#        VPS_SSH_KEY  — private SSH key for the VPS
+#        GHCR_TOKEN   — GitHub PAT with write:packages scope
+#
+#   7. Push to main → this workflow runs automatically
+#
+# ============================================================
+
+name: Deploy gonErp
+
+on:
+  push:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  API_IMAGE: ghcr.io/${{ github.repository_owner }}/gonerp-api
+  WEB_IMAGE: ghcr.io/${{ github.repository_owner }}/gonerp-web
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push API image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          push: true
+          tags: ${{ env.API_IMAGE }}:latest,${{ env.API_IMAGE }}:${{ github.sha }}
+
+      - name: Build and push Web image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          push: true
+          tags: ${{ env.WEB_IMAGE }}:latest,${{ env.WEB_IMAGE }}:${{ github.sha }}
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+
+    steps:
+      - name: Deploy to VPS via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            cd /opt/gonerp
+
+            # Pull latest images
+            docker compose pull api web
+
+            # Restart with new images
+            docker compose up -d
+
+            # Clean up old images
+            docker image prune -f
