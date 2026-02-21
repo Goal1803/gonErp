@@ -3,12 +3,12 @@ FROM node:20-alpine AS build
 WORKDIR /build
 
 # Cache dependencies
-COPY package.json package-lock.json* ./
+COPY package.json package-lock.json ./
 RUN npm ci
 
 # Build Quasar SPA
 COPY . .
-RUN npx quasar build
+RUN npm run build
 
 # ---- Stage 2: Serve ----
 FROM nginx:alpine
