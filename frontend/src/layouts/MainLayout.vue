@@ -155,22 +155,6 @@
             </q-item-section>
           </q-item>
 
-          <q-item
-            v-if="authStore.isAdmin"
-            clickable
-            v-ripple
-            to="/admin/lookups"
-            exact
-            class="rounded-borders q-mb-xs"
-          >
-            <q-item-section avatar>
-              <q-icon name="settings" />
-            </q-item-section>
-            <q-item-section>
-              <q-item-label>Lookups</q-item-label>
-            </q-item-section>
-          </q-item>
-
           <!-- Organization Section (ADMIN only, not SUPER_ADMIN) -->
           <template v-if="authStore.isAdmin && !authStore.isSuperAdmin">
             <q-item-label header class="text-grey-6 text-uppercase text-caption q-mb-xs q-mt-sm">

@@ -67,12 +67,6 @@ const routes = [
         meta: { title: 'Design Board', requiresModule: 'hasDesigns' }
       },
       {
-        path: 'admin/lookups',
-        name: 'lookups',
-        component: () => import('pages/LookupManagerPage.vue'),
-        meta: { title: 'Lookups', requiresAdmin: true }
-      },
-      {
         path: 'organizations',
         name: 'organizations',
         component: () => import('pages/OrganizationManagerPage.vue'),

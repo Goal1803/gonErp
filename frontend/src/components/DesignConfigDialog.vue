@@ -15,6 +15,9 @@
         <q-tab v-if="authStore.isSuperAdmin" name="staffRoles" label="Staff Roles" />
         <q-tab v-if="authStore.isSuperAdmin" name="userGroups" label="User Groups" />
         <q-tab name="userAssignments" label="User Assignments" />
+        <q-tab v-if="authStore.isSuperAdmin" name="productTypes" label="Product Types" />
+        <q-tab v-if="authStore.isSuperAdmin" name="niches" label="Niches" />
+        <q-tab v-if="authStore.isSuperAdmin" name="occasions" label="Occasions" />
       </q-tabs>
 
       <!-- Tab panels -->
@@ -93,6 +96,63 @@
             </template>
           </q-table>
         </q-tab-panel>
+
+        <!-- Product Types Tab -->
+        <q-tab-panel v-if="authStore.isSuperAdmin" name="productTypes" class="q-pa-lg">
+          <div class="row items-center q-mb-md">
+            <div class="text-subtitle1 text-weight-medium">Product Types</div>
+            <q-space />
+            <q-btn color="teal-6" unelevated icon="add" label="Add Product Type" @click="openLookupForm('productTypes', null)" />
+          </div>
+          <q-table :rows="productTypes" :columns="lookupColumns" row-key="id" dark flat
+            :loading="loadingProductTypes" no-data-label="No product types yet"
+            class="premium-table" hide-pagination :rows-per-page-options="[0]">
+            <template #body-cell-actions="props">
+              <q-td :props="props" class="q-gutter-xs">
+                <q-btn flat dense round icon="edit" color="teal-5" size="sm" @click="openLookupForm('productTypes', props.row)" />
+                <q-btn flat dense round icon="delete" color="red-4" size="sm" @click="confirmDeleteLookup('productTypes', props.row)" />
+              </q-td>
+            </template>
+          </q-table>
+        </q-tab-panel>
+
+        <!-- Niches Tab -->
+        <q-tab-panel v-if="authStore.isSuperAdmin" name="niches" class="q-pa-lg">
+          <div class="row items-center q-mb-md">
+            <div class="text-subtitle1 text-weight-medium">Niches</div>
+            <q-space />
+            <q-btn color="teal-6" unelevated icon="add" label="Add Niche" @click="openLookupForm('niches', null)" />
+          </div>
+          <q-table :rows="niches" :columns="lookupColumns" row-key="id" dark flat
+            :loading="loadingNiches" no-data-label="No niches yet"
+            class="premium-table" hide-pagination :rows-per-page-options="[0]">
+            <template #body-cell-actions="props">
+              <q-td :props="props" class="q-gutter-xs">
+                <q-btn flat dense round icon="edit" color="teal-5" size="sm" @click="openLookupForm('niches', props.row)" />
+                <q-btn flat dense round icon="delete" color="red-4" size="sm" @click="confirmDeleteLookup('niches', props.row)" />
+              </q-td>
+            </template>
+          </q-table>
+        </q-tab-panel>
+
+        <!-- Occasions Tab -->
+        <q-tab-panel v-if="authStore.isSuperAdmin" name="occasions" class="q-pa-lg">
+          <div class="row items-center q-mb-md">
+            <div class="text-subtitle1 text-weight-medium">Occasions</div>
+            <q-space />
+            <q-btn color="teal-6" unelevated icon="add" label="Add Occasion" @click="openLookupForm('occasions', null)" />
+          </div>
+          <q-table :rows="occasions" :columns="lookupColumns" row-key="id" dark flat
+            :loading="loadingOccasions" no-data-label="No occasions yet"
+            class="premium-table" hide-pagination :rows-per-page-options="[0]">
+            <template #body-cell-actions="props">
+              <q-td :props="props" class="q-gutter-xs">
+                <q-btn flat dense round icon="edit" color="teal-5" size="sm" @click="openLookupForm('occasions', props.row)" />
+                <q-btn flat dense round icon="delete" color="red-4" size="sm" @click="confirmDeleteLookup('occasions', props.row)" />
+              </q-td>
+            </template>
+          </q-table>
+        </q-tab-panel>
       </q-tab-panels>
     </q-card>
   </q-dialog>
@@ -106,6 +166,11 @@
   <lookup-form-dialog v-model="showGroupForm" :item="editingGroup" entity-label="Design User Group"
     :create-fn="designConfigApi.createUserGroup" :update-fn="designConfigApi.updateUserGroup"
     @saved="onGroupSaved" />
+
+  <!-- Reuse LookupFormDialog for Lookups (Product Types, Niches, Occasions) -->
+  <lookup-form-dialog v-model="showLookupForm" :item="editingLookup" :entity-label="lookupFormLabel"
+    :create-fn="lookupFormCreateFn" :update-fn="lookupFormUpdateFn"
+    @saved="onLookupSaved" />
 
   <!-- Assignment Dialog -->
   <q-dialog v-model="showAssignDialog" persistent>
@@ -141,7 +206,7 @@
 import { ref, computed, watch } from 'vue'
 import { useQuasar } from 'quasar'
 import { useAuthStore } from 'src/stores/authStore'
-import { designConfigApi } from 'src/api/tasks'
+import { designConfigApi, lookupApi } from 'src/api/tasks'
 import LookupFormDialog from 'src/components/LookupFormDialog.vue'
 
 const props = defineProps({ modelValue: Boolean })
@@ -315,6 +380,91 @@ const doRemoveUserGroup = async (userId, groupId) => {
   }
 }
 
+// ─── Lookups (Product Types, Niches, Occasions) ─────────────────────
+const productTypes = ref([])
+const niches = ref([])
+const occasions = ref([])
+const loadingProductTypes = ref(false)
+const loadingNiches = ref(false)
+const loadingOccasions = ref(false)
+const showLookupForm = ref(false)
+const editingLookup = ref(null)
+const lookupFormLabel = ref('')
+const lookupFormCreateFn = ref(() => {})
+const lookupFormUpdateFn = ref(() => {})
+const activeLookupType = ref('')
+
+const lookupApiMap = {
+  productTypes: {
+    label: 'Product Type',
+    load: lookupApi.getProductTypes,
+    create: lookupApi.createProductType,
+    update: lookupApi.updateProductType,
+    delete: lookupApi.deleteProductType,
+    data: productTypes,
+    loading: loadingProductTypes
+  },
+  niches: {
+    label: 'Niche',
+    load: lookupApi.getNiches,
+    create: lookupApi.createNiche,
+    update: lookupApi.updateNiche,
+    delete: lookupApi.deleteNiche,
+    data: niches,
+    loading: loadingNiches
+  },
+  occasions: {
+    label: 'Occasion',
+    load: lookupApi.getOccasions,
+    create: lookupApi.createOccasion,
+    update: lookupApi.updateOccasion,
+    delete: lookupApi.deleteOccasion,
+    data: occasions,
+    loading: loadingOccasions
+  }
+}
+
+const loadLookupData = async (type) => {
+  const cfg = lookupApiMap[type]
+  cfg.loading.value = true
+  try {
+    const res = await cfg.load()
+    cfg.data.value = res.data.data || []
+  } catch { /* silent */ } finally { cfg.loading.value = false }
+}
+
+const openLookupForm = (type, item) => {
+  const cfg = lookupApiMap[type]
+  activeLookupType.value = type
+  editingLookup.value = item ? { ...item } : null
+  lookupFormLabel.value = cfg.label
+  lookupFormCreateFn.value = cfg.create
+  lookupFormUpdateFn.value = cfg.update
+  showLookupForm.value = true
+}
+
+const onLookupSaved = () => {
+  showLookupForm.value = false
+  loadLookupData(activeLookupType.value)
+}
+
+const confirmDeleteLookup = (type, item) => {
+  const cfg = lookupApiMap[type]
+  $q.dialog({
+    title: `Delete ${cfg.label}`,
+    message: `Delete "${item.name}"? This cannot be undone.`,
+    dark: true, cancel: true, persistent: true
+  }).onOk(async () => {
+    try {
+      await cfg.delete(item.id)
+      $q.notify({ type: 'positive', message: `${cfg.label} deleted` })
+      loadLookupData(type)
+    } catch (err) {
+      $q.notify({ type: 'negative', message: err.response?.data?.message || 'Delete failed' })
+    }
+  })
+}
+
 // ─── Table columns ───────────────────────────────────────────────────
 const lookupColumns = [
   { name: 'id', label: 'ID', field: 'id', align: 'left', style: 'width: 60px' },
@@ -337,6 +487,9 @@ watch(show, (val) => {
     loadStaffRoles()
     loadUserGroups()
     loadUsers()
+    loadLookupData('productTypes')
+    loadLookupData('niches')
+    loadLookupData('occasions')
   }
 })
 </script>
