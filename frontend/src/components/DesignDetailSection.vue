@@ -60,12 +60,12 @@
         </q-file>
       </div>
 
-      <!-- Seller -->
+      <!-- Idea Creator -->
       <div class="q-mb-sm">
-        <div class="sidebar-label"><q-icon name="store" size="xs" /> Seller</div>
-        <q-select v-model="sellerId" :options="memberOptions" option-value="id" option-label="displayName"
+        <div class="sidebar-label"><q-icon name="lightbulb" size="xs" /> Idea Creator</div>
+        <q-select v-model="ideaCreatorId" :options="memberOptions" option-value="id" option-label="displayName"
           emit-value map-options outlined dark dense color="teal-5" clearable
-          @update:model-value="updateSeller" />
+          @update:model-value="updateIdeaCreator" />
       </div>
 
       <!-- Designers -->
@@ -106,6 +106,12 @@
         <q-toggle v-model="isCustom" color="teal-5" dark @update:model-value="updateDetail" />
       </div>
 
+      <!-- Design Status (read-only) -->
+      <div v-if="designDetail.designStatus" class="q-mb-sm">
+        <div class="sidebar-label"><q-icon name="flag" size="xs" /> Design Status</div>
+        <q-chip dense :color="designStatusColor" :text-color="designStatusTextColor" :label="designDetail.designStatus" />
+      </div>
+
       <!-- Approval Date (read-only) -->
       <div v-if="designDetail.approvalDate" class="q-mb-sm">
         <div class="sidebar-label"><q-icon name="check_circle" size="xs" /> Approved</div>
@@ -116,7 +122,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useQuasar } from 'quasar'
 import { designApi, lookupApi } from 'src/api/tasks'
 
@@ -135,7 +141,7 @@ const deletingPng = ref(false)
 const deletingPsd = ref(false)
 
 // Form state
-const sellerId = ref(null)
+const ideaCreatorId = ref(null)
 const designerIds = ref([])
 const productTypeIds = ref([])
 const nicheIds = ref([])
@@ -158,12 +164,25 @@ watch(() => props.boardMembers, (members) => {
 
 const formatDate = (d) => d ? new Date(d).toLocaleString() : ''
 
+const designStatusColor = computed(() => {
+  const s = designDetail.value?.designStatus
+  if (s === 'APPROVED') return 'green-9'
+  if (s === 'DELETED') return 'red-9'
+  return 'orange-9'
+})
+const designStatusTextColor = computed(() => {
+  const s = designDetail.value?.designStatus
+  if (s === 'APPROVED') return 'green-2'
+  if (s === 'DELETED') return 'red-2'
+  return 'orange-2'
+})
+
 const loadDesignDetail = async () => {
   try {
     const res = await designApi.getDetail(props.cardId)
     designDetail.value = res.data.data
     // Sync form state
-    sellerId.value = designDetail.value.seller?.id || null
+    ideaCreatorId.value = designDetail.value.ideaCreator?.id || null
     designerIds.value = designDetail.value.designers?.map(d => d.id) || []
     productTypeIds.value = designDetail.value.productTypes?.map(p => p.id) || []
     nicheIds.value = designDetail.value.niches?.map(n => n.id) || []
@@ -190,7 +209,7 @@ const loadLookups = async () => {
 const updateDetail = async () => {
   try {
     const res = await designApi.updateDetail(props.cardId, {
-      sellerId: sellerId.value,
+      ideaCreatorId: ideaCreatorId.value,
       productTypeIds: productTypeIds.value,
       nicheIds: nicheIds.value,
       occasionId: occasionId.value || 0,
@@ -202,7 +221,7 @@ const updateDetail = async () => {
   }
 }
 
-const updateSeller = () => updateDetail()
+const updateIdeaCreator = () => updateDetail()
 
 const updateDesigners = async (newIds) => {
   const current = designDetail.value.designers?.map(d => d.id) || []

@@ -1,6 +1,7 @@
 package com.gonerp.taskmanager.model;
 
 import com.gonerp.common.BaseModel;
+import com.gonerp.taskmanager.model.enums.DesignStatus;
 import com.gonerp.usermanager.model.User;
 import jakarta.persistence.*;
 import lombok.*;
@@ -23,7 +24,7 @@ public class DesignDetail extends BaseModel {
     private Long id;
 
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "card_id", nullable = false, unique = true)
+    @JoinColumn(name = "card_id", unique = true)
     private Card card;
 
     @Column(name = "png_file_url")
@@ -39,8 +40,8 @@ public class DesignDetail extends BaseModel {
     private String psdFileName;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "seller_id")
-    private User seller;
+    @JoinColumn(name = "idea_creator_id")
+    private User ideaCreator;
 
     @ManyToMany
     @JoinTable(
@@ -50,6 +51,11 @@ public class DesignDetail extends BaseModel {
     )
     @Builder.Default
     private List<User> designers = new ArrayList<>();
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "design_status", nullable = false, length = 20)
+    @Builder.Default
+    private DesignStatus designStatus = DesignStatus.PENDING;
 
     @Column(name = "approval_date")
     private LocalDateTime approvalDate;

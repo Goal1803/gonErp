@@ -29,7 +29,7 @@ public class DesignsController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) Long boardId,
-            @RequestParam(required = false) Long sellerId,
+            @RequestParam(required = false) Long ideaCreatorId,
             @RequestParam(required = false) Long designerId,
             @RequestParam(required = false) Long productTypeId,
             @RequestParam(required = false) Long nicheId,
@@ -49,7 +49,7 @@ public class DesignsController {
         Pageable pageable = PageRequest.of(page, size, sort);
 
         return ResponseEntity.ok(ApiResponse.ok(
-                designsService.findAll(boardId, sellerId, designerId,
+                designsService.findAll(boardId, ideaCreatorId, designerId,
                         productTypeId, nicheId, occasionId,
                         stage, status, custom, dateFrom, dateTo,
                         search, pageable)));

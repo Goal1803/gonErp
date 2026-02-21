@@ -10,4 +10,6 @@ public interface DesignStaffRoleRepository extends JpaRepository<DesignStaffRole
     boolean existsByName(String name);
 
     boolean existsByNameAndIdNot(String name, Long id);
+
+    java.util.Optional<DesignStaffRole> findByName(String name);
 }

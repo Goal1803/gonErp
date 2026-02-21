@@ -13,6 +13,7 @@
         <q-chip v-if="!design?.boardActive" dense size="sm" color="orange-9" text-color="orange-3" class="q-ml-xs">
           Archived
         </q-chip>
+        <q-btn flat dense icon="open_in_new" color="teal-5" label="View Card" class="q-ml-sm" @click="openCard" />
         <q-space />
         <q-btn flat round dense icon="close" color="grey-5" v-close-popup />
       </q-card-section>
@@ -72,27 +73,24 @@
               <div class="info-value">{{ design?.boardName }}</div>
             </div>
 
-            <!-- Stage & Status -->
-            <div class="row q-gutter-md">
-              <div class="info-block col">
-                <div class="info-label">Stage</div>
-                <q-chip dense color="grey-8" text-color="grey-3" :label="design?.stage || '-'" />
-              </div>
-              <div class="info-block col">
-                <div class="info-label">Status</div>
-                <q-chip dense color="blue-grey-8" text-color="blue-grey-3" :label="design?.status || '-'" />
-              </div>
+            <!-- Design Status -->
+            <div class="info-block">
+              <div class="info-label"><q-icon name="flag" size="xs" /> Design Status</div>
+              <q-chip dense size="sm"
+                :color="designStatusColor"
+                :text-color="designStatusTextColor"
+                :label="detail?.designStatus || design?.designStatus || '-'" />
             </div>
 
-            <!-- Seller -->
+            <!-- Idea Creator -->
             <div class="info-block">
-              <div class="info-label"><q-icon name="store" size="xs" /> Seller</div>
-              <div v-if="detail?.seller" class="row items-center gap-2">
+              <div class="info-label"><q-icon name="lightbulb" size="xs" /> Idea Creator</div>
+              <div v-if="detail?.ideaCreator" class="row items-center gap-2">
                 <q-avatar size="28px" color="teal-9" text-color="white">
-                  {{ detail.seller.firstName?.charAt(0) || detail.seller.userName?.charAt(0) || '?' }}
+                  {{ detail.ideaCreator.firstName?.charAt(0) || detail.ideaCreator.userName?.charAt(0) || '?' }}
                 </q-avatar>
                 <span class="text-grey-3" style="font-size:0.85rem">
-                  {{ [detail.seller.firstName, detail.seller.lastName].filter(Boolean).join(' ') || detail.seller.userName }}
+                  {{ [detail.ideaCreator.firstName, detail.ideaCreator.lastName].filter(Boolean).join(' ') || detail.ideaCreator.userName }}
                 </span>
               </div>
               <div v-else class="text-grey-6" style="font-size:0.85rem">Not assigned</div>
@@ -172,7 +170,7 @@ const props = defineProps({
   design: { type: Object, default: null }
 })
 
-const emit = defineEmits(['update:modelValue'])
+const emit = defineEmits(['update:modelValue', 'open-card'])
 
 const show = computed({
   get: () => props.modelValue,
@@ -193,6 +191,24 @@ const mainMockup = computed(() => {
 })
 
 const formatDate = (d) => d ? new Date(d).toLocaleString() : '-'
+
+const openCard = () => {
+  emit('open-card', { cardId: props.design?.cardId, boardId: props.design?.boardId })
+  show.value = false
+}
+
+const designStatusColor = computed(() => {
+  const s = detail.value?.designStatus || props.design?.designStatus
+  if (s === 'APPROVED') return 'green-9'
+  if (s === 'DELETED') return 'red-9'
+  return 'orange-9'
+})
+const designStatusTextColor = computed(() => {
+  const s = detail.value?.designStatus || props.design?.designStatus
+  if (s === 'APPROVED') return 'green-2'
+  if (s === 'DELETED') return 'red-2'
+  return 'orange-2'
+})
 
 const loadDetail = async () => {
   if (!props.design?.cardId) return

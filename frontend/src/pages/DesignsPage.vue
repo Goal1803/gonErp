@@ -10,7 +10,7 @@
         <div class="text-caption text-grey-5 q-mt-xs">All POD Design cards across boards</div>
       </div>
       <q-space />
-      <q-btn v-if="authStore.isAdmin || authStore.isSuperAdmin" icon="dashboard_customize" label="Boards" color="teal-6" unelevated
+      <q-btn icon="dashboard_customize" label="Boards" color="teal-6" unelevated
         class="q-mr-sm" to="/designs/boards" />
       <q-btn v-if="authStore.isAdmin" flat round icon="settings" color="teal-5"
         @click="showConfigDialog = true">
@@ -74,7 +74,7 @@
               <q-chip v-if="!d.boardActive" dense size="xs" color="orange-9" text-color="orange-3">Archived</q-chip>
             </div>
             <div class="design-card-info text-grey-5">
-              <span v-if="d.seller">{{ d.seller.firstName }} {{ d.seller.lastName }}</span>
+              <span v-if="d.ideaCreator">{{ d.ideaCreator.firstName }} {{ d.ideaCreator.lastName }}</span>
             </div>
             <div v-if="d.productTypes?.length" class="design-card-chips">
               <q-chip v-for="pt in d.productTypes" :key="pt.id" dense size="xs" color="deep-purple-9" text-color="purple-2">
@@ -93,7 +93,20 @@
     </div>
 
     <!-- Design View Dialog -->
-    <design-view-dialog v-model="showDesignDialog" :design="selectedDesign" />
+    <design-view-dialog v-model="showDesignDialog" :design="selectedDesign" @open-card="onOpenCard" />
+
+    <!-- Card Detail Dialog -->
+    <card-detail-dialog
+      v-model="showCardDialog"
+      :card-id="selectedCardId"
+      :board-id="selectedBoardId"
+      board-type="POD_DESIGN"
+      :board-labels="[]"
+      :board-types="[]"
+      :board-members="[]"
+      :board-columns="[]"
+      @updated="loadDesigns"
+    />
 
     <!-- Design Config Dialog -->
     <design-config-dialog v-model="showConfigDialog" />
@@ -108,6 +121,7 @@ import { useAuthStore } from 'src/stores/authStore'
 import { designsApi, lookupApi } from 'src/api/tasks'
 import DesignViewDialog from 'src/components/DesignViewDialog.vue'
 import DesignConfigDialog from 'src/components/DesignConfigDialog.vue'
+import CardDetailDialog from 'src/components/CardDetailDialog.vue'
 const $q = useQuasar()
 const authStore = useAuthStore()
 
@@ -118,6 +132,9 @@ const totalPages = ref(0)
 const showDesignDialog = ref(false)
 const selectedDesign = ref(null)
 const showConfigDialog = ref(false)
+const showCardDialog = ref(false)
+const selectedCardId = ref(null)
+const selectedBoardId = ref(null)
 
 const stageOptions = ['Draft', 'Idea', 'Doing', 'Checking', 'Need to Fix', 'Fixing', 'Fix-Checking', 'Done', 'Listed', 'Canceled']
 const statusOptions = ['OPEN', 'IN_PROGRESS', 'DONE', 'BLOCKED', 'CANCELLED']
@@ -184,6 +201,13 @@ const loadLookups = async () => {
 const openDesign = (d) => {
   selectedDesign.value = d
   showDesignDialog.value = true
+}
+
+const onOpenCard = ({ cardId, boardId }) => {
+  showDesignDialog.value = false
+  selectedCardId.value = cardId
+  selectedBoardId.value = boardId
+  showCardDialog.value = true
 }
 
 onMounted(() => {

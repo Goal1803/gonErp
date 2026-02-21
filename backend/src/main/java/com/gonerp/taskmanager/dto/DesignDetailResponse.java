@@ -15,13 +15,14 @@ public class DesignDetailResponse {
     private String pngFileName;
     private String psdFileUrl;
     private String psdFileName;
-    private UserSummaryResponse seller;
+    private UserSummaryResponse ideaCreator;
     private List<UserSummaryResponse> designers;
     private LocalDateTime approvalDate;
     private List<LookupResponse> productTypes;
     private List<LookupResponse> niches;
     private LookupResponse occasion;
     private boolean custom;
+    private String designStatus;
     private List<DesignMockupResponse> mockups;
     private String mainMockupUrl;
 
@@ -38,13 +39,14 @@ public class DesignDetailResponse {
                 .pngFileName(dd.getPngFileName())
                 .psdFileUrl(dd.getPsdFileUrl())
                 .psdFileName(dd.getPsdFileName())
-                .seller(dd.getSeller() != null ? UserSummaryResponse.from(dd.getSeller()) : null)
+                .ideaCreator(dd.getIdeaCreator() != null ? UserSummaryResponse.from(dd.getIdeaCreator()) : null)
                 .designers(dd.getDesigners().stream().map(UserSummaryResponse::from).toList())
                 .approvalDate(dd.getApprovalDate())
                 .productTypes(dd.getProductTypes().stream().map(LookupResponse::from).toList())
                 .niches(dd.getNiches().stream().map(LookupResponse::from).toList())
                 .occasion(dd.getOccasion() != null ? LookupResponse.from(dd.getOccasion()) : null)
                 .custom(dd.isCustom())
+                .designStatus(dd.getDesignStatus() != null ? dd.getDesignStatus().name() : null)
                 .mockups(dd.getMockups().stream().map(DesignMockupResponse::from).toList())
                 .mainMockupUrl(mainMockupUrl)
                 .build();

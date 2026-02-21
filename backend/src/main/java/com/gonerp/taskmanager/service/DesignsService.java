@@ -35,12 +35,13 @@ public class DesignsService {
     }
 
     private boolean isSystemAdmin() {
-        return SecurityContextHolder.getContext().getAuthentication().getAuthorities()
-                .stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        var authorities = SecurityContextHolder.getContext().getAuthentication().getAuthorities();
+        return authorities.stream().anyMatch(a ->
+                a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ROLE_SUPER_ADMIN"));
     }
 
     public Page<DesignSummaryResponse> findAll(
-            Long boardId, Long sellerId, Long designerId,
+            Long boardId, Long ideaCreatorId, Long designerId,
             Long productTypeId, Long nicheId, Long occasionId,
             String stage, String status, Boolean custom,
             LocalDate dateFrom, LocalDate dateTo,
@@ -68,7 +69,7 @@ public class DesignsService {
                         .where(cb.equal(designerJoin.get("id"), currentUser.getId()));
 
                 predicates.add(cb.or(
-                        cb.equal(root.get("seller").get("id"), currentUser.getId()),
+                        cb.equal(root.get("ideaCreator").get("id"), currentUser.getId()),
                         cb.exists(designerSubquery)
                 ));
             }
@@ -77,8 +78,8 @@ public class DesignsService {
             if (boardId != null) {
                 predicates.add(cb.equal(board.get("id"), boardId));
             }
-            if (sellerId != null) {
-                predicates.add(cb.equal(root.get("seller").get("id"), sellerId));
+            if (ideaCreatorId != null) {
+                predicates.add(cb.equal(root.get("ideaCreator").get("id"), ideaCreatorId));
             }
             if (designerId != null) {
                 Join<DesignDetail, User> designers = root.join("designers", JoinType.INNER);

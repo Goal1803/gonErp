@@ -4,6 +4,7 @@ import com.gonerp.taskmanager.dto.*;
 import com.gonerp.taskmanager.model.*;
 import com.gonerp.taskmanager.model.enums.BoardType;
 import com.gonerp.taskmanager.model.enums.CardStatus;
+import com.gonerp.taskmanager.model.enums.DesignStatus;
 import com.gonerp.taskmanager.repository.*;
 import com.gonerp.taskmanager.websocket.BoardEventPublisher;
 import com.gonerp.usermanager.model.User;
@@ -44,6 +45,8 @@ public class CardService {
     private final CardMemberRepository cardMemberRepository;
     private final CommentReactionRepository commentReactionRepository;
     private final DesignDetailRepository designDetailRepository;
+    private final DesignStaffRoleRepository designStaffRoleRepository;
+    private final UserDesignStaffRoleRepository userDesignStaffRoleRepository;
     private final UserRepository userRepository;
     private final BoardEventPublisher eventPublisher;
 
@@ -75,6 +78,15 @@ public class CardService {
     private Card getCardOrThrow(Long id) {
         return cardRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Card not found: " + id));
+    }
+
+    private void ensureDesignStaffRole(User user, String roleName) {
+        designStaffRoleRepository.findByName(roleName).ifPresent(role -> {
+            if (!userDesignStaffRoleRepository.existsByUserIdAndDesignStaffRoleId(user.getId(), role.getId())) {
+                userDesignStaffRoleRepository.save(
+                        UserDesignStaffRole.builder().user(user).designStaffRole(role).build());
+            }
+        });
     }
 
     public CardDetailResponse findById(Long id) {
@@ -110,9 +122,12 @@ public class CardService {
         if (column.getBoard().getBoardType() == BoardType.POD_DESIGN) {
             DesignDetail dd = DesignDetail.builder()
                     .card(card)
-                    .seller(currentUser)
+                    .ideaCreator(currentUser)
                     .build();
             designDetailRepository.save(dd);
+            ensureDesignStaffRole(currentUser, "IdeaCreator");
+            // Auto-assign creator as card member
+            cardMemberRepository.save(CardMember.builder().card(card).user(currentUser).build());
         }
 
         eventPublisher.publish(column.getBoard().getId(), "CARD_CREATED",
@@ -141,6 +156,21 @@ public class CardService {
         Long boardId = card.getColumn().getBoard().getId();
         Long columnId = card.getColumn().getId();
         String actor = getCurrentUser().getUserName();
+
+        // Handle design detail before deleting the card
+        if (card.getColumn().getBoard().getBoardType() == BoardType.POD_DESIGN) {
+            designDetailRepository.findByCardId(id).ifPresent(dd -> {
+                if (dd.getDesignStatus() == DesignStatus.APPROVED) {
+                    // Keep approved design, detach from card
+                    dd.setCard(null);
+                    designDetailRepository.save(dd);
+                } else {
+                    // Delete non-approved design
+                    designDetailRepository.delete(dd);
+                }
+            });
+        }
+
         card.getLabels().clear();
         card.getTypes().clear();
         cardRepository.save(card);
@@ -164,16 +194,21 @@ public class CardService {
         card.setPosition(request.getPosition());
         cardRepository.save(card);
 
-        // Handle approvalDate for POD_DESIGN boards
+        // Handle designStatus and approvalDate for POD_DESIGN boards
         if (card.getColumn().getBoard().getBoardType() == BoardType.POD_DESIGN) {
             designDetailRepository.findByCardId(card.getId()).ifPresent(dd -> {
-                if ("Done".equals(targetColumn.getTitle()) && dd.getApprovalDate() == null) {
-                    dd.setApprovalDate(java.time.LocalDateTime.now());
-                    designDetailRepository.save(dd);
-                } else if (!"Done".equals(targetColumn.getTitle()) && dd.getApprovalDate() != null) {
+                String title = targetColumn.getTitle();
+                if ("Done".equals(title) || "Listed".equals(title)) {
+                    dd.setDesignStatus(DesignStatus.APPROVED);
+                    if (dd.getApprovalDate() == null) dd.setApprovalDate(java.time.LocalDateTime.now());
+                } else if ("Canceled".equals(title)) {
+                    dd.setDesignStatus(DesignStatus.DELETED);
                     dd.setApprovalDate(null);
-                    designDetailRepository.save(dd);
+                } else {
+                    dd.setDesignStatus(DesignStatus.PENDING);
+                    dd.setApprovalDate(null);
                 }
+                designDetailRepository.save(dd);
             });
         }
 

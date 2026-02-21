@@ -37,6 +37,9 @@ public class DesignDetailService {
     private final ProductTypeRepository productTypeRepository;
     private final NicheRepository nicheRepository;
     private final OccasionRepository occasionRepository;
+    private final CardMemberRepository cardMemberRepository;
+    private final DesignStaffRoleRepository designStaffRoleRepository;
+    private final UserDesignStaffRoleRepository userDesignStaffRoleRepository;
 
     @Value("${app.upload.taskmanager}")
     private String uploadDir;
@@ -48,8 +51,9 @@ public class DesignDetailService {
     }
 
     private boolean isSystemAdmin() {
-        return SecurityContextHolder.getContext().getAuthentication().getAuthorities()
-                .stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        var authorities = SecurityContextHolder.getContext().getAuthentication().getAuthorities();
+        return authorities.stream().anyMatch(a ->
+                a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ROLE_SUPER_ADMIN"));
     }
 
     private void checkBoardAccess(Card card) {
@@ -88,10 +92,11 @@ public class DesignDetailService {
         checkBoardAccess(card);
         DesignDetail dd = getDesignDetailByCardId(cardId);
 
-        if (request.getSellerId() != null) {
-            User seller = userRepository.findById(request.getSellerId())
-                    .orElseThrow(() -> new EntityNotFoundException("User not found: " + request.getSellerId()));
-            dd.setSeller(seller);
+        if (request.getIdeaCreatorId() != null) {
+            User ideaCreator = userRepository.findById(request.getIdeaCreatorId())
+                    .orElseThrow(() -> new EntityNotFoundException("User not found: " + request.getIdeaCreatorId()));
+            dd.setIdeaCreator(ideaCreator);
+            ensureDesignStaffRole(ideaCreator, "IdeaCreator");
         }
 
         if (request.getProductTypeIds() != null) {
@@ -227,6 +232,11 @@ public class DesignDetailService {
         if (dd.getDesigners().stream().noneMatch(d -> d.getId().equals(userId))) {
             dd.getDesigners().add(designer);
             designDetailRepository.save(dd);
+            ensureDesignStaffRole(designer, "Designer");
+            // Auto-assign designer as card member
+            if (!cardMemberRepository.existsByCardIdAndUserId(card.getId(), userId)) {
+                cardMemberRepository.save(CardMember.builder().card(card).user(designer).build());
+            }
         }
         return DesignDetailResponse.from(dd);
     }
@@ -237,6 +247,15 @@ public class DesignDetailService {
         DesignDetail dd = getDesignDetailByCardId(cardId);
         dd.getDesigners().removeIf(d -> d.getId().equals(userId));
         return DesignDetailResponse.from(designDetailRepository.save(dd));
+    }
+
+    private void ensureDesignStaffRole(User user, String roleName) {
+        designStaffRoleRepository.findByName(roleName).ifPresent(role -> {
+            if (!userDesignStaffRoleRepository.existsByUserIdAndDesignStaffRoleId(user.getId(), role.getId())) {
+                userDesignStaffRoleRepository.save(
+                        UserDesignStaffRole.builder().user(user).designStaffRole(role).build());
+            }
+        });
     }
 
     private String storeFile(MultipartFile file) {
