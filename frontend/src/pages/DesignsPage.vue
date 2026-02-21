@@ -10,6 +10,8 @@
         <div class="text-caption text-grey-5 q-mt-xs">All POD Design cards across boards</div>
       </div>
       <q-space />
+      <q-btn v-if="authStore.isAdmin || authStore.isSuperAdmin" icon="dashboard_customize" label="Boards" color="teal-6" unelevated
+        class="q-mr-sm" to="/designs/boards" />
       <q-btn v-if="authStore.isAdmin" flat round icon="settings" color="teal-5"
         @click="showConfigDialog = true">
         <q-tooltip>Design Config</q-tooltip>
@@ -95,6 +97,7 @@
 
     <!-- Design Config Dialog -->
     <design-config-dialog v-model="showConfigDialog" />
+
   </q-page>
 </template>
 
@@ -105,7 +108,6 @@ import { useAuthStore } from 'src/stores/authStore'
 import { designsApi, lookupApi } from 'src/api/tasks'
 import DesignViewDialog from 'src/components/DesignViewDialog.vue'
 import DesignConfigDialog from 'src/components/DesignConfigDialog.vue'
-
 const $q = useQuasar()
 const authStore = useAuthStore()
 

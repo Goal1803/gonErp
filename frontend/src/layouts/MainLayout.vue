@@ -230,7 +230,6 @@
             clickable
             v-ripple
             to="/designs"
-            exact
             class="rounded-borders q-mb-xs"
           >
             <q-item-section avatar>

@@ -2,7 +2,7 @@
   <q-page class="board-page">
     <!-- Board header -->
     <div class="board-header row items-center no-wrap q-px-lg q-py-sm">
-      <q-btn flat round dense icon="arrow_back" color="grey-5" @click="router.push('/tasks')" />
+      <q-btn flat round dense icon="arrow_back" color="grey-5" @click="goBack" />
 
       <div class="q-ml-sm">
         <div class="text-white text-weight-medium" style="font-size:1.05rem">
@@ -165,6 +165,14 @@ const boardStore = useBoardStore()
 const authStore = useAuthStore()
 
 const boardId = computed(() => Number(route.params.boardId))
+
+const goBack = () => {
+  if (route.name === 'designBoard') {
+    router.push('/designs/boards')
+  } else {
+    router.push('/tasks')
+  }
+}
 
 const showCard = ref(false)
 const selectedCardId = ref(null)

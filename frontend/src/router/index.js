@@ -55,6 +55,18 @@ const routes = [
         meta: { title: 'Designs', requiresModule: 'hasDesigns' }
       },
       {
+        path: 'designs/boards',
+        name: 'designBoards',
+        component: () => import('pages/DesignBoardsPage.vue'),
+        meta: { title: 'Design Boards', requiresModule: 'hasDesigns' }
+      },
+      {
+        path: 'designs/boards/:boardId',
+        name: 'designBoard',
+        component: () => import('pages/BoardPage.vue'),
+        meta: { title: 'Design Board', requiresModule: 'hasDesigns' }
+      },
+      {
         path: 'admin/lookups',
         name: 'lookups',
         component: () => import('pages/LookupManagerPage.vue'),

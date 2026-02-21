@@ -21,7 +21,7 @@
           <template #prepend><q-icon name="notes" color="grey-5" /></template>
         </q-input>
 
-        <q-select v-if="!isEdit" v-model="form.boardType" :options="boardTypeOptions" emit-value map-options
+        <q-select v-if="!isEdit && !forceBoardType" v-model="form.boardType" :options="boardTypeOptions" emit-value map-options
           outlined dark color="teal-5" label="Board Type">
           <template #prepend><q-icon name="category" color="grey-5" /></template>
         </q-select>
@@ -58,7 +58,11 @@ import { ref, computed, watch } from 'vue'
 import { useQuasar } from 'quasar'
 import { boardApi } from 'src/api/tasks'
 
-const props = defineProps({ modelValue: Boolean, board: { type: Object, default: null } })
+const props = defineProps({
+  modelValue: Boolean,
+  board: { type: Object, default: null },
+  forceBoardType: { type: String, default: null }
+})
 const emit = defineEmits(['update:modelValue', 'saved'])
 const $q = useQuasar()
 
@@ -74,8 +78,9 @@ const saving = ref(false)
 const form = ref({ name: '', description: '', coverColor: '#2E7D32', boardType: 'GENERAL' })
 
 watch(() => props.board, b => {
-  if (b) form.value = { name: b.name || '', description: b.description || '', coverColor: b.coverColor || '#2E7D32', boardType: b.boardType || 'GENERAL' }
-  else form.value = { name: '', description: '', coverColor: '#2E7D32', boardType: 'GENERAL' }
+  const defaultType = props.forceBoardType || 'GENERAL'
+  if (b) form.value = { name: b.name || '', description: b.description || '', coverColor: b.coverColor || '#2E7D32', boardType: b.boardType || defaultType }
+  else form.value = { name: '', description: '', coverColor: '#2E7D32', boardType: defaultType }
 }, { immediate: true })
 
 const handleSubmit = async () => {

@@ -1,19 +1,20 @@
 <template>
-  <q-page class="task-manager-page">
+  <q-page class="design-boards-page">
     <!-- Header -->
     <div class="page-header row items-center no-wrap q-px-xl q-pt-lg q-pb-md">
+      <q-btn flat round dense icon="arrow_back" color="grey-5" class="q-mr-sm" @click="router.push('/designs')" />
       <div>
         <div class="text-h5 text-white text-weight-light row items-center gap-2">
-          <q-icon name="task_alt" color="teal-5" />
-          Task Manager
+          <q-icon name="palette" color="teal-5" />
+          Design Boards
         </div>
-        <div class="text-caption text-grey-5 q-mt-xs">Manage your Kanban boards</div>
+        <div class="text-caption text-grey-5 q-mt-xs">Manage your POD Design boards</div>
       </div>
       <q-space />
       <q-btn v-if="authStore.isAdmin || authStore.isSuperAdmin" flat round icon="settings" color="grey-5" class="q-mr-sm" @click="showConfigDialog = true">
-        <q-tooltip>Task Config</q-tooltip>
+        <q-tooltip>Design Config</q-tooltip>
       </q-btn>
-      <q-btn icon="add" label="New Board" color="teal-6" unelevated @click="openCreate" />
+      <q-btn v-if="authStore.isAdmin || authStore.isSuperAdmin" icon="add" label="New Board" color="teal-6" unelevated @click="openCreate" />
     </div>
 
     <div class="q-px-xl q-pb-xl">
@@ -25,9 +26,9 @@
       <!-- Empty state -->
       <div v-else-if="boards.length === 0" class="flex flex-center column q-py-xl text-center">
         <q-icon name="dashboard_customize" size="64px" color="grey-7" />
-        <div class="text-h6 text-grey-5 q-mt-md">No boards yet</div>
-        <div class="text-caption text-grey-6 q-mb-lg">Create your first board to get started</div>
-        <q-btn label="Create Board" color="teal-6" unelevated icon="add" @click="openCreate" />
+        <div class="text-h6 text-grey-5 q-mt-md">No design boards yet</div>
+        <div class="text-caption text-grey-6 q-mb-lg">Create your first POD Design board to get started</div>
+        <q-btn v-if="authStore.isAdmin || authStore.isSuperAdmin" label="Create Board" color="teal-6" unelevated icon="add" @click="openCreate" />
       </div>
 
       <!-- Boards grid -->
@@ -38,7 +39,7 @@
           class="col-xs-12 col-sm-6 col-md-4 col-lg-3"
         >
           <router-link
-            :to="{ name: 'board', params: { boardId: board.id } }"
+            :to="{ name: 'designBoard', params: { boardId: board.id } }"
             class="board-link"
           >
             <q-card class="board-card" flat>
@@ -64,13 +65,11 @@
                           <q-item-section avatar><q-icon name="edit" size="xs" /></q-item-section>
                           <q-item-section>Edit</q-item-section>
                         </q-item>
-                        <q-item clickable v-close-popup @click="confirmDelete(board)"
-                          :class="board.boardType === 'POD_DESIGN' ? 'text-orange-4' : 'text-red-4'">
+                        <q-item clickable v-close-popup @click="confirmDelete(board)" class="text-orange-4">
                           <q-item-section avatar>
-                            <q-icon :name="board.boardType === 'POD_DESIGN' ? 'archive' : 'delete'" size="xs"
-                              :color="board.boardType === 'POD_DESIGN' ? 'orange-4' : 'red-4'" />
+                            <q-icon name="archive" size="xs" color="orange-4" />
                           </q-item-section>
-                          <q-item-section>{{ board.boardType === 'POD_DESIGN' ? 'Deactivate' : 'Delete' }}</q-item-section>
+                          <q-item-section>Deactivate</q-item-section>
                         </q-item>
                       </q-list>
                     </q-menu>
@@ -79,9 +78,6 @@
 
                 <!-- Meta row -->
                 <div class="row items-center q-gutter-sm q-mt-sm">
-                  <q-chip v-if="board.boardType === 'POD_DESIGN'" dense color="deep-purple-9" text-color="purple-2" size="sm" icon="palette">
-                    POD Design
-                  </q-chip>
                   <q-chip dense color="grey-9" text-color="grey-4" size="sm" icon="view_column">
                     {{ board.columnCount || 0 }} columns
                   </q-chip>
@@ -105,23 +101,25 @@
     <board-form-dialog
       v-model="showForm"
       :board="editingBoard"
-      force-board-type="GENERAL"
+      force-board-type="POD_DESIGN"
       @saved="onSaved"
     />
 
-    <!-- Task Config dialog -->
-    <task-config-dialog v-model="showConfigDialog" />
+    <!-- Design Config dialog -->
+    <design-config-dialog v-model="showConfigDialog" />
   </q-page>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useQuasar } from 'quasar'
 import { useAuthStore } from 'src/stores/authStore'
 import { boardApi } from 'src/api/tasks'
 import BoardFormDialog from 'src/components/BoardFormDialog.vue'
-import TaskConfigDialog from 'src/components/TaskConfigDialog.vue'
+import DesignConfigDialog from 'src/components/DesignConfigDialog.vue'
 
+const router = useRouter()
 const $q = useQuasar()
 const authStore = useAuthStore()
 
@@ -135,7 +133,7 @@ const loadBoards = async () => {
   loading.value = true
   try {
     const res = await boardApi.getAll()
-    boards.value = (res.data.data || []).filter(b => b.boardType !== 'POD_DESIGN')
+    boards.value = (res.data.data || []).filter(b => b.boardType === 'POD_DESIGN')
   } catch {
     $q.notify({ type: 'negative', message: 'Failed to load boards' })
   } finally {
@@ -159,20 +157,17 @@ const onSaved = () => {
 }
 
 const confirmDelete = (board) => {
-  const isPodDesign = board.boardType === 'POD_DESIGN'
   $q.dialog({
-    title: isPodDesign ? 'Deactivate Board' : 'Delete Board',
-    message: isPodDesign
-      ? `Deactivate board "${board.name}"? The board will be hidden but its design cards will remain accessible in the Designs page.`
-      : `Delete board "${board.name}"? This cannot be undone.`,
+    title: 'Deactivate Board',
+    message: `Deactivate board "${board.name}"? The board will be hidden but its design cards will remain accessible in the Designs page.`,
     cancel: true,
     persistent: true,
     dark: true,
-    color: isPodDesign ? 'orange-5' : 'red-5'
+    color: 'orange-5'
   }).onOk(async () => {
     try {
       await boardApi.delete(board.id)
-      $q.notify({ type: 'positive', message: isPodDesign ? 'Board deactivated' : 'Board deleted' })
+      $q.notify({ type: 'positive', message: 'Board deactivated' })
       loadBoards()
     } catch (err) {
       $q.notify({ type: 'negative', message: err.response?.data?.message || 'Failed' })
@@ -184,7 +179,7 @@ onMounted(loadBoards)
 </script>
 
 <style scoped>
-.task-manager-page {
+.design-boards-page {
   background: #0d0d0d;
   min-height: 100vh;
 }
