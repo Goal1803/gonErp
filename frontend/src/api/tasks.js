@@ -89,7 +89,25 @@ export const lookupApi = {
 }
 
 export const designsApi = {
-  getAll: (params) => api.get('/tasks/designs', { params })
+  getAll: (params) => api.get('/tasks/designs', { params }),
+  create: (data) => api.post('/tasks/designs', data),
+  getDetail: (designId) => api.get(`/tasks/designs/${designId}/detail`),
+  updateDetail: (designId, data) => api.put(`/tasks/designs/${designId}`, data),
+  uploadPng: (designId, formData) => api.post(`/tasks/designs/${designId}/png-files`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }, timeout: 300000
+  }),
+  deletePngFile: (designId, fileId) => api.delete(`/tasks/designs/${designId}/png-files/${fileId}`),
+  uploadPsd: (designId, formData) => api.post(`/tasks/designs/${designId}/psd-files`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }, timeout: 300000
+  }),
+  deletePsdFile: (designId, fileId) => api.delete(`/tasks/designs/${designId}/psd-files/${fileId}`),
+  uploadMockup: (designId, formData) => api.post(`/tasks/designs/${designId}/mockups`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }, timeout: 300000
+  }),
+  deleteMockup: (designId, mockupId) => api.delete(`/tasks/designs/${designId}/mockups/${mockupId}`),
+  setMainMockup: (designId, mockupId) => api.patch(`/tasks/designs/${designId}/mockups/${mockupId}/main`),
+  addDesigner: (designId, userId) => api.post(`/tasks/designs/${designId}/designers/${userId}`),
+  removeDesigner: (designId, userId) => api.delete(`/tasks/designs/${designId}/designers/${userId}`)
 }
 
 export const taskConfigApi = {

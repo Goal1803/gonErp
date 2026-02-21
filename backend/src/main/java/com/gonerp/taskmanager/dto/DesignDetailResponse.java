@@ -12,6 +12,7 @@ import java.util.List;
 @Builder
 public class DesignDetailResponse {
     private Long id;
+    private String name;
     private List<DesignFileResponse> pngFiles;
     private List<DesignFileResponse> psdFiles;
     private UserSummaryResponse ideaCreator;
@@ -34,6 +35,7 @@ public class DesignDetailResponse {
 
         return DesignDetailResponse.builder()
                 .id(dd.getId())
+                .name(dd.getName())
                 .pngFiles(dd.getDesignFiles().stream()
                         .filter(f -> f.getFileCategory() == DesignFileCategory.PNG)
                         .map(DesignFileResponse::from).toList())

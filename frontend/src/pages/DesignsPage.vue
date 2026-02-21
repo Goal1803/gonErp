@@ -10,6 +10,8 @@
         <div class="text-caption text-grey-5 q-mt-xs">All POD Design cards across boards</div>
       </div>
       <q-space />
+      <q-btn icon="add" label="New Design" color="teal-6" unelevated
+        class="q-mr-sm" @click="openCreateDialog" />
       <q-btn icon="dashboard_customize" label="Boards" color="teal-6" unelevated
         class="q-mr-sm" to="/designs/boards" />
       <q-btn v-if="authStore.isAdmin" flat round icon="settings" color="teal-5"
@@ -60,7 +62,7 @@
 
       <!-- Design grid -->
       <div v-else class="design-grid">
-        <div v-for="d in designs" :key="d.cardId" class="design-card" @click="openDesign(d)">
+        <div v-for="d in designs" :key="d.id" class="design-card" @click="openDesign(d)">
           <div class="design-card-img">
             <img v-if="d.mainMockupUrl" :src="d.mainMockupUrl" />
             <div v-else class="design-card-no-img">
@@ -68,10 +70,11 @@
             </div>
           </div>
           <div class="design-card-body">
-            <div class="design-card-name">{{ d.cardName }}</div>
+            <div class="design-card-name">{{ d.cardName || d.name || 'Untitled' }}</div>
             <div class="design-card-meta">
-              <q-chip dense size="xs" color="grey-8" text-color="grey-3">{{ d.stage }}</q-chip>
-              <q-chip v-if="!d.boardActive" dense size="xs" color="orange-9" text-color="orange-3">Archived</q-chip>
+              <q-chip v-if="d.stage" dense size="xs" color="grey-8" text-color="grey-3">{{ d.stage }}</q-chip>
+              <q-chip v-if="!d.cardId" dense size="xs" color="teal-9" text-color="teal-2">Standalone</q-chip>
+              <q-chip v-if="d.boardActive === false && d.cardId" dense size="xs" color="orange-9" text-color="orange-3">Archived</q-chip>
             </div>
             <div class="design-card-info text-grey-5">
               <span v-if="d.ideaCreator">{{ d.ideaCreator.firstName }} {{ d.ideaCreator.lastName }}</span>
@@ -93,7 +96,7 @@
     </div>
 
     <!-- Design View Dialog -->
-    <design-view-dialog v-model="showDesignDialog" :design="selectedDesign" @open-card="onOpenCard" />
+    <design-view-dialog v-model="showDesignDialog" :design="selectedDesign" @open-card="onOpenCard" @updated="loadDesigns" />
 
     <!-- Card Detail Dialog -->
     <card-detail-dialog
@@ -110,6 +113,91 @@
 
     <!-- Design Config Dialog -->
     <design-config-dialog v-model="showConfigDialog" />
+
+    <!-- Create Design Dialog -->
+    <q-dialog v-model="showCreateDialog" persistent>
+      <q-card dark style="min-width: 500px; max-width: 700px">
+        <!-- Step 1: Basic Info -->
+        <template v-if="!createdDesignId">
+          <q-card-section>
+            <div class="text-h6 text-white">New Design</div>
+          </q-card-section>
+          <q-card-section class="q-pt-none">
+            <q-input v-model="newDesign.name" outlined dark dense color="teal-5" label="Design Name *" class="q-mb-md" />
+            <q-select v-model="newDesign.productTypeIds" :options="productTypeOptions" option-value="id" option-label="name"
+              emit-value map-options multiple outlined dark dense color="teal-5" label="Product Types" use-chips class="q-mb-md" />
+            <q-select v-model="newDesign.nicheIds" :options="nicheOptions" option-value="id" option-label="name"
+              emit-value map-options multiple outlined dark dense color="teal-5" label="Niches" use-chips class="q-mb-md" />
+            <q-select v-model="newDesign.occasionId" :options="occasionOptions" option-value="id" option-label="name"
+              emit-value map-options outlined dark dense color="teal-5" label="Occasion" clearable class="q-mb-md" />
+            <q-toggle v-model="newDesign.custom" dark color="teal-5" label="Custom" />
+          </q-card-section>
+          <q-card-actions align="right">
+            <q-btn flat label="Cancel" color="grey-5" v-close-popup />
+            <q-btn unelevated label="Create" color="teal-6"
+              :disable="!newDesign.name?.trim()"
+              :loading="creating"
+              @click="createDesign" />
+          </q-card-actions>
+        </template>
+
+        <!-- Step 2: Upload Files -->
+        <template v-else>
+          <q-card-section>
+            <div class="text-h6 text-white">Upload Files — {{ newDesign.name }}</div>
+            <div class="text-caption text-grey-5">Design created. You can now upload files or click Done to finish.</div>
+          </q-card-section>
+          <q-card-section class="q-pt-none">
+            <!-- PNG Files -->
+            <div class="q-mb-md">
+              <div class="text-caption text-grey-4 q-mb-xs"><q-icon name="image" size="xs" /> PNG Files</div>
+              <div v-for="f in createdPngFiles" :key="f.id" class="row items-center q-gutter-sm q-mb-xs">
+                <span class="text-teal-4 ellipsis" style="font-size:0.82rem; max-width:240px">{{ f.name }}</span>
+                <q-btn flat round dense icon="delete" color="red-4" size="xs" @click="deleteCreatedFile(f, 'png')" />
+              </div>
+              <q-file v-model="createPngFile" outlined dark color="teal-5" dense label="Upload PNG"
+                accept=".png" :loading="uploadingPng" @update:model-value="uploadCreatedPng">
+                <template #prepend><q-icon name="upload" color="grey-5" /></template>
+              </q-file>
+            </div>
+
+            <!-- PSD Files -->
+            <div class="q-mb-md">
+              <div class="text-caption text-grey-4 q-mb-xs"><q-icon name="brush" size="xs" /> PSD Files</div>
+              <div v-for="f in createdPsdFiles" :key="f.id" class="row items-center q-gutter-sm q-mb-xs">
+                <span class="text-purple-4 ellipsis" style="font-size:0.82rem; max-width:240px">{{ f.name }}</span>
+                <q-btn flat round dense icon="delete" color="red-4" size="xs" @click="deleteCreatedFile(f, 'psd')" />
+              </div>
+              <q-file v-model="createPsdFile" outlined dark color="teal-5" dense label="Upload PSD"
+                accept=".psd,.psb" :loading="uploadingPsd" @update:model-value="uploadCreatedPsd">
+                <template #prepend><q-icon name="upload" color="grey-5" /></template>
+              </q-file>
+            </div>
+
+            <!-- Mockups -->
+            <div class="q-mb-md">
+              <div class="text-caption text-grey-4 q-mb-xs"><q-icon name="photo_library" size="xs" /> Mockups</div>
+              <div v-if="createdMockups.length" class="row q-gutter-sm q-mb-sm" style="flex-wrap:wrap">
+                <div v-for="m in createdMockups" :key="m.id" style="position:relative; width:64px; height:64px; border-radius:6px; overflow:hidden; border:2px solid transparent"
+                  :style="m.mainMockup ? 'border-color:#ffc107' : ''">
+                  <img :src="m.url" style="width:100%; height:100%; object-fit:cover" />
+                  <q-btn flat round dense icon="close" color="red-4" size="8px"
+                    style="position:absolute; top:1px; right:1px; background:rgba(0,0,0,0.6)"
+                    @click="deleteCreatedMockup(m)" />
+                </div>
+              </div>
+              <q-file v-model="createMockupFile" outlined dark color="teal-5" dense label="Upload mockup"
+                accept="image/*" :loading="uploadingMockup" @update:model-value="uploadCreatedMockup">
+                <template #prepend><q-icon name="add_photo_alternate" color="grey-5" /></template>
+              </q-file>
+            </div>
+          </q-card-section>
+          <q-card-actions align="right">
+            <q-btn unelevated label="Done" color="teal-6" @click="finishCreate" />
+          </q-card-actions>
+        </template>
+      </q-card>
+    </q-dialog>
 
   </q-page>
 </template>
@@ -135,6 +223,22 @@ const showConfigDialog = ref(false)
 const showCardDialog = ref(false)
 const selectedCardId = ref(null)
 const selectedBoardId = ref(null)
+
+const showCreateDialog = ref(false)
+const creating = ref(false)
+const newDesign = ref({ name: '', productTypeIds: [], nicheIds: [], occasionId: null, custom: false })
+
+// Step 2: file uploads after creation
+const createdDesignId = ref(null)
+const createdPngFiles = ref([])
+const createdPsdFiles = ref([])
+const createdMockups = ref([])
+const createPngFile = ref(null)
+const createPsdFile = ref(null)
+const createMockupFile = ref(null)
+const uploadingPng = ref(false)
+const uploadingPsd = ref(false)
+const uploadingMockup = ref(false)
 
 const stageOptions = ['Draft', 'Idea', 'Doing', 'Checking', 'Need to Fix', 'Fixing', 'Fix-Checking', 'Done', 'Listed', 'Canceled']
 const statusOptions = ['OPEN', 'IN_PROGRESS', 'DONE', 'BLOCKED', 'CANCELLED']
@@ -208,6 +312,112 @@ const onOpenCard = ({ cardId, boardId }) => {
   selectedCardId.value = cardId
   selectedBoardId.value = boardId
   showCardDialog.value = true
+}
+
+const openCreateDialog = () => {
+  newDesign.value = { name: '', productTypeIds: [], nicheIds: [], occasionId: null, custom: false }
+  createdDesignId.value = null
+  createdPngFiles.value = []
+  createdPsdFiles.value = []
+  createdMockups.value = []
+  showCreateDialog.value = true
+}
+
+const createDesign = async () => {
+  if (!newDesign.value.name?.trim()) return
+  creating.value = true
+  try {
+    const res = await designsApi.create({
+      name: newDesign.value.name.trim(),
+      productTypeIds: newDesign.value.productTypeIds,
+      nicheIds: newDesign.value.nicheIds,
+      occasionId: newDesign.value.occasionId || null,
+      custom: newDesign.value.custom
+    })
+    createdDesignId.value = res.data.data.id
+    $q.notify({ type: 'positive', message: 'Design created. You can now upload files.' })
+  } catch {
+    $q.notify({ type: 'negative', message: 'Failed to create design' })
+  } finally {
+    creating.value = false
+  }
+}
+
+const uploadCreatedPng = async (file) => {
+  if (!file || !createdDesignId.value) return
+  uploadingPng.value = true
+  try {
+    const fd = new FormData()
+    fd.append('file', file)
+    const res = await designsApi.uploadPng(createdDesignId.value, fd)
+    createdPngFiles.value.push(res.data.data)
+    createPngFile.value = null
+  } catch {
+    $q.notify({ type: 'negative', message: 'PNG upload failed' })
+  } finally {
+    uploadingPng.value = false
+  }
+}
+
+const uploadCreatedPsd = async (file) => {
+  if (!file || !createdDesignId.value) return
+  uploadingPsd.value = true
+  try {
+    const fd = new FormData()
+    fd.append('file', file)
+    const res = await designsApi.uploadPsd(createdDesignId.value, fd)
+    createdPsdFiles.value.push(res.data.data)
+    createPsdFile.value = null
+  } catch {
+    $q.notify({ type: 'negative', message: 'PSD upload failed' })
+  } finally {
+    uploadingPsd.value = false
+  }
+}
+
+const uploadCreatedMockup = async (file) => {
+  if (!file || !createdDesignId.value) return
+  uploadingMockup.value = true
+  try {
+    const fd = new FormData()
+    fd.append('file', file)
+    const res = await designsApi.uploadMockup(createdDesignId.value, fd)
+    createdMockups.value.push(res.data.data)
+    createMockupFile.value = null
+  } catch {
+    $q.notify({ type: 'negative', message: 'Mockup upload failed' })
+  } finally {
+    uploadingMockup.value = false
+  }
+}
+
+const deleteCreatedFile = async (f, type) => {
+  try {
+    if (type === 'png') {
+      await designsApi.deletePngFile(createdDesignId.value, f.id)
+      createdPngFiles.value = createdPngFiles.value.filter(x => x.id !== f.id)
+    } else {
+      await designsApi.deletePsdFile(createdDesignId.value, f.id)
+      createdPsdFiles.value = createdPsdFiles.value.filter(x => x.id !== f.id)
+    }
+  } catch {
+    $q.notify({ type: 'negative', message: 'Failed to delete file' })
+  }
+}
+
+const deleteCreatedMockup = async (m) => {
+  try {
+    await designsApi.deleteMockup(createdDesignId.value, m.id)
+    createdMockups.value = createdMockups.value.filter(x => x.id !== m.id)
+  } catch {
+    $q.notify({ type: 'negative', message: 'Failed to delete mockup' })
+  }
+}
+
+const finishCreate = () => {
+  showCreateDialog.value = false
+  createdDesignId.value = null
+  loadDesigns()
 }
 
 onMounted(() => {

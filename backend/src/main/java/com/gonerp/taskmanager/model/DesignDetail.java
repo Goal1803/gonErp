@@ -23,8 +23,11 @@ public class DesignDetail extends BaseModel {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "name")
+    private String name;
+
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "card_id", unique = true)
+    @JoinColumn(name = "card_id", unique = true, nullable = true)
     private Card card;
 
     @OneToMany(mappedBy = "designDetail", cascade = CascadeType.ALL, orphanRemoval = true)

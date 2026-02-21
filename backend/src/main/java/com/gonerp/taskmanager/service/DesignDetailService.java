@@ -12,6 +12,7 @@ import com.gonerp.usermanager.model.User;
 import com.gonerp.usermanager.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.hibernate.Hibernate;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -69,9 +70,28 @@ public class DesignDetailService {
         }
     }
 
+    private void checkDesignAccess(DesignDetail dd) {
+        if (isSystemAdmin()) return;
+        if (dd.getCard() != null) {
+            checkBoardAccess(dd.getCard());
+            return;
+        }
+        // Standalone design access
+        User user = getCurrentUser();
+        if (user.isDesignsManager()) return;
+        if (dd.getIdeaCreator() != null && dd.getIdeaCreator().getId().equals(user.getId())) return;
+        if (dd.getDesigners().stream().anyMatch(d -> d.getId().equals(user.getId()))) return;
+        throw new AccessDeniedException("You do not have access to this design");
+    }
+
     private DesignDetail getDesignDetailByCardId(Long cardId) {
         return designDetailRepository.findByCardId(cardId)
                 .orElseThrow(() -> new EntityNotFoundException("Design detail not found for card: " + cardId));
+    }
+
+    private DesignDetail getDesignDetailOrThrow(Long designId) {
+        return designDetailRepository.findById(designId)
+                .orElseThrow(() -> new EntityNotFoundException("Design not found: " + designId));
     }
 
     private Card getCardOrThrow(Long cardId) {
@@ -83,10 +103,13 @@ public class DesignDetailService {
         return card;
     }
 
+    // ── Card-based methods (existing) ──────────────────────────────────────
+
     public DesignDetailResponse getDesignDetail(Long cardId) {
         Card card = getCardOrThrow(cardId);
         checkBoardAccess(card);
         DesignDetail dd = getDesignDetailByCardId(cardId);
+        initializeCollections(dd);
         return DesignDetailResponse.from(dd);
     }
 
@@ -94,6 +117,162 @@ public class DesignDetailService {
         Card card = getCardOrThrow(cardId);
         checkBoardAccess(card);
         DesignDetail dd = getDesignDetailByCardId(cardId);
+        applyDetailUpdate(dd, request);
+        dd = designDetailRepository.save(dd);
+        initializeCollections(dd);
+        return DesignDetailResponse.from(dd);
+    }
+
+    public DesignFileResponse uploadDesignFile(Long cardId, MultipartFile file, DesignFileCategory category) {
+        Card card = getCardOrThrow(cardId);
+        checkBoardAccess(card);
+        DesignDetail dd = getDesignDetailByCardId(cardId);
+        return doUploadDesignFile(dd, file, category);
+    }
+
+    public void deleteDesignFile(Long cardId, Long fileId) {
+        Card card = getCardOrThrow(cardId);
+        checkBoardAccess(card);
+        doDeleteDesignFile(fileId);
+    }
+
+    public DesignMockupResponse uploadMockup(Long cardId, MultipartFile file) {
+        Card card = getCardOrThrow(cardId);
+        checkBoardAccess(card);
+        DesignDetail dd = getDesignDetailByCardId(cardId);
+        DesignMockupResponse response = doUploadMockup(dd, file);
+        // Sync card main image
+        if (dd.getMockups().size() == 1) {
+            card.setMainImageUrl(response.getUrl());
+            cardRepository.save(card);
+        }
+        return response;
+    }
+
+    public void deleteMockup(Long cardId, Long mockupId) {
+        Card card = getCardOrThrow(cardId);
+        checkBoardAccess(card);
+        boolean wasMain = doDeleteMockup(mockupId);
+        if (wasMain) {
+            card.setMainImageUrl(null);
+            cardRepository.save(card);
+        }
+    }
+
+    public DesignMockupResponse setMainMockup(Long cardId, Long mockupId) {
+        Card card = getCardOrThrow(cardId);
+        checkBoardAccess(card);
+        DesignDetail dd = getDesignDetailByCardId(cardId);
+        DesignMockupResponse response = doSetMainMockup(dd, mockupId);
+        card.setMainImageUrl(response.getUrl());
+        cardRepository.save(card);
+        return response;
+    }
+
+    public DesignDetailResponse addDesigner(Long cardId, Long userId) {
+        Card card = getCardOrThrow(cardId);
+        checkBoardAccess(card);
+        DesignDetail dd = getDesignDetailByCardId(cardId);
+        doAddDesigner(dd, userId);
+        // Auto-assign designer as card member
+        if (!cardMemberRepository.existsByCardIdAndUserId(card.getId(), userId)) {
+            User designer = userRepository.findById(userId)
+                    .orElseThrow(() -> new EntityNotFoundException("User not found: " + userId));
+            cardMemberRepository.save(CardMember.builder().card(card).user(designer).build());
+        }
+        initializeCollections(dd);
+        return DesignDetailResponse.from(dd);
+    }
+
+    public DesignDetailResponse removeDesigner(Long cardId, Long userId) {
+        Card card = getCardOrThrow(cardId);
+        checkBoardAccess(card);
+        DesignDetail dd = getDesignDetailByCardId(cardId);
+        dd.getDesigners().removeIf(d -> d.getId().equals(userId));
+        dd = designDetailRepository.save(dd);
+        initializeCollections(dd);
+        return DesignDetailResponse.from(dd);
+    }
+
+    // ── Design-ID-based methods (for standalone designs) ───────────────────
+
+    public DesignDetailResponse getDesignDetailById(Long designId) {
+        DesignDetail dd = getDesignDetailOrThrow(designId);
+        checkDesignAccess(dd);
+        initializeCollections(dd);
+        return DesignDetailResponse.from(dd);
+    }
+
+    public DesignDetailResponse updateDesignDetailById(Long designId, DesignDetailRequest request) {
+        DesignDetail dd = getDesignDetailOrThrow(designId);
+        checkDesignAccess(dd);
+        applyDetailUpdate(dd, request);
+        dd = designDetailRepository.save(dd);
+        initializeCollections(dd);
+        return DesignDetailResponse.from(dd);
+    }
+
+    public DesignFileResponse uploadDesignFileById(Long designId, MultipartFile file, DesignFileCategory category) {
+        DesignDetail dd = getDesignDetailOrThrow(designId);
+        checkDesignAccess(dd);
+        return doUploadDesignFile(dd, file, category);
+    }
+
+    public void deleteDesignFileById(Long designId, Long fileId) {
+        DesignDetail dd = getDesignDetailOrThrow(designId);
+        checkDesignAccess(dd);
+        doDeleteDesignFile(fileId);
+    }
+
+    public DesignMockupResponse uploadMockupById(Long designId, MultipartFile file) {
+        DesignDetail dd = getDesignDetailOrThrow(designId);
+        checkDesignAccess(dd);
+        return doUploadMockup(dd, file);
+    }
+
+    public void deleteMockupById(Long designId, Long mockupId) {
+        DesignDetail dd = getDesignDetailOrThrow(designId);
+        checkDesignAccess(dd);
+        doDeleteMockup(mockupId);
+    }
+
+    public DesignMockupResponse setMainMockupById(Long designId, Long mockupId) {
+        DesignDetail dd = getDesignDetailOrThrow(designId);
+        checkDesignAccess(dd);
+        return doSetMainMockup(dd, mockupId);
+    }
+
+    public DesignDetailResponse addDesignerById(Long designId, Long userId) {
+        DesignDetail dd = getDesignDetailOrThrow(designId);
+        checkDesignAccess(dd);
+        doAddDesigner(dd, userId);
+        initializeCollections(dd);
+        return DesignDetailResponse.from(dd);
+    }
+
+    public DesignDetailResponse removeDesignerById(Long designId, Long userId) {
+        DesignDetail dd = getDesignDetailOrThrow(designId);
+        checkDesignAccess(dd);
+        dd.getDesigners().removeIf(d -> d.getId().equals(userId));
+        dd = designDetailRepository.save(dd);
+        initializeCollections(dd);
+        return DesignDetailResponse.from(dd);
+    }
+
+    private void initializeCollections(DesignDetail dd) {
+        Hibernate.initialize(dd.getDesignFiles());
+        Hibernate.initialize(dd.getMockups());
+        Hibernate.initialize(dd.getDesigners());
+        Hibernate.initialize(dd.getProductTypes());
+        Hibernate.initialize(dd.getNiches());
+    }
+
+    // ── Shared internal methods ────────────────────────────────────────────
+
+    private void applyDetailUpdate(DesignDetail dd, DesignDetailRequest request) {
+        if (request.getName() != null) {
+            dd.setName(request.getName());
+        }
 
         if (request.getIdeaCreatorId() != null) {
             User ideaCreator = userRepository.findById(request.getIdeaCreatorId())
@@ -125,14 +304,9 @@ public class DesignDetailService {
         if (request.getCustom() != null) {
             dd.setCustom(request.getCustom());
         }
-
-        return DesignDetailResponse.from(designDetailRepository.save(dd));
     }
 
-    public DesignFileResponse uploadDesignFile(Long cardId, MultipartFile file, DesignFileCategory category) {
-        Card card = getCardOrThrow(cardId);
-        checkBoardAccess(card);
-        DesignDetail dd = getDesignDetailByCardId(cardId);
+    private DesignFileResponse doUploadDesignFile(DesignDetail dd, MultipartFile file, DesignFileCategory category) {
         String filename = storeFile(file);
         DesignFile designFile = DesignFile.builder()
                 .name(file.getOriginalFilename())
@@ -145,19 +319,14 @@ public class DesignDetailService {
         return DesignFileResponse.from(designFile);
     }
 
-    public void deleteDesignFile(Long cardId, Long fileId) {
-        Card card = getCardOrThrow(cardId);
-        checkBoardAccess(card);
+    private void doDeleteDesignFile(Long fileId) {
         DesignFile designFile = designFileRepository.findById(fileId)
                 .orElseThrow(() -> new EntityNotFoundException("Design file not found: " + fileId));
         deletePhysicalFile(designFile.getUrl());
         designFileRepository.delete(designFile);
     }
 
-    public DesignMockupResponse uploadMockup(Long cardId, MultipartFile file) {
-        Card card = getCardOrThrow(cardId);
-        checkBoardAccess(card);
-        DesignDetail dd = getDesignDetailByCardId(cardId);
+    private DesignMockupResponse doUploadMockup(DesignDetail dd, MultipartFile file) {
         String filename = storeFile(file);
         boolean isFirst = dd.getMockups().isEmpty();
         DesignMockup mockup = DesignMockup.builder()
@@ -168,71 +337,35 @@ public class DesignDetailService {
                 .designDetail(dd)
                 .build();
         mockup = designMockupRepository.save(mockup);
-
-        if (isFirst) {
-            card.setMainImageUrl("/api/tasks/files/" + filename);
-            cardRepository.save(card);
-        }
-
         return DesignMockupResponse.from(mockup);
     }
 
-    public void deleteMockup(Long cardId, Long mockupId) {
-        Card card = getCardOrThrow(cardId);
-        checkBoardAccess(card);
+    private boolean doDeleteMockup(Long mockupId) {
         DesignMockup mockup = designMockupRepository.findById(mockupId)
                 .orElseThrow(() -> new EntityNotFoundException("Mockup not found: " + mockupId));
         deletePhysicalFile(mockup.getUrl());
         boolean wasMain = mockup.isMainMockup();
         designMockupRepository.delete(mockup);
-
-        if (wasMain) {
-            card.setMainImageUrl(null);
-            cardRepository.save(card);
-        }
+        return wasMain;
     }
 
-    public DesignMockupResponse setMainMockup(Long cardId, Long mockupId) {
-        Card card = getCardOrThrow(cardId);
-        checkBoardAccess(card);
-        DesignDetail dd = getDesignDetailByCardId(cardId);
+    private DesignMockupResponse doSetMainMockup(DesignDetail dd, Long mockupId) {
         DesignMockup mockup = designMockupRepository.findById(mockupId)
                 .orElseThrow(() -> new EntityNotFoundException("Mockup not found: " + mockupId));
-
         designMockupRepository.clearMainMockup(dd.getId());
         mockup.setMainMockup(true);
         mockup = designMockupRepository.save(mockup);
-
-        card.setMainImageUrl(mockup.getUrl());
-        cardRepository.save(card);
-
         return DesignMockupResponse.from(mockup);
     }
 
-    public DesignDetailResponse addDesigner(Long cardId, Long userId) {
-        Card card = getCardOrThrow(cardId);
-        checkBoardAccess(card);
-        DesignDetail dd = getDesignDetailByCardId(cardId);
+    private void doAddDesigner(DesignDetail dd, Long userId) {
         User designer = userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException("User not found: " + userId));
         if (dd.getDesigners().stream().noneMatch(d -> d.getId().equals(userId))) {
             dd.getDesigners().add(designer);
             designDetailRepository.save(dd);
             ensureDesignStaffRole(designer, "Designer");
-            // Auto-assign designer as card member
-            if (!cardMemberRepository.existsByCardIdAndUserId(card.getId(), userId)) {
-                cardMemberRepository.save(CardMember.builder().card(card).user(designer).build());
-            }
         }
-        return DesignDetailResponse.from(dd);
-    }
-
-    public DesignDetailResponse removeDesigner(Long cardId, Long userId) {
-        Card card = getCardOrThrow(cardId);
-        checkBoardAccess(card);
-        DesignDetail dd = getDesignDetailByCardId(cardId);
-        dd.getDesigners().removeIf(d -> d.getId().equals(userId));
-        return DesignDetailResponse.from(designDetailRepository.save(dd));
     }
 
     private void ensureDesignStaffRole(User user, String roleName) {

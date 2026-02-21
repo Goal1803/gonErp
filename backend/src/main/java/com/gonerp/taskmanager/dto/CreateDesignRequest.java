@@ -5,7 +5,7 @@ import lombok.Data;
 import java.util.List;
 
 @Data
-public class DesignDetailRequest {
+public class CreateDesignRequest {
     private String name;
     private Long ideaCreatorId;
     private List<Long> productTypeIds;

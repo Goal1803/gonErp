@@ -1,14 +1,17 @@
 package com.gonerp.taskmanager.service;
 
+import com.gonerp.taskmanager.dto.CreateDesignRequest;
 import com.gonerp.taskmanager.dto.DesignSummaryResponse;
 import com.gonerp.taskmanager.model.*;
 import com.gonerp.taskmanager.model.enums.BoardType;
 import com.gonerp.taskmanager.model.enums.CardStatus;
-import com.gonerp.taskmanager.repository.DesignDetailRepository;
+import com.gonerp.taskmanager.repository.*;
 import com.gonerp.usermanager.model.User;
 import com.gonerp.usermanager.repository.UserRepository;
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.persistence.criteria.*;
 import lombok.RequiredArgsConstructor;
+import org.hibernate.Hibernate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -26,6 +29,11 @@ import java.util.List;
 public class DesignsService {
 
     private final DesignDetailRepository designDetailRepository;
+    private final ProductTypeRepository productTypeRepository;
+    private final NicheRepository nicheRepository;
+    private final OccasionRepository occasionRepository;
+    private final DesignStaffRoleRepository designStaffRoleRepository;
+    private final UserDesignStaffRoleRepository userDesignStaffRoleRepository;
     private final UserRepository userRepository;
 
     private User getCurrentUser() {
@@ -38,6 +46,51 @@ public class DesignsService {
         var authorities = SecurityContextHolder.getContext().getAuthentication().getAuthorities();
         return authorities.stream().anyMatch(a ->
                 a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ROLE_SUPER_ADMIN"));
+    }
+
+    @Transactional
+    public DesignSummaryResponse createDesign(CreateDesignRequest request) {
+        User currentUser = getCurrentUser();
+
+        DesignDetail dd = DesignDetail.builder()
+                .name(request.getName())
+                .build();
+
+        // Idea creator
+        if (request.getIdeaCreatorId() != null) {
+            User ideaCreator = userRepository.findById(request.getIdeaCreatorId())
+                    .orElseThrow(() -> new EntityNotFoundException("User not found: " + request.getIdeaCreatorId()));
+            dd.setIdeaCreator(ideaCreator);
+            ensureDesignStaffRole(ideaCreator, "IdeaCreator");
+        } else {
+            dd.setIdeaCreator(currentUser);
+            ensureDesignStaffRole(currentUser, "IdeaCreator");
+        }
+
+        // Product types
+        if (request.getProductTypeIds() != null && !request.getProductTypeIds().isEmpty()) {
+            dd.getProductTypes().addAll(productTypeRepository.findAllById(request.getProductTypeIds()));
+        }
+
+        // Niches
+        if (request.getNicheIds() != null && !request.getNicheIds().isEmpty()) {
+            dd.getNiches().addAll(nicheRepository.findAllById(request.getNicheIds()));
+        }
+
+        // Occasion
+        if (request.getOccasionId() != null && request.getOccasionId() != 0) {
+            Occasion occasion = occasionRepository.findById(request.getOccasionId())
+                    .orElseThrow(() -> new EntityNotFoundException("Occasion not found: " + request.getOccasionId()));
+            dd.setOccasion(occasion);
+        }
+
+        // Custom
+        if (request.getCustom() != null) {
+            dd.setCustom(request.getCustom());
+        }
+
+        dd = designDetailRepository.save(dd);
+        return DesignSummaryResponse.from(dd);
     }
 
     public Page<DesignSummaryResponse> findAll(
@@ -54,13 +107,18 @@ public class DesignsService {
         Specification<DesignDetail> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
 
-            // Only POD_DESIGN board cards
-            Join<DesignDetail, Card> card = root.join("card", JoinType.INNER);
-            Join<Card, BoardColumn> column = card.join("column", JoinType.INNER);
-            Join<BoardColumn, Board> board = column.join("board", JoinType.INNER);
-            predicates.add(cb.equal(board.get("boardType"), BoardType.POD_DESIGN));
+            // LEFT JOIN card so standalone designs are included
+            Join<DesignDetail, Card> card = root.join("card", JoinType.LEFT);
+            Join<Card, BoardColumn> column = card.join("column", JoinType.LEFT);
+            Join<BoardColumn, Board> board = column.join("board", JoinType.LEFT);
 
-            // Authorization filter: regular users only see designs where they are seller or designer
+            // Include standalone designs (no card) OR card-linked designs in POD_DESIGN boards
+            predicates.add(cb.or(
+                    cb.isNull(root.get("card")),
+                    cb.equal(board.get("boardType"), BoardType.POD_DESIGN)
+            ));
+
+            // Authorization filter
             if (!isAdmin && !isDesignsManager) {
                 Subquery<Long> designerSubquery = query.subquery(Long.class);
                 Root<DesignDetail> subRoot = designerSubquery.correlate(root);
@@ -116,13 +174,31 @@ public class DesignsService {
             }
             if (search != null && !search.isBlank()) {
                 String pattern = "%" + search.toLowerCase() + "%";
-                predicates.add(cb.like(cb.lower(card.get("name")), pattern));
+                predicates.add(cb.or(
+                        cb.like(cb.lower(card.get("name")), pattern),
+                        cb.like(cb.lower(root.get("name")), pattern)
+                ));
             }
 
             query.distinct(true);
             return cb.and(predicates.toArray(new Predicate[0]));
         };
 
-        return designDetailRepository.findAll(spec, pageable).map(DesignSummaryResponse::from);
+        return designDetailRepository.findAll(spec, pageable).map(dd -> {
+            Hibernate.initialize(dd.getMockups());
+            Hibernate.initialize(dd.getDesigners());
+            Hibernate.initialize(dd.getProductTypes());
+            Hibernate.initialize(dd.getNiches());
+            return DesignSummaryResponse.from(dd);
+        });
+    }
+
+    private void ensureDesignStaffRole(User user, String roleName) {
+        designStaffRoleRepository.findByName(roleName).ifPresent(role -> {
+            if (!userDesignStaffRoleRepository.existsByUserIdAndDesignStaffRoleId(user.getId(), role.getId())) {
+                userDesignStaffRoleRepository.save(
+                        UserDesignStaffRole.builder().user(user).designStaffRole(role).build());
+            }
+        });
     }
 }

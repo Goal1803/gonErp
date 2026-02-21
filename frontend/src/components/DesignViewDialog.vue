@@ -5,15 +5,18 @@
       <q-card-section class="row items-center no-wrap q-py-sm" style="border-bottom: 1px solid rgba(255,255,255,0.07)">
         <q-icon name="palette" color="teal-5" size="sm" class="q-mr-sm" />
         <div class="text-h6 text-white text-weight-medium ellipsis" style="max-width: 500px">
-          {{ design?.cardName }}
+          {{ design?.cardName || design?.name || 'Untitled' }}
         </div>
         <q-chip v-if="design?.stage" dense size="sm" color="grey-8" text-color="grey-3" class="q-ml-sm">
           {{ design.stage }}
         </q-chip>
-        <q-chip v-if="!design?.boardActive" dense size="sm" color="orange-9" text-color="orange-3" class="q-ml-xs">
+        <q-chip v-if="!design?.cardId" dense size="sm" color="teal-9" text-color="teal-2" class="q-ml-sm">
+          Standalone
+        </q-chip>
+        <q-chip v-if="design?.cardId && !design?.boardActive" dense size="sm" color="orange-9" text-color="orange-3" class="q-ml-xs">
           Archived
         </q-chip>
-        <q-btn flat dense icon="open_in_new" color="teal-5" label="View Card" class="q-ml-sm" @click="openCard" />
+        <q-btn v-if="design?.cardId" flat dense icon="open_in_new" color="teal-5" label="View Card" class="q-ml-sm" @click="openCard" />
         <q-space />
         <q-btn flat round dense icon="close" color="grey-5" v-close-popup />
       </q-card-section>
@@ -105,10 +108,17 @@
 
           <!-- RIGHT: Info -->
           <div class="col-12 col-md-5">
-            <!-- Board -->
-            <div class="info-block">
+            <!-- Board (card-linked only) -->
+            <div v-if="design?.cardId" class="info-block">
               <div class="info-label">Board</div>
               <div class="info-value">{{ design?.boardName }}</div>
+            </div>
+
+            <!-- Name (standalone editable) -->
+            <div v-if="isStandalone" class="info-block">
+              <div class="info-label"><q-icon name="label" size="xs" /> Name</div>
+              <q-input v-model="editName" outlined dark dense color="teal-5"
+                @blur="saveDetail" @keyup.enter="saveDetail" />
             </div>
 
             <!-- Design Status -->
@@ -145,37 +155,53 @@
               <div v-else class="text-grey-6" style="font-size:0.85rem">None</div>
             </div>
 
-            <!-- Product Types -->
+            <!-- Product Types (standalone editable) -->
             <div class="info-block">
               <div class="info-label"><q-icon name="inventory_2" size="xs" /> Product Types</div>
-              <div v-if="detail?.productTypes?.length" class="row items-center q-gutter-xs" style="flex-wrap:wrap">
-                <q-chip v-for="pt in detail.productTypes" :key="pt.id" dense size="sm"
-                  color="deep-purple-9" text-color="purple-2" :label="pt.name" />
-              </div>
-              <div v-else class="text-grey-6" style="font-size:0.85rem">-</div>
+              <q-select v-if="isStandalone" v-model="editProductTypeIds" :options="productTypeOptions"
+                option-value="id" option-label="name" emit-value map-options multiple outlined dark dense
+                color="teal-5" use-chips @update:model-value="saveDetail" />
+              <template v-else>
+                <div v-if="detail?.productTypes?.length" class="row items-center q-gutter-xs" style="flex-wrap:wrap">
+                  <q-chip v-for="pt in detail.productTypes" :key="pt.id" dense size="sm"
+                    color="deep-purple-9" text-color="purple-2" :label="pt.name" />
+                </div>
+                <div v-else class="text-grey-6" style="font-size:0.85rem">-</div>
+              </template>
             </div>
 
-            <!-- Niches -->
+            <!-- Niches (standalone editable) -->
             <div class="info-block">
               <div class="info-label"><q-icon name="category" size="xs" /> Niches</div>
-              <div v-if="detail?.niches?.length" class="row items-center q-gutter-xs" style="flex-wrap:wrap">
-                <q-chip v-for="n in detail.niches" :key="n.id" dense size="sm"
-                  color="teal-9" text-color="teal-2" :label="n.name" />
-              </div>
-              <div v-else class="text-grey-6" style="font-size:0.85rem">-</div>
+              <q-select v-if="isStandalone" v-model="editNicheIds" :options="nicheOptions"
+                option-value="id" option-label="name" emit-value map-options multiple outlined dark dense
+                color="teal-5" use-chips @update:model-value="saveDetail" />
+              <template v-else>
+                <div v-if="detail?.niches?.length" class="row items-center q-gutter-xs" style="flex-wrap:wrap">
+                  <q-chip v-for="n in detail.niches" :key="n.id" dense size="sm"
+                    color="teal-9" text-color="teal-2" :label="n.name" />
+                </div>
+                <div v-else class="text-grey-6" style="font-size:0.85rem">-</div>
+              </template>
             </div>
 
-            <!-- Occasion -->
+            <!-- Occasion (standalone editable) -->
             <div class="info-block">
               <div class="info-label"><q-icon name="celebration" size="xs" /> Occasion</div>
-              <div v-if="detail?.occasion" class="text-grey-3" style="font-size:0.85rem">{{ detail.occasion.name }}</div>
-              <div v-else class="text-grey-6" style="font-size:0.85rem">-</div>
+              <q-select v-if="isStandalone" v-model="editOccasionId" :options="occasionOptions"
+                option-value="id" option-label="name" emit-value map-options outlined dark dense
+                color="teal-5" clearable @update:model-value="saveDetail" />
+              <template v-else>
+                <div v-if="detail?.occasion" class="text-grey-3" style="font-size:0.85rem">{{ detail.occasion.name }}</div>
+                <div v-else class="text-grey-6" style="font-size:0.85rem">-</div>
+              </template>
             </div>
 
-            <!-- Custom -->
+            <!-- Custom (standalone editable) -->
             <div class="info-block">
               <div class="info-label"><q-icon name="tune" size="xs" /> Custom</div>
-              <q-chip dense size="sm"
+              <q-toggle v-if="isStandalone" v-model="editCustom" dark color="teal-5" @update:model-value="saveDetail" />
+              <q-chip v-else dense size="sm"
                 :color="detail?.custom ? 'teal-9' : 'grey-9'"
                 :text-color="detail?.custom ? 'teal-2' : 'grey-5'"
                 :label="detail?.custom ? 'Yes' : 'No'" />
@@ -202,7 +228,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { useQuasar } from 'quasar'
-import { designApi } from 'src/api/tasks'
+import { designApi, designsApi, lookupApi } from 'src/api/tasks'
 
 const $q = useQuasar()
 
@@ -211,7 +237,7 @@ const props = defineProps({
   design: { type: Object, default: null }
 })
 
-const emit = defineEmits(['update:modelValue', 'open-card'])
+const emit = defineEmits(['update:modelValue', 'open-card', 'updated'])
 
 const show = computed({
   get: () => props.modelValue,
@@ -224,6 +250,49 @@ const selectedMockup = ref(null)
 const mockupFile = ref(null)
 const pngFile = ref(null)
 const psdFile = ref(null)
+
+// Editable fields for standalone designs
+const editName = ref('')
+const editProductTypeIds = ref([])
+const editNicheIds = ref([])
+const editOccasionId = ref(null)
+const editCustom = ref(false)
+
+// Lookup options for standalone editing
+const productTypeOptions = ref([])
+const nicheOptions = ref([])
+const occasionOptions = ref([])
+
+const isStandalone = computed(() => !props.design?.cardId)
+
+// Computed API adapter: picks card-based or design-ID-based API
+const api = computed(() => {
+  if (isStandalone.value) {
+    const id = props.design?.id
+    return {
+      getDetail: () => designsApi.getDetail(id),
+      uploadMockup: (fd) => designsApi.uploadMockup(id, fd),
+      deleteMockup: (mockupId) => designsApi.deleteMockup(id, mockupId),
+      setMainMockup: (mockupId) => designsApi.setMainMockup(id, mockupId),
+      uploadPng: (fd) => designsApi.uploadPng(id, fd),
+      deletePngFile: (fileId) => designsApi.deletePngFile(id, fileId),
+      uploadPsd: (fd) => designsApi.uploadPsd(id, fd),
+      deletePsdFile: (fileId) => designsApi.deletePsdFile(id, fileId),
+    }
+  } else {
+    const id = props.design?.cardId
+    return {
+      getDetail: () => designApi.getDetail(id),
+      uploadMockup: (fd) => designApi.uploadMockup(id, fd),
+      deleteMockup: (mockupId) => designApi.deleteMockup(id, mockupId),
+      setMainMockup: (mockupId) => designApi.setMainMockup(id, mockupId),
+      uploadPng: (fd) => designApi.uploadPng(id, fd),
+      deletePngFile: (fileId) => designApi.deletePngFile(id, fileId),
+      uploadPsd: (fd) => designApi.uploadPsd(id, fd),
+      deletePsdFile: (fileId) => designApi.deletePsdFile(id, fileId),
+    }
+  }
+})
 
 const mainMockup = computed(() => {
   if (!detail.value?.mockups?.length) return null
@@ -250,47 +319,46 @@ const downloadFile = async (url, filename) => {
   }
 }
 
-const cardId = computed(() => props.design?.cardId)
-
 const uploadMockup = async (file) => {
-  if (!file || !cardId.value) return
+  if (!file) return
   const fd = new FormData()
   fd.append('file', file)
   try {
-    await designApi.uploadMockup(cardId.value, fd)
+    await api.value.uploadMockup(fd)
     await loadDetail()
     mockupFile.value = null
+    emit('updated')
   } catch {
     $q.notify({ type: 'negative', message: 'Mockup upload failed' })
   }
 }
 
 const deleteMockup = async (m) => {
-  if (!cardId.value) return
   try {
-    await designApi.deleteMockup(cardId.value, m.id)
+    await api.value.deleteMockup(m.id)
     await loadDetail()
+    emit('updated')
   } catch {
     $q.notify({ type: 'negative', message: 'Failed to delete mockup' })
   }
 }
 
 const setMainMockup = async (m) => {
-  if (!cardId.value) return
   try {
-    await designApi.setMainMockup(cardId.value, m.id)
+    await api.value.setMainMockup(m.id)
     await loadDetail()
+    emit('updated')
   } catch {
     $q.notify({ type: 'negative', message: 'Failed to set main mockup' })
   }
 }
 
 const uploadPng = async (file) => {
-  if (!file || !cardId.value) return
+  if (!file) return
   const fd = new FormData()
   fd.append('file', file)
   try {
-    await designApi.uploadPng(cardId.value, fd)
+    await api.value.uploadPng(fd)
     await loadDetail()
     pngFile.value = null
   } catch {
@@ -299,9 +367,8 @@ const uploadPng = async (file) => {
 }
 
 const deletePngFile = async (f) => {
-  if (!cardId.value) return
   try {
-    await designApi.deletePngFile(cardId.value, f.id)
+    await api.value.deletePngFile(f.id)
     await loadDetail()
   } catch {
     $q.notify({ type: 'negative', message: 'Failed to remove PNG' })
@@ -309,11 +376,11 @@ const deletePngFile = async (f) => {
 }
 
 const uploadPsd = async (file) => {
-  if (!file || !cardId.value) return
+  if (!file) return
   const fd = new FormData()
   fd.append('file', file)
   try {
-    await designApi.uploadPsd(cardId.value, fd)
+    await api.value.uploadPsd(fd)
     await loadDetail()
     psdFile.value = null
   } catch {
@@ -322,12 +389,28 @@ const uploadPsd = async (file) => {
 }
 
 const deletePsdFile = async (f) => {
-  if (!cardId.value) return
   try {
-    await designApi.deletePsdFile(cardId.value, f.id)
+    await api.value.deletePsdFile(f.id)
     await loadDetail()
   } catch {
     $q.notify({ type: 'negative', message: 'Failed to remove PSD' })
+  }
+}
+
+const saveDetail = async () => {
+  if (!isStandalone.value || !props.design?.id) return
+  try {
+    const res = await designsApi.updateDetail(props.design.id, {
+      name: editName.value,
+      productTypeIds: editProductTypeIds.value,
+      nicheIds: editNicheIds.value,
+      occasionId: editOccasionId.value || 0,
+      custom: editCustom.value
+    })
+    detail.value = res.data.data
+    emit('updated')
+  } catch {
+    $q.notify({ type: 'negative', message: 'Failed to update design' })
   }
 }
 
@@ -349,13 +432,36 @@ const designStatusTextColor = computed(() => {
   return 'orange-2'
 })
 
+const loadLookups = async () => {
+  try {
+    const [pt, ni, oc] = await Promise.all([
+      lookupApi.getProductTypes(),
+      lookupApi.getNiches(),
+      lookupApi.getOccasions()
+    ])
+    productTypeOptions.value = pt.data.data || []
+    nicheOptions.value = ni.data.data || []
+    occasionOptions.value = oc.data.data || []
+  } catch { /* silent */ }
+}
+
+const syncEditFields = () => {
+  if (!detail.value) return
+  editName.value = detail.value.name || ''
+  editProductTypeIds.value = detail.value.productTypes?.map(p => p.id) || []
+  editNicheIds.value = detail.value.niches?.map(n => n.id) || []
+  editOccasionId.value = detail.value.occasion?.id || null
+  editCustom.value = detail.value.custom || false
+}
+
 const loadDetail = async () => {
-  if (!props.design?.cardId) return
+  if (!props.design?.cardId && !props.design?.id) return
   loading.value = true
   try {
-    const res = await designApi.getDetail(props.design.cardId)
+    const res = await api.value.getDetail()
     detail.value = res.data.data
     selectedMockup.value = null
+    if (isStandalone.value) syncEditFields()
   } catch {
     detail.value = null
   } finally {
@@ -366,11 +472,12 @@ const loadDetail = async () => {
 watch(() => props.design, (d) => {
   if (d) {
     loadDetail()
+    if (!d.cardId) loadLookups()
   } else {
     detail.value = null
     selectedMockup.value = null
   }
-})
+}, { immediate: true })
 </script>
 
 <style scoped>

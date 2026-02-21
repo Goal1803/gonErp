@@ -41,6 +41,7 @@ public class DataInitializer implements ApplicationRunner {
     @Transactional
     public void run(ApplicationArguments args) {
         dropEnumConstraints();
+        makeDesignCardIdNullable();
         initRoles();
         initDefaultOrgType();
         initDefaultOrganization();
@@ -57,6 +58,17 @@ public class DataInitializer implements ApplicationRunner {
             log.info("Dropped user_roles_name_check constraint (if existed)");
         } catch (Exception e) {
             log.warn("Could not drop user_roles_name_check constraint: {}", e.getMessage());
+        }
+    }
+
+    private void makeDesignCardIdNullable() {
+        try {
+            entityManager.createNativeQuery(
+                    "ALTER TABLE tm_design_details ALTER COLUMN card_id DROP NOT NULL"
+            ).executeUpdate();
+            log.info("Made tm_design_details.card_id nullable (if needed)");
+        } catch (Exception e) {
+            log.warn("Could not alter tm_design_details.card_id: {}", e.getMessage());
         }
     }
 
