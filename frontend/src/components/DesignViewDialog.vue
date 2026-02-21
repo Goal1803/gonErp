@@ -30,6 +30,12 @@
             <!-- Main Mockup -->
             <div v-if="mainMockup" class="main-mockup-container q-mb-md">
               <img :src="mainMockup.url" class="main-mockup-img" />
+              <div class="main-mockup-actions">
+                <q-btn flat round dense icon="download" color="white" size="sm"
+                  @click="downloadFile(mainMockup.url, 'mockup-' + mainMockup.id + '.png')">
+                  <q-tooltip>Download</q-tooltip>
+                </q-btn>
+              </div>
             </div>
             <div v-else class="main-mockup-placeholder q-mb-md">
               <q-icon name="image" size="64px" color="grey-7" />
@@ -37,30 +43,62 @@
             </div>
 
             <!-- Mockup Thumbnails -->
-            <div v-if="detail?.mockups?.length > 1" class="mockup-thumbnails q-mb-md">
+            <div v-if="detail?.mockups?.length" class="mockup-thumbnails q-mb-md">
               <div v-for="m in detail.mockups" :key="m.id"
-                class="mockup-thumb-item" :class="{ active: selectedMockup === m.id }"
+                class="mockup-thumb-item" :class="{ active: selectedMockup === m.id, 'mockup-main-border': m.mainMockup }"
                 @click="selectedMockup = m.id">
                 <img :src="m.url" />
+                <div class="mockup-thumb-actions">
+                  <q-btn flat round dense icon="download" color="white" size="8px"
+                    @click.stop="downloadFile(m.url, 'mockup-' + m.id + '.png')" />
+                  <q-btn v-if="!m.mainMockup" flat round dense icon="star_outline" color="amber" size="8px"
+                    @click.stop="setMainMockup(m)" />
+                  <q-btn flat round dense icon="close" color="red-4" size="8px"
+                    @click.stop="deleteMockup(m)" />
+                </div>
                 <q-icon v-if="m.mainMockup" name="star" color="amber" size="12px" class="mockup-star-badge" />
               </div>
             </div>
 
+            <!-- Upload Mockup -->
+            <q-file v-model="mockupFile" outlined dark color="teal-5" dense label="Upload mockup"
+              accept="image/*" class="q-mb-md" @update:model-value="uploadMockup">
+              <template #prepend><q-icon name="add_photo_alternate" color="grey-5" /></template>
+            </q-file>
+
             <!-- Design Files -->
             <div class="design-files-row row q-gutter-md">
-              <div v-if="detail?.pngFileUrl" class="design-file-chip">
-                <a :href="detail.pngFileUrl" target="_blank" class="row items-center gap-2 text-teal-4">
-                  <q-icon name="image" size="xs" />
-                  <span>{{ detail.pngFileName || 'PNG file' }}</span>
-                  <q-icon name="download" size="xs" />
-                </a>
+              <!-- PNG Files -->
+              <div class="col">
+                <div class="info-label"><q-icon name="image" size="xs" /> PNG Files</div>
+                <div v-if="detail?.pngFiles?.length" class="q-mb-sm">
+                  <div v-for="f in detail.pngFiles" :key="f.id" class="row items-center q-gutter-sm q-mb-xs">
+                    <span class="text-teal-4 ellipsis" style="font-size:0.82rem; max-width: 160px">{{ f.name || 'PNG file' }}</span>
+                    <q-btn flat round dense icon="download" color="white" size="xs"
+                      @click="downloadFile(f.url, f.name || 'design.png')" />
+                    <q-btn flat round dense icon="delete" color="red-4" size="xs" @click="deletePngFile(f)" />
+                  </div>
+                </div>
+                <q-file v-model="pngFile" outlined dark color="teal-5" dense label="Upload PNG"
+                  accept=".png" @update:model-value="uploadPng">
+                  <template #prepend><q-icon name="upload" color="grey-5" /></template>
+                </q-file>
               </div>
-              <div v-if="detail?.psdFileUrl" class="design-file-chip">
-                <a :href="detail.psdFileUrl" target="_blank" class="row items-center gap-2 text-purple-4">
-                  <q-icon name="brush" size="xs" />
-                  <span>{{ detail.psdFileName || 'PSD file' }}</span>
-                  <q-icon name="download" size="xs" />
-                </a>
+              <!-- PSD Files -->
+              <div class="col">
+                <div class="info-label"><q-icon name="brush" size="xs" /> PSD Files</div>
+                <div v-if="detail?.psdFiles?.length" class="q-mb-sm">
+                  <div v-for="f in detail.psdFiles" :key="f.id" class="row items-center q-gutter-sm q-mb-xs">
+                    <span class="text-purple-4 ellipsis" style="font-size:0.82rem; max-width: 160px">{{ f.name || 'PSD file' }}</span>
+                    <q-btn flat round dense icon="download" color="white" size="xs"
+                      @click="downloadFile(f.url, f.name || 'design.psd')" />
+                    <q-btn flat round dense icon="delete" color="red-4" size="xs" @click="deletePsdFile(f)" />
+                  </div>
+                </div>
+                <q-file v-model="psdFile" outlined dark color="teal-5" dense label="Upload PSD"
+                  accept=".psd,.psb" @update:model-value="uploadPsd">
+                  <template #prepend><q-icon name="upload" color="grey-5" /></template>
+                </q-file>
               </div>
             </div>
           </div>
@@ -163,7 +201,10 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
+import { useQuasar } from 'quasar'
 import { designApi } from 'src/api/tasks'
+
+const $q = useQuasar()
 
 const props = defineProps({
   modelValue: Boolean,
@@ -180,6 +221,9 @@ const show = computed({
 const loading = ref(false)
 const detail = ref(null)
 const selectedMockup = ref(null)
+const mockupFile = ref(null)
+const pngFile = ref(null)
+const psdFile = ref(null)
 
 const mainMockup = computed(() => {
   if (!detail.value?.mockups?.length) return null
@@ -191,6 +235,101 @@ const mainMockup = computed(() => {
 })
 
 const formatDate = (d) => d ? new Date(d).toLocaleString() : '-'
+
+const downloadFile = async (url, filename) => {
+  try {
+    const res = await fetch(url)
+    const blob = await res.blob()
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = filename || url.split('/').pop()
+    a.click()
+    URL.revokeObjectURL(a.href)
+  } catch {
+    $q.notify({ type: 'negative', message: 'Download failed' })
+  }
+}
+
+const cardId = computed(() => props.design?.cardId)
+
+const uploadMockup = async (file) => {
+  if (!file || !cardId.value) return
+  const fd = new FormData()
+  fd.append('file', file)
+  try {
+    await designApi.uploadMockup(cardId.value, fd)
+    await loadDetail()
+    mockupFile.value = null
+  } catch {
+    $q.notify({ type: 'negative', message: 'Mockup upload failed' })
+  }
+}
+
+const deleteMockup = async (m) => {
+  if (!cardId.value) return
+  try {
+    await designApi.deleteMockup(cardId.value, m.id)
+    await loadDetail()
+  } catch {
+    $q.notify({ type: 'negative', message: 'Failed to delete mockup' })
+  }
+}
+
+const setMainMockup = async (m) => {
+  if (!cardId.value) return
+  try {
+    await designApi.setMainMockup(cardId.value, m.id)
+    await loadDetail()
+  } catch {
+    $q.notify({ type: 'negative', message: 'Failed to set main mockup' })
+  }
+}
+
+const uploadPng = async (file) => {
+  if (!file || !cardId.value) return
+  const fd = new FormData()
+  fd.append('file', file)
+  try {
+    await designApi.uploadPng(cardId.value, fd)
+    await loadDetail()
+    pngFile.value = null
+  } catch {
+    $q.notify({ type: 'negative', message: 'PNG upload failed' })
+  }
+}
+
+const deletePngFile = async (f) => {
+  if (!cardId.value) return
+  try {
+    await designApi.deletePngFile(cardId.value, f.id)
+    await loadDetail()
+  } catch {
+    $q.notify({ type: 'negative', message: 'Failed to remove PNG' })
+  }
+}
+
+const uploadPsd = async (file) => {
+  if (!file || !cardId.value) return
+  const fd = new FormData()
+  fd.append('file', file)
+  try {
+    await designApi.uploadPsd(cardId.value, fd)
+    await loadDetail()
+    psdFile.value = null
+  } catch {
+    $q.notify({ type: 'negative', message: 'PSD upload failed' })
+  }
+}
+
+const deletePsdFile = async (f) => {
+  if (!cardId.value) return
+  try {
+    await designApi.deletePsdFile(cardId.value, f.id)
+    await loadDetail()
+  } catch {
+    $q.notify({ type: 'negative', message: 'Failed to remove PSD' })
+  }
+}
 
 const openCard = () => {
   emit('open-card', { cardId: props.design?.cardId, boardId: props.design?.boardId })
@@ -246,6 +385,22 @@ watch(() => props.design, (d) => {
   border-radius: 10px;
   overflow: hidden;
   background: #111;
+  position: relative;
+}
+.main-mockup-actions {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.main-mockup-actions .q-btn {
+  background: rgba(0, 0, 0, 0.6);
+}
+.main-mockup-container:hover .main-mockup-actions {
+  opacity: 1;
 }
 .main-mockup-img {
   width: 100%;
@@ -286,6 +441,24 @@ watch(() => props.design, (d) => {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+.mockup-thumb-item.mockup-main-border {
+  border-color: #ffc107;
+}
+.mockup-thumb-actions {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  display: flex;
+  gap: 1px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.mockup-thumb-actions .q-btn {
+  background: rgba(0, 0, 0, 0.6);
+}
+.mockup-thumb-item:hover .mockup-thumb-actions {
+  opacity: 1;
 }
 .mockup-star-badge {
   position: absolute;

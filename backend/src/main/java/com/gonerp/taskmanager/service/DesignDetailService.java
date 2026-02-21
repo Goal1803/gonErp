@@ -2,9 +2,11 @@ package com.gonerp.taskmanager.service;
 
 import com.gonerp.taskmanager.dto.DesignDetailRequest;
 import com.gonerp.taskmanager.dto.DesignDetailResponse;
+import com.gonerp.taskmanager.dto.DesignFileResponse;
 import com.gonerp.taskmanager.dto.DesignMockupResponse;
 import com.gonerp.taskmanager.model.*;
 import com.gonerp.taskmanager.model.enums.BoardType;
+import com.gonerp.taskmanager.model.enums.DesignFileCategory;
 import com.gonerp.taskmanager.repository.*;
 import com.gonerp.usermanager.model.User;
 import com.gonerp.usermanager.repository.UserRepository;
@@ -31,6 +33,7 @@ public class DesignDetailService {
 
     private final DesignDetailRepository designDetailRepository;
     private final DesignMockupRepository designMockupRepository;
+    private final DesignFileRepository designFileRepository;
     private final CardRepository cardRepository;
     private final BoardMemberRepository boardMemberRepository;
     private final UserRepository userRepository;
@@ -126,46 +129,29 @@ public class DesignDetailService {
         return DesignDetailResponse.from(designDetailRepository.save(dd));
     }
 
-    public DesignDetailResponse uploadPng(Long cardId, MultipartFile file) {
+    public DesignFileResponse uploadDesignFile(Long cardId, MultipartFile file, DesignFileCategory category) {
         Card card = getCardOrThrow(cardId);
         checkBoardAccess(card);
         DesignDetail dd = getDesignDetailByCardId(cardId);
-        deletePhysicalFile(dd.getPngFileUrl());
         String filename = storeFile(file);
-        dd.setPngFileUrl("/api/tasks/files/" + filename);
-        dd.setPngFileName(file.getOriginalFilename());
-        return DesignDetailResponse.from(designDetailRepository.save(dd));
+        DesignFile designFile = DesignFile.builder()
+                .name(file.getOriginalFilename())
+                .url("/api/tasks/files/" + filename)
+                .fileType(file.getContentType())
+                .fileCategory(category)
+                .designDetail(dd)
+                .build();
+        designFile = designFileRepository.save(designFile);
+        return DesignFileResponse.from(designFile);
     }
 
-    public DesignDetailResponse deletePng(Long cardId) {
+    public void deleteDesignFile(Long cardId, Long fileId) {
         Card card = getCardOrThrow(cardId);
         checkBoardAccess(card);
-        DesignDetail dd = getDesignDetailByCardId(cardId);
-        deletePhysicalFile(dd.getPngFileUrl());
-        dd.setPngFileUrl(null);
-        dd.setPngFileName(null);
-        return DesignDetailResponse.from(designDetailRepository.save(dd));
-    }
-
-    public DesignDetailResponse uploadPsd(Long cardId, MultipartFile file) {
-        Card card = getCardOrThrow(cardId);
-        checkBoardAccess(card);
-        DesignDetail dd = getDesignDetailByCardId(cardId);
-        deletePhysicalFile(dd.getPsdFileUrl());
-        String filename = storeFile(file);
-        dd.setPsdFileUrl("/api/tasks/files/" + filename);
-        dd.setPsdFileName(file.getOriginalFilename());
-        return DesignDetailResponse.from(designDetailRepository.save(dd));
-    }
-
-    public DesignDetailResponse deletePsd(Long cardId) {
-        Card card = getCardOrThrow(cardId);
-        checkBoardAccess(card);
-        DesignDetail dd = getDesignDetailByCardId(cardId);
-        deletePhysicalFile(dd.getPsdFileUrl());
-        dd.setPsdFileUrl(null);
-        dd.setPsdFileName(null);
-        return DesignDetailResponse.from(designDetailRepository.save(dd));
+        DesignFile designFile = designFileRepository.findById(fileId)
+                .orElseThrow(() -> new EntityNotFoundException("Design file not found: " + fileId));
+        deletePhysicalFile(designFile.getUrl());
+        designFileRepository.delete(designFile);
     }
 
     public DesignMockupResponse uploadMockup(Long cardId, MultipartFile file) {

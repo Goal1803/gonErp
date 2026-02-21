@@ -7,31 +7,35 @@
 
       <!-- Design Files Row -->
       <div class="row q-gutter-md q-mb-md">
-        <!-- PNG File -->
+        <!-- PNG Files -->
         <div class="col">
-          <div class="sidebar-label"><q-icon name="image" size="xs" /> PNG File</div>
-          <div v-if="designDetail.pngFileUrl" class="row items-center q-gutter-sm">
-            <a :href="designDetail.pngFileUrl" target="_blank" class="text-teal-4" style="font-size:0.82rem; text-decoration:none">
-              {{ designDetail.pngFileName || 'PNG file' }}
-            </a>
-            <q-btn flat round dense icon="delete" color="red-4" size="xs" @click="deletePng" :loading="deletingPng" />
+          <div class="sidebar-label"><q-icon name="image" size="xs" /> PNG Files</div>
+          <div v-if="designDetail.pngFiles?.length" class="q-mb-sm">
+            <div v-for="f in designDetail.pngFiles" :key="f.id" class="row items-center q-gutter-sm q-mb-xs">
+              <span class="text-teal-4 ellipsis" style="font-size:0.82rem; max-width: 160px">{{ f.name || 'PNG file' }}</span>
+              <q-btn flat round dense icon="download" color="white" size="xs"
+                @click="downloadFile(f.url, f.name || 'design.png')" />
+              <q-btn flat round dense icon="delete" color="red-4" size="xs" @click="deletePngFile(f)" />
+            </div>
           </div>
-          <q-file v-else v-model="pngFile" outlined dark color="teal-5" dense label="Upload PNG"
+          <q-file v-model="pngFile" outlined dark color="teal-5" dense label="Upload PNG"
             accept=".png" @update:model-value="uploadPng">
             <template #prepend><q-icon name="upload" color="grey-5" /></template>
           </q-file>
         </div>
 
-        <!-- PSD File -->
+        <!-- PSD Files -->
         <div class="col">
-          <div class="sidebar-label"><q-icon name="brush" size="xs" /> PSD File</div>
-          <div v-if="designDetail.psdFileUrl" class="row items-center q-gutter-sm">
-            <a :href="designDetail.psdFileUrl" target="_blank" class="text-teal-4" style="font-size:0.82rem; text-decoration:none">
-              {{ designDetail.psdFileName || 'PSD file' }}
-            </a>
-            <q-btn flat round dense icon="delete" color="red-4" size="xs" @click="deletePsd" :loading="deletingPsd" />
+          <div class="sidebar-label"><q-icon name="brush" size="xs" /> PSD Files</div>
+          <div v-if="designDetail.psdFiles?.length" class="q-mb-sm">
+            <div v-for="f in designDetail.psdFiles" :key="f.id" class="row items-center q-gutter-sm q-mb-xs">
+              <span class="text-teal-4 ellipsis" style="font-size:0.82rem; max-width: 160px">{{ f.name || 'PSD file' }}</span>
+              <q-btn flat round dense icon="download" color="white" size="xs"
+                @click="downloadFile(f.url, f.name || 'design.psd')" />
+              <q-btn flat round dense icon="delete" color="red-4" size="xs" @click="deletePsdFile(f)" />
+            </div>
           </div>
-          <q-file v-else v-model="psdFile" outlined dark color="teal-5" dense label="Upload PSD"
+          <q-file v-model="psdFile" outlined dark color="teal-5" dense label="Upload PSD"
             accept=".psd,.psb" @update:model-value="uploadPsd">
             <template #prepend><q-icon name="upload" color="grey-5" /></template>
           </q-file>
@@ -46,6 +50,8 @@
             :class="{ 'mockup-main': m.mainMockup }">
             <img :src="m.url" class="mockup-thumb" />
             <div class="mockup-actions">
+              <q-btn flat round dense icon="download" color="white" size="xs"
+                @click.stop="downloadFile(m.url, 'mockup-' + m.id + '.png')" />
               <q-btn v-if="!m.mainMockup" flat round dense icon="star_outline" color="amber" size="xs"
                 @click.stop="setMainMockup(m)" title="Set as main" />
               <q-btn flat round dense icon="close" color="red-4" size="xs"
@@ -137,8 +143,6 @@ const designDetail = ref(null)
 const pngFile = ref(null)
 const psdFile = ref(null)
 const mockupFile = ref(null)
-const deletingPng = ref(false)
-const deletingPsd = ref(false)
 
 // Form state
 const ideaCreatorId = ref(null)
@@ -163,6 +167,20 @@ watch(() => props.boardMembers, (members) => {
 }, { immediate: true })
 
 const formatDate = (d) => d ? new Date(d).toLocaleString() : ''
+
+const downloadFile = async (url, filename) => {
+  try {
+    const res = await fetch(url)
+    const blob = await res.blob()
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = filename || url.split('/').pop()
+    a.click()
+    URL.revokeObjectURL(a.href)
+  } catch {
+    $q.notify({ type: 'negative', message: 'Download failed' })
+  }
+}
 
 const designStatusColor = computed(() => {
   const s = designDetail.value?.designStatus
@@ -246,23 +264,20 @@ const uploadPng = async (file) => {
   const fd = new FormData()
   fd.append('file', file)
   try {
-    const res = await designApi.uploadPng(props.cardId, fd)
-    designDetail.value = res.data.data
+    await designApi.uploadPng(props.cardId, fd)
+    await loadDesignDetail()
     pngFile.value = null
   } catch {
     $q.notify({ type: 'negative', message: 'PNG upload failed' })
   }
 }
 
-const deletePng = async () => {
-  deletingPng.value = true
+const deletePngFile = async (f) => {
   try {
-    const res = await designApi.deletePng(props.cardId)
-    designDetail.value = res.data.data
+    await designApi.deletePngFile(props.cardId, f.id)
+    await loadDesignDetail()
   } catch {
     $q.notify({ type: 'negative', message: 'Failed to remove PNG' })
-  } finally {
-    deletingPng.value = false
   }
 }
 
@@ -271,23 +286,20 @@ const uploadPsd = async (file) => {
   const fd = new FormData()
   fd.append('file', file)
   try {
-    const res = await designApi.uploadPsd(props.cardId, fd)
-    designDetail.value = res.data.data
+    await designApi.uploadPsd(props.cardId, fd)
+    await loadDesignDetail()
     psdFile.value = null
   } catch {
     $q.notify({ type: 'negative', message: 'PSD upload failed' })
   }
 }
 
-const deletePsd = async () => {
-  deletingPsd.value = true
+const deletePsdFile = async (f) => {
   try {
-    const res = await designApi.deletePsd(props.cardId)
-    designDetail.value = res.data.data
+    await designApi.deletePsdFile(props.cardId, f.id)
+    await loadDesignDetail()
   } catch {
     $q.notify({ type: 'negative', message: 'Failed to remove PSD' })
-  } finally {
-    deletingPsd.value = false
   }
 }
 

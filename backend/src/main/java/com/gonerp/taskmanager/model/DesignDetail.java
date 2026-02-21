@@ -27,17 +27,9 @@ public class DesignDetail extends BaseModel {
     @JoinColumn(name = "card_id", unique = true)
     private Card card;
 
-    @Column(name = "png_file_url")
-    private String pngFileUrl;
-
-    @Column(name = "png_file_name")
-    private String pngFileName;
-
-    @Column(name = "psd_file_url")
-    private String psdFileUrl;
-
-    @Column(name = "psd_file_name")
-    private String psdFileName;
+    @OneToMany(mappedBy = "designDetail", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<DesignFile> designFiles = new ArrayList<>();
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "idea_creator_id")

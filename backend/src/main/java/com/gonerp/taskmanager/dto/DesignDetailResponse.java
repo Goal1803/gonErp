@@ -1,6 +1,7 @@
 package com.gonerp.taskmanager.dto;
 
 import com.gonerp.taskmanager.model.DesignDetail;
+import com.gonerp.taskmanager.model.enums.DesignFileCategory;
 import lombok.Builder;
 import lombok.Data;
 
@@ -11,10 +12,8 @@ import java.util.List;
 @Builder
 public class DesignDetailResponse {
     private Long id;
-    private String pngFileUrl;
-    private String pngFileName;
-    private String psdFileUrl;
-    private String psdFileName;
+    private List<DesignFileResponse> pngFiles;
+    private List<DesignFileResponse> psdFiles;
     private UserSummaryResponse ideaCreator;
     private List<UserSummaryResponse> designers;
     private LocalDateTime approvalDate;
@@ -35,10 +34,12 @@ public class DesignDetailResponse {
 
         return DesignDetailResponse.builder()
                 .id(dd.getId())
-                .pngFileUrl(dd.getPngFileUrl())
-                .pngFileName(dd.getPngFileName())
-                .psdFileUrl(dd.getPsdFileUrl())
-                .psdFileName(dd.getPsdFileName())
+                .pngFiles(dd.getDesignFiles().stream()
+                        .filter(f -> f.getFileCategory() == DesignFileCategory.PNG)
+                        .map(DesignFileResponse::from).toList())
+                .psdFiles(dd.getDesignFiles().stream()
+                        .filter(f -> f.getFileCategory() == DesignFileCategory.PSD)
+                        .map(DesignFileResponse::from).toList())
                 .ideaCreator(dd.getIdeaCreator() != null ? UserSummaryResponse.from(dd.getIdeaCreator()) : null)
                 .designers(dd.getDesigners().stream().map(UserSummaryResponse::from).toList())
                 .approvalDate(dd.getApprovalDate())

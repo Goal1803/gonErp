@@ -56,14 +56,14 @@ export const cardApi = {
 export const designApi = {
   getDetail: (cardId) => api.get(`/tasks/cards/${cardId}/design`),
   updateDetail: (cardId, data) => api.put(`/tasks/cards/${cardId}/design`, data),
-  uploadPng: (cardId, formData) => api.post(`/tasks/cards/${cardId}/design/png`, formData, {
+  uploadPng: (cardId, formData) => api.post(`/tasks/cards/${cardId}/design/png-files`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' }, timeout: 300000
   }),
-  deletePng: (cardId) => api.delete(`/tasks/cards/${cardId}/design/png`),
-  uploadPsd: (cardId, formData) => api.post(`/tasks/cards/${cardId}/design/psd`, formData, {
+  deletePngFile: (cardId, fileId) => api.delete(`/tasks/cards/${cardId}/design/png-files/${fileId}`),
+  uploadPsd: (cardId, formData) => api.post(`/tasks/cards/${cardId}/design/psd-files`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' }, timeout: 300000
   }),
-  deletePsd: (cardId) => api.delete(`/tasks/cards/${cardId}/design/psd`),
+  deletePsdFile: (cardId, fileId) => api.delete(`/tasks/cards/${cardId}/design/psd-files/${fileId}`),
   uploadMockup: (cardId, formData) => api.post(`/tasks/cards/${cardId}/design/mockups`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' }, timeout: 300000
   }),

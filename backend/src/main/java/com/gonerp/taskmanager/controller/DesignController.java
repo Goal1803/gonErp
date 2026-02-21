@@ -3,7 +3,9 @@ package com.gonerp.taskmanager.controller;
 import com.gonerp.common.ApiResponse;
 import com.gonerp.taskmanager.dto.DesignDetailRequest;
 import com.gonerp.taskmanager.dto.DesignDetailResponse;
+import com.gonerp.taskmanager.dto.DesignFileResponse;
 import com.gonerp.taskmanager.dto.DesignMockupResponse;
+import com.gonerp.taskmanager.model.enums.DesignFileCategory;
 import com.gonerp.taskmanager.service.DesignDetailService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -29,26 +31,32 @@ public class DesignController {
         return ResponseEntity.ok(ApiResponse.ok("Design detail updated", designDetailService.updateDesignDetail(cardId, request)));
     }
 
-    @PostMapping("/png")
-    public ResponseEntity<ApiResponse<DesignDetailResponse>> uploadPng(
+    @PostMapping("/png-files")
+    public ResponseEntity<ApiResponse<DesignFileResponse>> uploadPngFile(
             @PathVariable Long cardId, @RequestParam("file") MultipartFile file) {
-        return ResponseEntity.ok(ApiResponse.ok("PNG file uploaded", designDetailService.uploadPng(cardId, file)));
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.ok("PNG file uploaded", designDetailService.uploadDesignFile(cardId, file, DesignFileCategory.PNG)));
     }
 
-    @DeleteMapping("/png")
-    public ResponseEntity<ApiResponse<DesignDetailResponse>> deletePng(@PathVariable Long cardId) {
-        return ResponseEntity.ok(ApiResponse.ok("PNG file removed", designDetailService.deletePng(cardId)));
+    @DeleteMapping("/png-files/{fileId}")
+    public ResponseEntity<ApiResponse<Void>> deletePngFile(
+            @PathVariable Long cardId, @PathVariable Long fileId) {
+        designDetailService.deleteDesignFile(cardId, fileId);
+        return ResponseEntity.ok(ApiResponse.ok("PNG file removed", null));
     }
 
-    @PostMapping("/psd")
-    public ResponseEntity<ApiResponse<DesignDetailResponse>> uploadPsd(
+    @PostMapping("/psd-files")
+    public ResponseEntity<ApiResponse<DesignFileResponse>> uploadPsdFile(
             @PathVariable Long cardId, @RequestParam("file") MultipartFile file) {
-        return ResponseEntity.ok(ApiResponse.ok("PSD file uploaded", designDetailService.uploadPsd(cardId, file)));
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.ok("PSD file uploaded", designDetailService.uploadDesignFile(cardId, file, DesignFileCategory.PSD)));
     }
 
-    @DeleteMapping("/psd")
-    public ResponseEntity<ApiResponse<DesignDetailResponse>> deletePsd(@PathVariable Long cardId) {
-        return ResponseEntity.ok(ApiResponse.ok("PSD file removed", designDetailService.deletePsd(cardId)));
+    @DeleteMapping("/psd-files/{fileId}")
+    public ResponseEntity<ApiResponse<Void>> deletePsdFile(
+            @PathVariable Long cardId, @PathVariable Long fileId) {
+        designDetailService.deleteDesignFile(cardId, fileId);
+        return ResponseEntity.ok(ApiResponse.ok("PSD file removed", null));
     }
 
     @PostMapping("/mockups")
