@@ -11,48 +11,68 @@
       :offset="[0, 8]"
       @before-show="onMenuOpen"
     >
-      <!-- Header -->
-      <div class="notification-header">
-        <div class="text-weight-bold text-white" style="font-size: 1rem">Notifications</div>
-        <q-btn
-          v-if="store.unreadCount > 0"
-          flat
-          dense
-          no-caps
-          label="Mark all read"
-          color="teal-4"
-          size="sm"
-          @click="store.markAllAsRead()"
-        />
+      <!-- Header row -->
+      <div class="notif-header">
+        <div class="notif-header-left">
+          <q-icon name="notifications" size="22px" color="teal-4" />
+          <span class="notif-title">Notifications</span>
+          <q-badge
+            v-if="store.unreadCount > 0"
+            color="red"
+            rounded
+            class="q-ml-sm"
+            :label="store.unreadCount > 99 ? '99+' : store.unreadCount"
+          />
+        </div>
+        <div class="notif-header-right">
+          <q-btn
+            v-if="store.unreadCount > 0"
+            flat dense no-caps
+            icon="done_all"
+            label="Mark all read"
+            color="teal-4"
+            size="sm"
+            @click="store.markAllAsRead()"
+          />
+        </div>
       </div>
 
       <!-- Tabs -->
-      <q-tabs v-model="tab" dense active-color="teal-4" indicator-color="teal-4" class="notification-tabs">
-        <q-tab name="all" label="All" />
-        <q-tab name="important" label="Important" />
-      </q-tabs>
+      <div class="notif-tabs-bar">
+        <q-tabs
+          v-model="tab"
+          dense
+          no-caps
+          active-color="teal-4"
+          indicator-color="teal-4"
+          class="notif-tabs"
+          inline-label
+        >
+          <q-tab name="all" icon="inbox" label="All" />
+          <q-tab name="important" icon="priority_high" label="Important" />
+        </q-tabs>
+      </div>
 
-      <!-- Content -->
-      <q-scroll-area style="height: 380px">
+      <!-- Content area -->
+      <q-scroll-area style="height: 460px">
         <q-tab-panels v-model="tab" animated class="bg-transparent">
           <!-- All Tab -->
           <q-tab-panel name="all" class="q-pa-none">
-            <q-list v-if="store.notifications.length > 0">
+            <template v-if="store.notifications.length > 0">
               <NotificationItem
                 v-for="n in store.notifications"
                 :key="n.id"
                 :notification="n"
                 @click="handleClick"
               />
-            </q-list>
-            <div v-else-if="!store.loadingAll" class="text-center text-grey-5 q-pa-lg">
-              No notifications
+            </template>
+            <div v-else-if="!store.loadingAll" class="notif-empty">
+              <q-icon name="notifications_none" size="48px" color="grey-7" />
+              <div class="text-grey-5 q-mt-sm" style="font-size: 0.85rem">No notifications yet</div>
             </div>
-            <div v-if="store.allHasMore" class="text-center q-py-sm">
+            <div v-if="store.allHasMore" class="text-center q-py-md">
               <q-btn
-                flat
-                dense
-                no-caps
+                flat dense no-caps
                 label="Load more"
                 color="teal-4"
                 size="sm"
@@ -64,22 +84,21 @@
 
           <!-- Important Tab -->
           <q-tab-panel name="important" class="q-pa-none">
-            <q-list v-if="store.importantNotifications.length > 0">
+            <template v-if="store.importantNotifications.length > 0">
               <NotificationItem
                 v-for="n in store.importantNotifications"
                 :key="n.id"
                 :notification="n"
                 @click="handleClick"
               />
-            </q-list>
-            <div v-else-if="!store.loadingImportant" class="text-center text-grey-5 q-pa-lg">
-              No important notifications
+            </template>
+            <div v-else-if="!store.loadingImportant" class="notif-empty">
+              <q-icon name="star_border" size="48px" color="grey-7" />
+              <div class="text-grey-5 q-mt-sm" style="font-size: 0.85rem">No important notifications</div>
             </div>
-            <div v-if="store.importantHasMore" class="text-center q-py-sm">
+            <div v-if="store.importantHasMore" class="text-center q-py-md">
               <q-btn
-                flat
-                dense
-                no-caps
+                flat dense no-caps
                 label="Load more"
                 color="teal-4"
                 size="sm"
@@ -130,21 +149,48 @@ function handleClick(notification) {
 }
 </script>
 
-<style scoped>
+<!-- Unscoped: q-menu is teleported to body, scoped styles won't reach it -->
+<style>
 .notification-menu {
-  width: 380px;
-  max-width: 95vw;
-  background: #1a1a1a;
+  width: 760px !important;
+  max-width: 95vw !important;
+  background: #141414;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
+  border-radius: 12px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
 }
-.notification-header {
+.notification-menu .notif-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px 8px;
+  padding: 16px 20px 12px;
 }
-.notification-tabs {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+.notification-menu .notif-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.notification-menu .notif-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #f5f5f5;
+}
+.notification-menu .notif-header-right {
+  display: flex;
+  align-items: center;
+}
+.notification-menu .notif-tabs-bar {
+  padding: 0 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.notification-menu .notif-tabs {
+  max-width: 280px;
+}
+.notification-menu .notif-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
 }
 </style>

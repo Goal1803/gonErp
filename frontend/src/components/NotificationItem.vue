@@ -1,47 +1,50 @@
 <template>
-  <q-item
-    clickable
-    v-ripple
-    class="notification-item"
+  <div
+    class="notif-row"
     :class="{ unread: !notification.read }"
     @click="$emit('click', notification)"
   >
-    <q-item-section avatar>
-      <UserAvatar :user="notification.actor" size="36px" />
-    </q-item-section>
+    <!-- Avatar -->
+    <UserAvatar :user="notification.actor" size="40px" class="notif-avatar" />
 
-    <q-item-section>
-      <q-item-label
-        class="notification-message"
-        :class="{ 'text-weight-bold': !notification.read }"
-      >
+    <!-- Main content -->
+    <div class="notif-body">
+      <div class="notif-actor">{{ actorName }}</div>
+      <div class="notif-message" :class="{ 'text-weight-medium': !notification.read }">
         {{ notification.message }}
-      </q-item-label>
-      <q-item-label caption class="flex items-center gap-1 q-mt-xs">
-        <q-icon
-          v-if="notification.important"
-          name="priority_high"
-          color="orange-5"
-          size="14px"
-        />
-        <span class="text-grey-5">{{ timeAgo(notification.createdAt) }}</span>
-      </q-item-label>
-    </q-item-section>
+      </div>
+    </div>
 
-    <q-item-section v-if="!notification.read" side>
-      <div class="unread-dot"></div>
-    </q-item-section>
-  </q-item>
+    <!-- Card name chip -->
+    <div v-if="notification.cardName" class="notif-card-chip">
+      <q-icon name="credit_card" size="13px" class="q-mr-xs" />
+      <span class="notif-card-name">{{ notification.cardName }}</span>
+    </div>
+
+    <!-- Right side: time + unread -->
+    <div class="notif-meta">
+      <span class="notif-time">{{ timeAgo(notification.createdAt) }}</span>
+      <div v-if="!notification.read" class="unread-dot" />
+    </div>
+  </div>
 </template>
 
 <script setup>
+import { computed } from 'vue'
 import UserAvatar from 'src/components/UserAvatar.vue'
 
-defineProps({
+const props = defineProps({
   notification: { type: Object, required: true }
 })
 
 defineEmits(['click'])
+
+const actorName = computed(() => {
+  const a = props.notification.actor
+  if (!a) return ''
+  const parts = [a.firstName, a.lastName].filter(Boolean)
+  return parts.length ? parts.join(' ') : (a.userName || '')
+})
 
 function timeAgo(dateStr) {
   if (!dateStr) return ''
@@ -62,20 +65,86 @@ function timeAgo(dateStr) {
 </script>
 
 <style scoped>
-.notification-item {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  min-height: 64px;
+.notif-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 20px;
+  cursor: pointer;
+  transition: background 0.15s;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
-.notification-item.unread {
-  background: rgba(38, 166, 154, 0.08);
+.notif-row:hover {
+  background: rgba(255, 255, 255, 0.04);
 }
-.notification-item:hover {
-  background: rgba(255, 255, 255, 0.05);
+.notif-row.unread {
+  background: rgba(38, 166, 154, 0.06);
 }
-.notification-message {
-  font-size: 0.82rem;
-  line-height: 1.35;
+.notif-row.unread:hover {
+  background: rgba(38, 166, 154, 0.10);
+}
+
+.notif-avatar {
+  flex-shrink: 0;
+}
+
+/* Body */
+.notif-body {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+.notif-actor {
+  font-size: 0.8rem;
+  font-weight: 600;
   color: #e0e0e0;
+  line-height: 1.2;
+}
+.notif-message {
+  font-size: 0.8rem;
+  color: #9e9e9e;
+  line-height: 1.35;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.notif-row.unread .notif-message {
+  color: #bdbdbd;
+}
+
+/* Card chip */
+.notif-card-chip {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  max-width: 200px;
+  padding: 3px 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  color: #8e8e8e;
+  font-size: 0.72rem;
+}
+.notif-card-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Right meta */
+.notif-meta {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  min-width: 60px;
+}
+.notif-time {
+  font-size: 0.7rem;
+  color: #616161;
+  white-space: nowrap;
 }
 .unread-dot {
   width: 8px;
