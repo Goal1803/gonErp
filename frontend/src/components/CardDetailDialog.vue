@@ -72,7 +72,14 @@
       <div class="col column" style="min-height: 0" v-if="detail">
         <!-- Cover image (full width, top) -->
         <div class="cover-image-wrap" style="flex-shrink: 0">
-          <template v-if="detail.mainImageUrl">
+          <template v-if="uploadingCover">
+            <div class="upload-indicator q-pa-md">
+              <q-spinner-dots color="teal-5" size="20px" />
+              <span class="text-grey-4" style="font-size:0.82rem">Uploading cover image...</span>
+              <q-linear-progress indeterminate color="teal-5" size="2px" class="q-mt-xs" />
+            </div>
+          </template>
+          <template v-else-if="detail.mainImageUrl">
             <img
               :src="detail.mainImageUrl"
               class="cover-image"
@@ -1128,6 +1135,7 @@ const uploadingImages = ref(false);
 const uploadingFile = ref(false);
 const newLink = ref({ url: '', title: '' });
 const showCoverPicker = ref(false);
+const uploadingCover = ref(false);
 const addingLink = ref(false);
 const descEditor = ref(null);
 const descImageInput = ref(null);
@@ -1830,6 +1838,7 @@ const removeCoverImage = async () => {
 const onCoverImageSelected = async (e) => {
   const file = e.target.files?.[0];
   if (!file) return;
+  uploadingCover.value = true;
   const fd = new FormData();
   fd.append("file", file);
   fd.append("name", file.name);
@@ -1842,6 +1851,7 @@ const onCoverImageSelected = async (e) => {
   } catch {
     $q.notify({ type: "negative", message: "Upload failed" });
   }
+  uploadingCover.value = false;
   e.target.value = "";
 };
 
