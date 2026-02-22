@@ -1111,6 +1111,7 @@ const props = defineProps({
   boardColumns: { type: Array, default: () => [] },
   externalUpdate: { type: Object, default: null }, // { actorName, type }
   commentEvent: { type: Object, default: null },
+  activityEvent: { type: Object, default: null },
 });
 const emit = defineEmits(["update:modelValue", "updated", "deleted", "dismiss-update"]);
 const $q = useQuasar();
@@ -1678,6 +1679,15 @@ const refreshDetail = async () => {
     /* silent */
   }
 };
+
+// Watch for real-time activity events and append to the activity list
+watch(() => props.activityEvent, (event) => {
+  if (!event || !detail.value) return;
+  if (!detail.value.activities) detail.value.activities = [];
+  if (!detail.value.activities.some(a => a.id === event.id)) {
+    detail.value.activities.push(event);
+  }
+});
 
 const confirmDeleteCard = () => {
   $q.dialog({

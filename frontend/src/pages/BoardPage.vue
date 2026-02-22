@@ -121,6 +121,7 @@
       :board-columns="boardStore.board?.columns || []"
       :external-update="cardExternalUpdate"
       :comment-event="cardCommentEvent"
+      :activity-event="cardActivityEvent"
       @updated="refreshBoard"
       @deleted="refreshBoard"
       @dismiss-update="cardExternalUpdate = null"
@@ -184,6 +185,7 @@ const newColTitle = ref('')
 const isConnected = ref(false)
 const cardExternalUpdate = ref(null) // { actorName, type }
 const cardCommentEvent = ref(null) // forwarded comment events
+const cardActivityEvent = ref(null) // forwarded activity events
 const kanbanScrollEl = ref(null) // ref to the horizontal scroll container
 
 // ─── Filters ─────────────────────────────────────────────────────────────────
@@ -505,12 +507,18 @@ const handleBoardEvent = (event) => {
       }
       break
     }
+    case 'ACTIVITY_LOGGED': {
+      if (showCard.value && cardId && selectedCardId.value === cardId) {
+        cardActivityEvent.value = payload
+      }
+      break
+    }
   }
 
   // If the card detail dialog is open for the affected card, show a conflict banner
-  // (skip comment events — they are handled in real-time by CommentSection)
-  const COMMENT_EVENTS = new Set(['COMMENT_ADDED', 'COMMENT_UPDATED', 'COMMENT_DELETED'])
-  if (showCard.value && cardId && selectedCardId.value === cardId && !COMMENT_EVENTS.has(type)) {
+  // (skip comment/activity events — they are handled in real-time)
+  const REALTIME_EVENTS = new Set(['COMMENT_ADDED', 'COMMENT_UPDATED', 'COMMENT_DELETED', 'ACTIVITY_LOGGED'])
+  if (showCard.value && cardId && selectedCardId.value === cardId && !REALTIME_EVENTS.has(type)) {
     cardExternalUpdate.value = { actorName, type }
   }
 }

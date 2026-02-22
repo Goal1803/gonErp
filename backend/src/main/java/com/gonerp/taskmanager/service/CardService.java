@@ -558,6 +558,9 @@ public class CardService {
         User user = getCurrentUser();
         CardActivity activity = CardActivity.builder()
                 .action(action).card(card).actor(user).build();
-        cardActivityRepository.save(activity);
+        activity = cardActivityRepository.save(activity);
+        ActivityResponse response = ActivityResponse.from(activity);
+        eventPublisher.publish(card.getColumn().getBoard().getId(), "ACTIVITY_LOGGED",
+                card.getId(), null, user.getUserName(), response);
     }
 }
