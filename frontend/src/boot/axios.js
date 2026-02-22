@@ -46,6 +46,11 @@ export default boot(({ app, router }) => {
 
   app.config.globalProperties.$axios = axios
   app.config.globalProperties.$api = api
+
+  // Set router on auth store and start auto-logout timer
+  const authStore = useAuthStore()
+  authStore.router = router
+  authStore.initAutoLogout()
 })
 
 export { api }
