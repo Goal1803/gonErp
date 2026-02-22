@@ -399,20 +399,102 @@ const onDragEnd = () => {
 
 // ─── WebSocket real-time updates ────────────────────────────────────────────
 
-// Structural events that require a full board refresh
-const BOARD_LEVEL_EVENTS = new Set([
-  'CARD_CREATED', 'CARD_DELETED', 'CARD_MOVED', 'CARDS_REORDERED',
-  'COLUMN_CREATED', 'COLUMN_UPDATED', 'COLUMN_DELETED', 'COLUMNS_REORDERED'
-])
+const findColumn = (columnId) =>
+  boardStore.board?.columns?.find(c => c.id === columnId)
+
+const findCardInBoard = (cardId) => {
+  for (const col of (boardStore.board?.columns || [])) {
+    const idx = (col.cards || []).findIndex(c => c.id === cardId)
+    if (idx !== -1) return { column: col, cardIndex: idx }
+  }
+  return null
+}
 
 const handleBoardEvent = (event) => {
-  const { type, tabId, actorName, cardId } = event
+  const { type, tabId, actorName, cardId, columnId, payload } = event
 
   // Skip events originated from this same tab — already applied optimistically
   if (tabId && tabId === TAB_ID) return
 
-  if (BOARD_LEVEL_EVENTS.has(type)) {
-    refreshBoard()
+  switch (type) {
+    case 'CARD_CREATED': {
+      const col = findColumn(columnId)
+      if (col && payload) {
+        if (!col.cards) col.cards = []
+        // Avoid duplicate if event arrives twice
+        if (!col.cards.some(c => c.id === payload.id)) {
+          col.cards.push(payload)
+        }
+      }
+      break
+    }
+    case 'CARD_UPDATED': {
+      const found = findCardInBoard(cardId)
+      if (found && payload) {
+        Object.assign(found.column.cards[found.cardIndex], payload)
+      }
+      break
+    }
+    case 'CARD_DELETED': {
+      const found = findCardInBoard(cardId)
+      if (found) {
+        found.column.cards.splice(found.cardIndex, 1)
+      }
+      break
+    }
+    case 'CARD_MOVED': {
+      if (payload) {
+        const fromCol = findColumn(payload.fromColumnId)
+        const toCol = findColumn(payload.toColumnId)
+        if (fromCol && toCol) {
+          const idx = (fromCol.cards || []).findIndex(c => c.id === cardId)
+          if (idx !== -1) {
+            const [card] = fromCol.cards.splice(idx, 1)
+            if (!toCol.cards) toCol.cards = []
+            toCol.cards.push(card)
+          }
+        }
+      }
+      break
+    }
+    case 'CARDS_REORDERED': {
+      const col = findColumn(columnId)
+      if (col && Array.isArray(payload)) {
+        const cardMap = new Map((col.cards || []).map(c => [c.id, c]))
+        col.cards = payload.map(id => cardMap.get(id)).filter(Boolean)
+      }
+      break
+    }
+    case 'COLUMN_CREATED': {
+      if (payload && boardStore.board?.columns) {
+        if (!boardStore.board.columns.some(c => c.id === payload.id)) {
+          if (!payload.cards) payload.cards = []
+          boardStore.board.columns.push(payload)
+        }
+      }
+      break
+    }
+    case 'COLUMN_UPDATED': {
+      const col = findColumn(columnId)
+      if (col && payload) {
+        if (payload.title !== undefined) col.title = payload.title
+        if (payload.position !== undefined) col.position = payload.position
+      }
+      break
+    }
+    case 'COLUMN_DELETED': {
+      if (boardStore.board?.columns) {
+        boardStore.board.columns = boardStore.board.columns.filter(c => c.id !== columnId)
+      }
+      break
+    }
+    case 'COLUMNS_REORDERED': {
+      if (boardStore.board?.columns && Array.isArray(payload)) {
+        const colMap = new Map(boardStore.board.columns.map(c => [c.id, c]))
+        boardStore.board.columns = payload.map(id => colMap.get(id)).filter(Boolean)
+      }
+      break
+    }
   }
 
   // If the card detail dialog is open for the affected card, show a conflict banner

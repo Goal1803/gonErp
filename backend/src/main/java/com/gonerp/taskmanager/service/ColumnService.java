@@ -114,6 +114,6 @@ public class ColumnService {
         }
         boardColumnRepository.saveAll(columns);
         eventPublisher.publish(boardId, "COLUMNS_REORDERED", null, null,
-                getCurrentUser().getUserName(), null);
+                getCurrentUser().getUserName(), request.getOrderedIds());
     }
 }

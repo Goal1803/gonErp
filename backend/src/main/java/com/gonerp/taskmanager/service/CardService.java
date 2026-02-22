@@ -252,7 +252,7 @@ public class CardService {
         if (!cards.isEmpty()) {
             Long boardId = cards.get(0).getColumn().getBoard().getId();
             eventPublisher.publish(boardId, "CARDS_REORDERED", null, columnId,
-                    getCurrentUser().getUserName(), null);
+                    getCurrentUser().getUserName(), orderedIds);
         }
     }
 
