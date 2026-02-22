@@ -1,10 +1,12 @@
 package com.gonerp.taskmanager.service;
 
 import com.gonerp.taskmanager.dto.*;
+import com.gonerp.taskmanager.event.NotificationEvent;
 import com.gonerp.taskmanager.model.*;
 import com.gonerp.taskmanager.model.enums.BoardType;
 import com.gonerp.taskmanager.model.enums.CardStatus;
 import com.gonerp.taskmanager.model.enums.DesignStatus;
+import com.gonerp.taskmanager.model.enums.NotificationType;
 import com.gonerp.taskmanager.repository.*;
 import com.gonerp.taskmanager.websocket.BoardEventPublisher;
 import com.gonerp.usermanager.model.User;
@@ -12,6 +14,7 @@ import com.gonerp.usermanager.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.security.access.AccessDeniedException;
@@ -22,10 +25,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.nio.file.*;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -49,6 +49,7 @@ public class CardService {
     private final UserDesignStaffRoleRepository userDesignStaffRoleRepository;
     private final UserRepository userRepository;
     private final BoardEventPublisher eventPublisher;
+    private final ApplicationEventPublisher appEventPublisher;
 
     @Value("${app.upload.taskmanager}")
     private String uploadDir;
@@ -212,9 +213,27 @@ public class CardService {
             });
         }
 
-        String actor = getCurrentUser().getUserName();
+        User currentUser = getCurrentUser();
+        String actor = currentUser.getUserName();
         if (!oldStage.equals(targetColumn.getTitle())) {
             logActivity(card, actor + " moved this card from \"" + oldStage + "\" to \"" + targetColumn.getTitle() + "\"");
+
+            // Notify all card members except the actor
+            Set<Long> recipientIds = card.getMembers().stream()
+                    .map(m -> m.getUser().getId())
+                    .filter(id -> !id.equals(currentUser.getId()))
+                    .collect(Collectors.toSet());
+            if (!recipientIds.isEmpty()) {
+                appEventPublisher.publishEvent(NotificationEvent.builder()
+                        .type(NotificationType.CARD_STAGE_MOVED)
+                        .actorId(currentUser.getId())
+                        .recipientIds(recipientIds)
+                        .message(actor + " moved \"" + card.getName() + "\" from \"" + oldStage + "\" to \"" + targetColumn.getTitle() + "\"")
+                        .boardId(boardId)
+                        .cardId(cardId)
+                        .cardName(card.getName())
+                        .build());
+            }
         }
         eventPublisher.publish(boardId, "CARD_MOVED", cardId, targetColumn.getId(), actor,
                 Map.of("fromColumnId", fromColumnId, "toColumnId", targetColumn.getId()));
@@ -262,6 +281,25 @@ public class CardService {
         CommentResponse response = CommentResponse.from(comment, user.getId());
         eventPublisher.publish(card.getColumn().getBoard().getId(), "COMMENT_ADDED",
                 cardId, null, user.getUserName(), response);
+
+        // Notify mentioned users
+        if (request.getMentionedUserIds() != null && !request.getMentionedUserIds().isEmpty()) {
+            Set<Long> mentionRecipients = request.getMentionedUserIds().stream()
+                    .filter(id -> !id.equals(user.getId()))
+                    .collect(Collectors.toSet());
+            if (!mentionRecipients.isEmpty()) {
+                appEventPublisher.publishEvent(NotificationEvent.builder()
+                        .type(NotificationType.COMMENT_MENTION)
+                        .actorId(user.getId())
+                        .recipientIds(mentionRecipients)
+                        .message(user.getUserName() + " mentioned you in a comment on \"" + card.getName() + "\"")
+                        .boardId(card.getColumn().getBoard().getId())
+                        .cardId(card.getId())
+                        .cardName(card.getName())
+                        .build());
+            }
+        }
+
         return response;
     }
 
@@ -434,8 +472,22 @@ public class CardService {
                     .orElseThrow(() -> new EntityNotFoundException("User not found: " + userId));
             CardMember member = CardMember.builder().card(card).user(user).build();
             cardMemberRepository.save(member);
+            User currentUser = getCurrentUser();
             eventPublisher.publish(card.getColumn().getBoard().getId(), "CARD_MEMBER_ADDED",
-                    cardId, null, getCurrentUser().getUserName(), UserSummaryResponse.from(user));
+                    cardId, null, currentUser.getUserName(), UserSummaryResponse.from(user));
+
+            // Notify the added user (skip if adding self)
+            if (!currentUser.getId().equals(userId)) {
+                appEventPublisher.publishEvent(NotificationEvent.builder()
+                        .type(NotificationType.CARD_MEMBER_ADDED)
+                        .actorId(currentUser.getId())
+                        .recipientIds(Set.of(userId))
+                        .message(currentUser.getUserName() + " added you to \"" + card.getName() + "\"")
+                        .boardId(card.getColumn().getBoard().getId())
+                        .cardId(card.getId())
+                        .cardName(card.getName())
+                        .build());
+            }
         }
     }
 

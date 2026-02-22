@@ -24,6 +24,7 @@
         </q-toolbar-title>
 
         <div class="flex items-center gap-2">
+          <NotificationBell />
           <q-chip
             dense
             square
@@ -267,12 +268,19 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from 'src/stores/authStore'
+import { useNotificationStore } from 'src/stores/notificationStore'
+import { useNotificationSocket } from 'src/composables/useNotificationSocket'
 import { useQuasar } from 'quasar'
 import UserAvatar from 'src/components/UserAvatar.vue'
+import NotificationBell from 'src/components/NotificationBell.vue'
 
 const $q = useQuasar()
 const router = useRouter()
 const authStore = useAuthStore()
+const notificationStore = useNotificationStore()
+
+useNotificationSocket()
+notificationStore.fetchUnreadCount()
 
 const leftDrawerOpen = ref(true)
 

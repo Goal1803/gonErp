@@ -435,8 +435,27 @@ watch(boardId, async (id) => {
   }
 })
 
-onMounted(() => {
-  refreshBoard()
+// Watch for ?cardId= query changes (e.g. from notification click while on same board)
+watch(() => route.query.cardId, (cardId) => {
+  if (cardId) {
+    selectedCardId.value = Number(cardId)
+    cardExternalUpdate.value = null
+    showCard.value = true
+    router.replace({ query: {} })
+  }
+})
+
+onMounted(async () => {
+  await refreshBoard()
+
+  // Deep-link: open card dialog if ?cardId= is present
+  const cardIdParam = route.query.cardId
+  if (cardIdParam) {
+    selectedCardId.value = Number(cardIdParam)
+    showCard.value = true
+    router.replace({ query: {} })
+  }
+
   document.addEventListener('mousemove', onDragMove)
   document.addEventListener('dragover',  onDragMove)   // fires during HTML5 drag (mousemove is suppressed)
   document.addEventListener('touchmove', onDragMove, { passive: true })
