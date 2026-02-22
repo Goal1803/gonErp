@@ -29,7 +29,7 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { shallowRef, triggerRef, watch } from 'vue'
 import { useQuasar } from 'quasar'
 import CommentItem from 'src/components/CommentItem.vue'
 import CommentInput from 'src/components/CommentInput.vue'
@@ -52,12 +52,14 @@ const props = defineProps({
 defineEmits(['view-images'])
 
 const $q = useQuasar()
-const localComments = ref([])
-const replyTo = ref(null)
+// Use shallowRef to avoid Vue wrapping every comment/reply/reaction in deep proxies.
+// CommentSection owns all mutations, so deep reactivity is unnecessary.
+const localComments = shallowRef([])
+const replyTo = shallowRef(null)
 
-// Initialize from props
+// Use the parent's array directly — no deep clone needed since we own all mutations.
 watch(() => props.comments, (val) => {
-  localComments.value = val ? JSON.parse(JSON.stringify(val)) : []
+  localComments.value = val || []
 }, { immediate: true })
 
 const findComment = (commentId) => {
@@ -81,6 +83,7 @@ const onCommented = (comment) => {
   } else {
     localComments.value.push(comment)
   }
+  triggerRef(localComments)
   replyTo.value = null
 }
 
@@ -92,6 +95,7 @@ const onEdit = async ({ commentId, content }) => {
     const comment = findComment(commentId)
     if (comment) {
       comment.content = updated.content
+      triggerRef(localComments)
     }
   } catch {
     $q.notify({ type: 'negative', message: 'Failed to update comment' })
@@ -110,6 +114,7 @@ const onDelete = async (c) => {
     } else {
       localComments.value = localComments.value.filter(x => x.id !== c.id)
     }
+    triggerRef(localComments)
   } catch {
     $q.notify({ type: 'negative', message: 'Failed to delete comment' })
   }
@@ -123,6 +128,7 @@ const onReact = async ({ commentId, reactionType }) => {
     const comment = findComment(commentId)
     if (comment) {
       comment.reactions = reactions
+      triggerRef(localComments)
     }
   } catch {
     $q.notify({ type: 'negative', message: 'Failed to toggle reaction' })
@@ -133,11 +139,11 @@ const onReact = async ({ commentId, reactionType }) => {
 watch(() => props.incomingEvent, (event) => {
   if (!event) return
   const { type, payload, commentId } = event
+  let changed = false
 
   switch (type) {
     case 'COMMENT_ADDED': {
       if (!payload) break
-      // Avoid duplicate
       const exists = findComment(payload.id)
       if (exists) break
       if (payload.parentId) {
@@ -146,10 +152,12 @@ watch(() => props.incomingEvent, (event) => {
           if (!parent.replies) parent.replies = []
           if (!parent.replies.some(r => r.id === payload.id)) {
             parent.replies.push(payload)
+            changed = true
           }
         }
       } else {
         localComments.value.push(payload)
+        changed = true
       }
       break
     }
@@ -158,24 +166,25 @@ watch(() => props.incomingEvent, (event) => {
       const comment = findComment(payload.id)
       if (comment) {
         comment.content = payload.content
+        changed = true
       }
       break
     }
     case 'COMMENT_DELETED': {
       const delId = commentId || payload?.commentId
       if (!delId) break
-      // Try top-level
       const idx = localComments.value.findIndex(c => c.id === delId)
       if (idx !== -1) {
         localComments.value.splice(idx, 1)
+        changed = true
         break
       }
-      // Try replies
       for (const c of localComments.value) {
         if (c.replies) {
           const rIdx = c.replies.findIndex(r => r.id === delId)
           if (rIdx !== -1) {
             c.replies.splice(rIdx, 1)
+            changed = true
             break
           }
         }
@@ -183,5 +192,6 @@ watch(() => props.incomingEvent, (event) => {
       break
     }
   }
+  if (changed) triggerRef(localComments)
 })
 </script>

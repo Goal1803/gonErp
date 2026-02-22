@@ -403,6 +403,9 @@ const onDragEnd = () => {
 
 // ─── WebSocket real-time updates ────────────────────────────────────────────
 
+// Events handled in real-time by child components — no conflict banner needed
+const REALTIME_EVENTS = new Set(['COMMENT_ADDED', 'COMMENT_UPDATED', 'COMMENT_DELETED', 'ACTIVITY_LOGGED'])
+
 const findColumn = (columnId) =>
   boardStore.board?.columns?.find(c => c.id === columnId)
 
@@ -516,8 +519,6 @@ const handleBoardEvent = (event) => {
   }
 
   // If the card detail dialog is open for the affected card, show a conflict banner
-  // (skip comment/activity events — they are handled in real-time)
-  const REALTIME_EVENTS = new Set(['COMMENT_ADDED', 'COMMENT_UPDATED', 'COMMENT_DELETED', 'ACTIVITY_LOGGED'])
   if (showCard.value && cardId && selectedCardId.value === cardId && !REALTIME_EVENTS.has(type)) {
     cardExternalUpdate.value = { actorName, type }
   }
