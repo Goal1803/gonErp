@@ -10,8 +10,14 @@
       <q-btn flat round dense icon="close" color="grey-5" size="xs" @click="$emit('cancel-reply')" />
     </div>
 
+    <!-- Uploading indicator -->
+    <div v-if="sending && imageFiles.length" class="upload-indicator q-mb-xs">
+      <q-spinner-dots color="teal-5" size="20px" />
+      <span class="text-grey-4" style="font-size:0.82rem">Uploading {{ imageFiles.length }} image{{ imageFiles.length > 1 ? 's' : '' }}...</span>
+      <q-linear-progress indeterminate color="teal-5" size="2px" class="q-mt-xs" />
+    </div>
     <!-- Image previews grid -->
-    <div v-if="imagePreviews.length" class="preview-grid q-mb-xs">
+    <div v-else-if="imagePreviews.length" class="preview-grid q-mb-xs">
       <div v-for="(p, i) in imagePreviews" :key="i" class="preview-item">
         <img :src="p.url" class="preview-thumb" />
         <q-btn
@@ -435,5 +441,18 @@ watch(() => props.replyTo, (v) => {
 .mention-item:hover,
 .mention-item.mention-active {
   background: rgba(38, 166, 154, 0.15);
+}
+.upload-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(38, 166, 154, 0.08);
+  border: 1px solid rgba(38, 166, 154, 0.2);
+  border-radius: 4px;
+  flex-wrap: wrap;
+}
+.upload-indicator .q-linear-progress {
+  width: 100%;
 }
 </style>
