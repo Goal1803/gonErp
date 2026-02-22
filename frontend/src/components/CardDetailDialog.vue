@@ -873,7 +873,13 @@
                 <div class="image-thumb-name text-grey-5">{{ img.name }}</div>
               </div>
             </div>
+            <div v-if="uploadingImages" class="upload-indicator">
+              <q-spinner-dots color="teal-5" size="20px" />
+              <span class="text-grey-4" style="font-size:0.82rem">Uploading images...</span>
+              <q-linear-progress indeterminate color="teal-5" size="2px" class="q-mt-xs" />
+            </div>
             <q-file
+              v-else
               v-model="imageFile"
               outlined
               dark
@@ -925,7 +931,13 @@
                 </q-item-section>
               </q-item>
             </q-list>
+            <div v-if="uploadingFile" class="upload-indicator">
+              <q-spinner-dots color="teal-5" size="20px" />
+              <span class="text-grey-4" style="font-size:0.82rem">Uploading file...</span>
+              <q-linear-progress indeterminate color="teal-5" size="2px" class="q-mt-xs" />
+            </div>
             <q-file
+              v-else
               v-model="attachFile"
               outlined
               dark
@@ -1112,6 +1124,8 @@ const detail = ref(null);
 const replyTo = ref(null);
 const attachFile = ref(null);
 const imageFile = ref(null);
+const uploadingImages = ref(false);
+const uploadingFile = ref(false);
 const newLink = ref({ url: '', title: '' });
 const showCoverPicker = ref(false);
 const addingLink = ref(false);
@@ -1752,20 +1766,23 @@ const handleReaction = async ({ commentId, reactionType }) => {
 
 const uploadAttachment = async (file) => {
   if (!file) return;
+  attachFile.value = null;
+  uploadingFile.value = true;
   const fd = new FormData();
   fd.append("file", file);
   try {
     const res = await cardApi.uploadAttachment(detail.value.id, fd);
     detail.value.attachments.push(res.data.data);
-    attachFile.value = null;
-    imageFile.value = null;
   } catch {
     $q.notify({ type: "negative", message: "Upload failed" });
   }
+  uploadingFile.value = false;
 };
 
 const uploadImages = async (files) => {
   if (!files?.length) return;
+  imageFile.value = null;
+  uploadingImages.value = true;
   for (const file of files) {
     const fd = new FormData();
     fd.append("file", file);
@@ -1776,7 +1793,7 @@ const uploadImages = async (files) => {
       $q.notify({ type: "negative", message: `Failed to upload ${file.name}` });
     }
   }
-  imageFile.value = null;
+  uploadingImages.value = false;
 };
 
 const deleteAttachment = async (att) => {
@@ -2011,6 +2028,21 @@ const deleteLink = async (link) => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Upload indicator */
+.upload-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(38, 166, 154, 0.08);
+  border: 1px solid rgba(38, 166, 154, 0.2);
+  border-radius: 4px;
+  flex-wrap: wrap;
+}
+.upload-indicator .q-linear-progress {
+  width: 100%;
 }
 
 /* Lightbox */

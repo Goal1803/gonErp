@@ -19,7 +19,12 @@
               <q-btn flat round dense icon="delete" color="red-4" size="xs" @click="deletePngFile(f)" />
             </div>
           </div>
-          <q-file v-model="pngFile" outlined dark color="teal-5" dense label="Upload PNG files"
+          <div v-if="uploadingPng" class="upload-indicator">
+            <q-spinner-dots color="teal-5" size="20px" />
+            <span class="text-grey-4" style="font-size:0.82rem">Uploading PNG files...</span>
+            <q-linear-progress indeterminate color="teal-5" size="2px" class="q-mt-xs" />
+          </div>
+          <q-file v-else v-model="pngFile" outlined dark color="teal-5" dense label="Upload PNG files"
             accept=".png" multiple @update:model-value="uploadPng">
             <template #prepend><q-icon name="upload" color="grey-5" /></template>
           </q-file>
@@ -36,7 +41,12 @@
               <q-btn flat round dense icon="delete" color="red-4" size="xs" @click="deletePsdFile(f)" />
             </div>
           </div>
-          <q-file v-model="psdFile" outlined dark color="teal-5" dense label="Upload PSD files"
+          <div v-if="uploadingPsd" class="upload-indicator">
+            <q-spinner-dots color="teal-5" size="20px" />
+            <span class="text-grey-4" style="font-size:0.82rem">Uploading PSD files...</span>
+            <q-linear-progress indeterminate color="teal-5" size="2px" class="q-mt-xs" />
+          </div>
+          <q-file v-else v-model="psdFile" outlined dark color="teal-5" dense label="Upload PSD files"
             accept=".psd,.psb" multiple @update:model-value="uploadPsd">
             <template #prepend><q-icon name="upload" color="grey-5" /></template>
           </q-file>
@@ -62,7 +72,12 @@
             <q-icon v-if="m.mainMockup" name="star" color="amber" size="14px" class="mockup-star" />
           </div>
         </div>
-        <q-file v-model="mockupFile" outlined dark color="teal-5" dense label="Upload mockups"
+        <div v-if="uploadingMockup" class="upload-indicator">
+          <q-spinner-dots color="teal-5" size="20px" />
+          <span class="text-grey-4" style="font-size:0.82rem">Uploading mockups...</span>
+          <q-linear-progress indeterminate color="teal-5" size="2px" class="q-mt-xs" />
+        </div>
+        <q-file v-else v-model="mockupFile" outlined dark color="teal-5" dense label="Upload mockups"
           accept="image/*" multiple @update:model-value="uploadMockup">
           <template #prepend><q-icon name="add_photo_alternate" color="grey-5" /></template>
         </q-file>
@@ -145,6 +160,9 @@ const designDetail = ref(null)
 const pngFile = ref(null)
 const psdFile = ref(null)
 const mockupFile = ref(null)
+const uploadingPng = ref(false)
+const uploadingPsd = ref(false)
+const uploadingMockup = ref(false)
 
 // Form state
 const ideaCreatorId = ref(null)
@@ -263,6 +281,8 @@ const updateDesigners = async (newIds) => {
 
 const uploadPng = async (files) => {
   if (!files?.length) return
+  pngFile.value = null
+  uploadingPng.value = true
   for (const file of files) {
     const fd = new FormData()
     fd.append('file', file)
@@ -273,7 +293,7 @@ const uploadPng = async (files) => {
     }
   }
   await loadDesignDetail()
-  pngFile.value = null
+  uploadingPng.value = false
 }
 
 const deletePngFile = async (f) => {
@@ -287,6 +307,8 @@ const deletePngFile = async (f) => {
 
 const uploadPsd = async (files) => {
   if (!files?.length) return
+  psdFile.value = null
+  uploadingPsd.value = true
   for (const file of files) {
     const fd = new FormData()
     fd.append('file', file)
@@ -297,7 +319,7 @@ const uploadPsd = async (files) => {
     }
   }
   await loadDesignDetail()
-  psdFile.value = null
+  uploadingPsd.value = false
 }
 
 const deletePsdFile = async (f) => {
@@ -311,6 +333,8 @@ const deletePsdFile = async (f) => {
 
 const uploadMockup = async (files) => {
   if (!files?.length) return
+  mockupFile.value = null
+  uploadingMockup.value = true
   for (const file of files) {
     const fd = new FormData()
     fd.append('file', file)
@@ -321,7 +345,7 @@ const uploadMockup = async (files) => {
     }
   }
   await loadDesignDetail()
-  mockupFile.value = null
+  uploadingMockup.value = false
   emit('updated')
 }
 
@@ -402,5 +426,18 @@ watch(() => props.cardId, (id) => {
   position: absolute;
   bottom: 2px;
   left: 2px;
+}
+.upload-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(38, 166, 154, 0.08);
+  border: 1px solid rgba(38, 166, 154, 0.2);
+  border-radius: 4px;
+  flex-wrap: wrap;
+}
+.upload-indicator .q-linear-progress {
+  width: 100%;
 }
 </style>
