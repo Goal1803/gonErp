@@ -18,8 +18,8 @@
               <q-btn flat round dense icon="delete" color="red-4" size="xs" @click="deletePngFile(f)" />
             </div>
           </div>
-          <q-file v-model="pngFile" outlined dark color="teal-5" dense label="Upload PNG"
-            accept=".png" @update:model-value="uploadPng">
+          <q-file v-model="pngFile" outlined dark color="teal-5" dense label="Upload PNG files"
+            accept=".png" multiple @update:model-value="uploadPng">
             <template #prepend><q-icon name="upload" color="grey-5" /></template>
           </q-file>
         </div>
@@ -35,8 +35,8 @@
               <q-btn flat round dense icon="delete" color="red-4" size="xs" @click="deletePsdFile(f)" />
             </div>
           </div>
-          <q-file v-model="psdFile" outlined dark color="teal-5" dense label="Upload PSD"
-            accept=".psd,.psb" @update:model-value="uploadPsd">
+          <q-file v-model="psdFile" outlined dark color="teal-5" dense label="Upload PSD files"
+            accept=".psd,.psb" multiple @update:model-value="uploadPsd">
             <template #prepend><q-icon name="upload" color="grey-5" /></template>
           </q-file>
         </div>
@@ -60,8 +60,8 @@
             <q-icon v-if="m.mainMockup" name="star" color="amber" size="14px" class="mockup-star" />
           </div>
         </div>
-        <q-file v-model="mockupFile" outlined dark color="teal-5" dense label="Upload mockup"
-          accept="image/*" @update:model-value="uploadMockup">
+        <q-file v-model="mockupFile" outlined dark color="teal-5" dense label="Upload mockups"
+          accept="image/*" multiple @update:model-value="uploadMockup">
           <template #prepend><q-icon name="add_photo_alternate" color="grey-5" /></template>
         </q-file>
       </div>
@@ -259,17 +259,19 @@ const updateDesigners = async (newIds) => {
   }
 }
 
-const uploadPng = async (file) => {
-  if (!file) return
-  const fd = new FormData()
-  fd.append('file', file)
-  try {
-    await designApi.uploadPng(props.cardId, fd)
-    await loadDesignDetail()
-    pngFile.value = null
-  } catch {
-    $q.notify({ type: 'negative', message: 'PNG upload failed' })
+const uploadPng = async (files) => {
+  if (!files?.length) return
+  for (const file of files) {
+    const fd = new FormData()
+    fd.append('file', file)
+    try {
+      await designApi.uploadPng(props.cardId, fd)
+    } catch {
+      $q.notify({ type: 'negative', message: `Failed to upload ${file.name}` })
+    }
   }
+  await loadDesignDetail()
+  pngFile.value = null
 }
 
 const deletePngFile = async (f) => {
@@ -281,17 +283,19 @@ const deletePngFile = async (f) => {
   }
 }
 
-const uploadPsd = async (file) => {
-  if (!file) return
-  const fd = new FormData()
-  fd.append('file', file)
-  try {
-    await designApi.uploadPsd(props.cardId, fd)
-    await loadDesignDetail()
-    psdFile.value = null
-  } catch {
-    $q.notify({ type: 'negative', message: 'PSD upload failed' })
+const uploadPsd = async (files) => {
+  if (!files?.length) return
+  for (const file of files) {
+    const fd = new FormData()
+    fd.append('file', file)
+    try {
+      await designApi.uploadPsd(props.cardId, fd)
+    } catch {
+      $q.notify({ type: 'negative', message: `Failed to upload ${file.name}` })
+    }
   }
+  await loadDesignDetail()
+  psdFile.value = null
 }
 
 const deletePsdFile = async (f) => {
@@ -303,18 +307,20 @@ const deletePsdFile = async (f) => {
   }
 }
 
-const uploadMockup = async (file) => {
-  if (!file) return
-  const fd = new FormData()
-  fd.append('file', file)
-  try {
-    await designApi.uploadMockup(props.cardId, fd)
-    await loadDesignDetail()
-    mockupFile.value = null
-    emit('updated')
-  } catch {
-    $q.notify({ type: 'negative', message: 'Mockup upload failed' })
+const uploadMockup = async (files) => {
+  if (!files?.length) return
+  for (const file of files) {
+    const fd = new FormData()
+    fd.append('file', file)
+    try {
+      await designApi.uploadMockup(props.cardId, fd)
+    } catch {
+      $q.notify({ type: 'negative', message: `Failed to upload ${file.name}` })
+    }
   }
+  await loadDesignDetail()
+  mockupFile.value = null
+  emit('updated')
 }
 
 const deleteMockup = async (m) => {
