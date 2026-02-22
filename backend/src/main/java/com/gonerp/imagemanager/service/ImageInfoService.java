@@ -1,5 +1,6 @@
 package com.gonerp.imagemanager.service;
 
+import com.gonerp.common.ImageUtil;
 import com.gonerp.imagemanager.dto.ImageInfoResponse;
 import com.gonerp.imagemanager.model.ImageInfo;
 import com.gonerp.imagemanager.repository.ImageInfoRepository;
@@ -92,7 +93,9 @@ public class ImageInfoService {
                     ? original.substring(original.lastIndexOf('.'))
                     : "";
             String filename = UUID.randomUUID() + ext;
-            Files.copy(file.getInputStream(), uploadPath.resolve(filename), StandardCopyOption.REPLACE_EXISTING);
+            Path filePath = uploadPath.resolve(filename);
+            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+            ImageUtil.generateThumbnail(filePath, file.getContentType());
             return filename;
         } catch (IOException e) {
             throw new RuntimeException("Failed to store uploaded file", e);
@@ -104,6 +107,7 @@ public class ImageInfoService {
         String filename = url.substring("/api/images/files/".length());
         try {
             Files.deleteIfExists(Paths.get(uploadDir).resolve(filename));
+            ImageUtil.deleteThumbnail(Paths.get(uploadDir), filename);
         } catch (IOException ignored) {
         }
     }

@@ -1,6 +1,6 @@
 <template>
   <q-avatar :size="size" :style="avatarStyle">
-    <img v-if="user?.avatarUrl" :src="user.avatarUrl" />
+    <img v-if="user?.avatarUrl" :src="user.avatarUrl + '?thumb=true'" loading="lazy" />
     <span v-else :style="{ fontSize: fontSize }">{{ initials }}</span>
   </q-avatar>
 </template>

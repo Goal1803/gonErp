@@ -54,8 +54,9 @@
           class="comment-img-wrap"
         >
           <img
-            :src="url"
+            :src="url + '?thumb=true'"
             class="comment-img-thumb"
+            loading="lazy"
             @click="$emit('view-images', { images: comment.imageUrls, index: i })"
           />
           <div class="comment-img-actions">

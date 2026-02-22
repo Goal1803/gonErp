@@ -11,7 +11,7 @@
 
     <!-- Main image (always square, image fits without cropping) -->
     <div v-if="card.mainImageUrl" class="card-cover">
-      <img :src="card.mainImageUrl" class="card-cover-inner" alt="" />
+      <img :src="card.mainImageUrl + '?thumb=true'" class="card-cover-inner" alt="" loading="lazy" />
     </div>
 
     <div class="card-body">

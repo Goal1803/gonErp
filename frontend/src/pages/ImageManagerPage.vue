@@ -68,7 +68,7 @@
         <!-- Thumbnail -->
         <div class="thumbnail-wrapper" @click="openViewDialog(image)">
           <img
-            :src="image.url"
+            :src="image.url + '?thumb=true'"
             :alt="image.name"
             class="image-thumbnail"
             loading="lazy"

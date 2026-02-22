@@ -1,5 +1,6 @@
 package com.gonerp.taskmanager.service;
 
+import com.gonerp.common.ImageUtil;
 import com.gonerp.taskmanager.dto.*;
 import com.gonerp.taskmanager.event.NotificationEvent;
 import com.gonerp.taskmanager.model.*;
@@ -518,7 +519,9 @@ public class CardService {
             String ext = (original != null && original.contains("."))
                     ? original.substring(original.lastIndexOf('.')) : "";
             String filename = UUID.randomUUID() + ext;
-            Files.copy(file.getInputStream(), uploadPath.resolve(filename), StandardCopyOption.REPLACE_EXISTING);
+            Path filePath = uploadPath.resolve(filename);
+            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+            ImageUtil.generateThumbnail(filePath, file.getContentType());
             return filename;
         } catch (IOException e) {
             throw new RuntimeException("Failed to store file", e);
@@ -530,6 +533,7 @@ public class CardService {
         String filename = url.substring("/api/tasks/files/".length());
         try {
             Files.deleteIfExists(Paths.get(uploadDir).resolve(filename));
+            ImageUtil.deleteThumbnail(Paths.get(uploadDir), filename);
         } catch (IOException ignored) {}
     }
 

@@ -84,16 +84,32 @@ public class UserController {
 
     @GetMapping("/files/{filename:.+}")
     @PreAuthorize("permitAll()")
-    public ResponseEntity<Resource> serveFile(@PathVariable String filename) {
-        Resource resource = userService.loadFileAsResource(filename);
+    public ResponseEntity<Resource> serveFile(
+            @PathVariable String filename,
+            @RequestParam(defaultValue = "false") boolean thumb) {
+        String resolvedFilename = filename;
+        if (thumb) {
+            String baseName = filename.contains(".")
+                    ? filename.substring(0, filename.lastIndexOf('.'))
+                    : filename;
+            String thumbName = baseName + "_thumb.jpg";
+            try {
+                Resource thumbResource = userService.loadFileAsResource(thumbName);
+                if (thumbResource.exists()) {
+                    resolvedFilename = thumbName;
+                }
+            } catch (Exception ignored) {}
+        }
+        Resource resource = userService.loadFileAsResource(resolvedFilename);
         String contentType = "application/octet-stream";
         try {
-            contentType = Files.probeContentType(Paths.get(filename));
+            contentType = Files.probeContentType(Paths.get(resolvedFilename));
             if (contentType == null) contentType = "application/octet-stream";
         } catch (IOException ignored) {}
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(contentType))
                 .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + resource.getFilename() + "\"")
+                .header(HttpHeaders.CACHE_CONTROL, "public, max-age=31536000, immutable")
                 .body(resource);
     }
 }
