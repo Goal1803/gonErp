@@ -88,6 +88,8 @@ const props = defineProps({
   cardId: { type: Number, required: true },
   taggableUsers: { type: Array, default: () => [] },
   replyTo: { type: Object, default: null },
+  addCommentFn: { type: Function, default: null },
+  uploadImageFn: { type: Function, default: null },
 })
 
 const emit = defineEmits(['commented', 'cancel-reply'])
@@ -302,7 +304,9 @@ const sendComment = async () => {
     for (const file of imageFiles.value) {
       const fd = new FormData()
       fd.append('file', file)
-      const imgRes = await cardApi.uploadCommentImage(props.cardId, fd)
+      const imgRes = props.uploadImageFn
+        ? await props.uploadImageFn(props.cardId, fd)
+        : await cardApi.uploadCommentImage(props.cardId, fd)
       uploadedUrls.push(imgRes.data.data.url)
     }
 
@@ -323,7 +327,9 @@ const sendComment = async () => {
       parentCommentId: props.replyTo?.id || null,
       mentionedUserIds: mentionedUserIds.length ? mentionedUserIds : null,
     }
-    const res = await cardApi.addComment(props.cardId, data)
+    const res = props.addCommentFn
+      ? await props.addCommentFn(props.cardId, data)
+      : await cardApi.addComment(props.cardId, data)
     emit('commented', res.data.data)
 
     // Clear

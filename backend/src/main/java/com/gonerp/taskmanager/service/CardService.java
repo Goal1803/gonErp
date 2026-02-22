@@ -351,6 +351,23 @@ public class CardService {
         return "/api/tasks/files/" + filename;
     }
 
+    public CommentResponse updateComment(Long cardId, Long commentId, CommentRequest request) {
+        CardComment comment = cardCommentRepository.findById(commentId)
+                .orElseThrow(() -> new EntityNotFoundException("Comment not found: " + commentId));
+        User user = getCurrentUser();
+        if (!comment.getAuthor().getId().equals(user.getId())) {
+            throw new AccessDeniedException("You can only edit your own comments");
+        }
+        Card card = getCardOrThrow(cardId);
+        checkBoardAccess(card.getColumn());
+        comment.setContent(request.getContent());
+        comment = cardCommentRepository.save(comment);
+        CommentResponse response = CommentResponse.from(comment, user.getId());
+        eventPublisher.publish(card.getColumn().getBoard().getId(), "COMMENT_UPDATED",
+                cardId, null, user.getUserName(), response);
+        return response;
+    }
+
     public void deleteComment(Long cardId, Long commentId) {
         CardComment comment = cardCommentRepository.findById(commentId)
                 .orElseThrow(() -> new EntityNotFoundException("Comment not found: " + commentId));

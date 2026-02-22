@@ -991,27 +991,20 @@
             min-height: 0;
           "
         >
-          <div class="text-caption text-grey-5 q-mb-sm row items-center gap-2">
-            <q-icon name="chat" /> Comments
-          </div>
-          <CommentItem
-            v-for="c in detail.comments"
-            :key="c.id"
-            :comment="c"
+          <CommentSection
+            :entity-id="detail.id"
+            :comments="detail.comments"
             :current-user="authStore.currentUser"
             :is-admin="authStore.isAdmin"
             :members="allBoardMemberUsers"
-            @delete="deleteComment($event)"
-            @react="handleReaction($event)"
-            @reply="replyTo = $event"
-            @view-images="openSlideshow($event)"
-          />
-          <CommentInput
-            :card-id="detail.id"
             :taggable-users="taggableUsers"
-            :reply-to="replyTo"
-            @commented="onCommented"
-            @cancel-reply="replyTo = null"
+            :add-comment-fn="(id, data) => cardApi.addComment(id, data)"
+            :update-comment-fn="(id, cid, data) => cardApi.updateComment(id, cid, data)"
+            :delete-comment-fn="(id, cid) => cardApi.deleteComment(id, cid)"
+            :react-fn="(id, cid, data) => cardApi.toggleReaction(id, cid, data)"
+            :upload-image-fn="(id, fd) => cardApi.uploadCommentImage(id, fd)"
+            :incoming-event="commentEvent"
+            @view-images="openSlideshow($event)"
           />
         </div>
         </div>
@@ -1072,8 +1065,7 @@ import { useQuasar } from "quasar";
 import { cardApi, boardApi } from "src/api/tasks";
 import { useAuthStore } from "src/stores/authStore";
 import UserAvatar from "src/components/UserAvatar.vue";
-import CommentItem from "src/components/CommentItem.vue";
-import CommentInput from "src/components/CommentInput.vue";
+import CommentSection from "src/components/CommentSection.vue";
 import DesignDetailSection from "src/components/DesignDetailSection.vue";
 
 // ─── Label color presets ──────────────────────────────────────────────────────
@@ -1118,6 +1110,7 @@ const props = defineProps({
   boardMembers: { type: Array, default: () => [] },
   boardColumns: { type: Array, default: () => [] },
   externalUpdate: { type: Object, default: null }, // { actorName, type }
+  commentEvent: { type: Object, default: null },
 });
 const emit = defineEmits(["update:modelValue", "updated", "deleted", "dismiss-update"]);
 const $q = useQuasar();
@@ -1128,7 +1121,6 @@ const show = computed({
   set: (v) => emit("update:modelValue", v),
 });
 const detail = ref(null);
-const replyTo = ref(null);
 const attachFile = ref(null);
 const imageFile = ref(null);
 const uploadingImages = ref(false);
@@ -1715,60 +1707,6 @@ const saveField = async (field, value) => {
     if (field !== "description" && field !== "name") emit("updated");
   } catch {
     /* silent */
-  }
-};
-
-const onCommented = (comment) => {
-  if (comment.parentId) {
-    // Find parent and add to its replies
-    const parent = detail.value.comments.find((c) => c.id === comment.parentId);
-    if (parent) {
-      if (!parent.replies) parent.replies = [];
-      parent.replies.push(comment);
-    }
-  } else {
-    detail.value.comments.push(comment);
-  }
-  replyTo.value = null;
-};
-
-const deleteComment = async (c) => {
-  try {
-    await cardApi.deleteComment(detail.value.id, c.id);
-    if (c.parentId) {
-      // Remove from parent's replies
-      const parent = detail.value.comments.find((p) => p.id === c.parentId);
-      if (parent) {
-        parent.replies = parent.replies.filter((r) => r.id !== c.id);
-      }
-    } else {
-      detail.value.comments = detail.value.comments.filter((x) => x.id !== c.id);
-    }
-  } catch {
-    $q.notify({ type: "negative", message: "Failed to delete comment" });
-  }
-};
-
-const handleReaction = async ({ commentId, reactionType }) => {
-  try {
-    const res = await cardApi.toggleReaction(detail.value.id, commentId, { reactionType });
-    const reactions = res.data.data;
-    // Find the comment (could be top-level or reply) and update its reactions
-    for (const c of detail.value.comments) {
-      if (c.id === commentId) {
-        c.reactions = reactions;
-        break;
-      }
-      if (c.replies) {
-        const reply = c.replies.find((r) => r.id === commentId);
-        if (reply) {
-          reply.reactions = reactions;
-          break;
-        }
-      }
-    }
-  } catch {
-    $q.notify({ type: "negative", message: "Failed to toggle reaction" });
   }
 };
 

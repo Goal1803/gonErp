@@ -1,7 +1,7 @@
 <template>
   <div class="comment-item-wrap" :style="{ marginLeft: isReply ? '32px' : '0' }">
     <div class="comment-item" ref="commentEl">
-      <!-- Header: avatar, name, timestamp, delete -->
+      <!-- Header: avatar, name, timestamp, edit, delete -->
       <div class="row items-center q-gutter-xs q-mb-xs">
         <UserAvatar :user="comment.author" size="24px" />
         <span class="text-grey-4" style="font-size: 0.8rem">{{
@@ -12,15 +12,40 @@
         >
         <q-space />
         <q-btn
-          v-if="canDelete"
+          v-if="canEdit && !editing"
+          flat round dense icon="edit" color="grey-6" size="xs"
+          @click="startEdit"
+        >
+          <q-tooltip>Edit</q-tooltip>
+        </q-btn>
+        <q-btn
+          v-if="canDelete && !editing"
           flat round dense icon="close" color="grey-6" size="xs"
-          @click="$emit('delete', comment)"
+          @click="confirmDelete"
         />
       </div>
 
-      <!-- Content with @mention highlights -->
+      <!-- Edit mode -->
+      <div v-if="editing" style="margin-left: 32px">
+        <textarea
+          ref="editTextarea"
+          v-model="editContent"
+          class="edit-textarea"
+          rows="3"
+          @keydown.escape="cancelEdit"
+        />
+        <div class="row q-gutter-xs q-mt-xs">
+          <q-btn label="Save" color="teal-6" unelevated dense size="sm"
+            :disable="!editContent.trim()" :loading="saving"
+            @click="saveEdit" />
+          <q-btn flat label="Cancel" color="grey-5" dense size="sm"
+            @click="cancelEdit" />
+        </div>
+      </div>
+
+      <!-- Content with @mention highlights (view mode) -->
       <div
-        v-if="comment.content"
+        v-else-if="comment.content"
         class="text-grey-3 comment-content"
         style="font-size: 0.85rem; margin-left: 32px"
         v-html="highlightedContent"
@@ -69,7 +94,7 @@
       </div>
 
       <!-- Action bar: Like · count · Reply -->
-      <div class="action-bar" style="margin-left: 32px; margin-top: 4px">
+      <div v-if="!editing" class="action-bar" style="margin-left: 32px; margin-top: 4px">
         <button
           class="action-link"
           :class="{ 'action-active': likeInfo?.reacted }"
@@ -113,6 +138,7 @@
         :is-admin="isAdmin"
         :members="members"
         @delete="$emit('delete', $event)"
+        @edit="$emit('edit', $event)"
         @react="$emit('react', $event)"
         @view-images="$emit('view-images', $event)"
       />
@@ -121,7 +147,8 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, nextTick } from 'vue'
+import { useQuasar } from 'quasar'
 import UserAvatar from 'src/components/UserAvatar.vue'
 
 const props = defineProps({
@@ -132,17 +159,58 @@ const props = defineProps({
   members: { type: Array, default: () => [] },
 })
 
-defineEmits(['delete', 'react', 'reply', 'view-images'])
+const emit = defineEmits(['delete', 'edit', 'react', 'reply', 'view-images'])
 
+const $q = useQuasar()
 const showLikers = ref(false)
 const commentEl = ref(null)
 const hoveredMention = ref(null)
 const mentionTooltipStyle = ref({})
 let tooltipTimer = null
 
-const canDelete = computed(() =>
-  props.isAdmin || props.comment.author.userName === props.currentUser?.userName
+// Edit state
+const editing = ref(false)
+const editContent = ref('')
+const editTextarea = ref(null)
+const saving = ref(false)
+
+const canEdit = computed(() =>
+  props.comment.author.id === props.currentUser?.id
 )
+
+const canDelete = computed(() =>
+  props.isAdmin || props.comment.author.id === props.currentUser?.id
+)
+
+const startEdit = () => {
+  editContent.value = props.comment.content || ''
+  editing.value = true
+  nextTick(() => editTextarea.value?.focus())
+}
+
+const cancelEdit = () => {
+  editing.value = false
+  editContent.value = ''
+}
+
+const saveEdit = () => {
+  if (!editContent.value.trim()) return
+  emit('edit', { commentId: props.comment.id, content: editContent.value.trim() })
+  editing.value = false
+}
+
+const confirmDelete = () => {
+  $q.dialog({
+    title: 'Delete Comment',
+    message: 'Are you sure you want to delete this comment?',
+    cancel: true,
+    persistent: true,
+    dark: true,
+    color: 'red-5',
+  }).onOk(() => {
+    emit('delete', props.comment)
+  })
+}
 
 const likeInfo = computed(() => props.comment.reactions?.LIKE || null)
 
@@ -224,6 +292,24 @@ const downloadFile = async (url) => {
 }
 .comment-content :deep(.mention-highlight:hover) {
   text-decoration: underline;
+}
+
+/* Edit textarea */
+.edit-textarea {
+  width: 100%;
+  background: #252525;
+  border: 1px solid rgba(38, 166, 154, 0.5);
+  border-radius: 4px;
+  color: #e0e0e0;
+  font-size: 0.85rem;
+  padding: 8px;
+  resize: vertical;
+  outline: none;
+  font-family: inherit;
+  line-height: 1.5;
+}
+.edit-textarea:focus {
+  border-color: #26a69a;
 }
 
 /* Mention hover tooltip */

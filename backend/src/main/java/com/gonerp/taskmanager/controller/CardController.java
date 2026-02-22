@@ -66,6 +66,14 @@ public class CardController {
                 .body(ApiResponse.ok("Comment added", cardService.addComment(id, request)));
     }
 
+    @PutMapping("/cards/{id}/comments/{commentId}")
+    public ResponseEntity<ApiResponse<CommentResponse>> updateComment(
+            @PathVariable Long id, @PathVariable Long commentId,
+            @RequestBody CommentRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok("Comment updated",
+                cardService.updateComment(id, commentId, request)));
+    }
+
     @DeleteMapping("/cards/{id}/comments/{commentId}")
     public ResponseEntity<ApiResponse<Void>> deleteComment(
             @PathVariable Long id, @PathVariable Long commentId) {

@@ -32,6 +32,7 @@ export const cardApi = {
   move: (id, data) => api.patch(`/tasks/cards/${id}/move`, data),
   reorder: (columnId, orderedIds) => api.patch(`/tasks/columns/${columnId}/cards/reorder`, { orderedIds }),
   addComment: (id, data) => api.post(`/tasks/cards/${id}/comments`, data),
+  updateComment: (id, commentId, data) => api.put(`/tasks/cards/${id}/comments/${commentId}`, data),
   deleteComment: (id, commentId) => api.delete(`/tasks/cards/${id}/comments/${commentId}`),
   toggleReaction: (cardId, commentId, data) => api.post(`/tasks/cards/${cardId}/comments/${commentId}/reactions`, data),
   uploadCommentImage: (cardId, formData) => api.post(`/tasks/cards/${cardId}/comments/image`, formData, {

@@ -120,6 +120,7 @@
       :board-members="boardStore.board?.members || []"
       :board-columns="boardStore.board?.columns || []"
       :external-update="cardExternalUpdate"
+      :comment-event="cardCommentEvent"
       @updated="refreshBoard"
       @deleted="refreshBoard"
       @dismiss-update="cardExternalUpdate = null"
@@ -182,6 +183,7 @@ const addingColumn = ref(false)
 const newColTitle = ref('')
 const isConnected = ref(false)
 const cardExternalUpdate = ref(null) // { actorName, type }
+const cardCommentEvent = ref(null) // forwarded comment events
 const kanbanScrollEl = ref(null) // ref to the horizontal scroll container
 
 // ─── Filters ─────────────────────────────────────────────────────────────────
@@ -495,10 +497,20 @@ const handleBoardEvent = (event) => {
       }
       break
     }
+    case 'COMMENT_ADDED':
+    case 'COMMENT_UPDATED':
+    case 'COMMENT_DELETED': {
+      if (showCard.value && cardId && selectedCardId.value === cardId) {
+        cardCommentEvent.value = { type, payload, commentId: payload?.id || payload?.commentId }
+      }
+      break
+    }
   }
 
   // If the card detail dialog is open for the affected card, show a conflict banner
-  if (showCard.value && cardId && selectedCardId.value === cardId) {
+  // (skip comment events — they are handled in real-time by CommentSection)
+  const COMMENT_EVENTS = new Set(['COMMENT_ADDED', 'COMMENT_UPDATED', 'COMMENT_DELETED'])
+  if (showCard.value && cardId && selectedCardId.value === cardId && !COMMENT_EVENTS.has(type)) {
     cardExternalUpdate.value = { actorName, type }
   }
 }
