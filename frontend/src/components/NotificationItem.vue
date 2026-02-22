@@ -21,9 +21,20 @@
       <span class="notif-card-name">{{ notification.cardName }}</span>
     </div>
 
-    <!-- Right side: time + unread -->
+    <!-- Right side: time + actions -->
     <div class="notif-meta">
       <span class="notif-time">{{ timeAgo(notification.createdAt) }}</span>
+      <q-btn
+        v-if="!notification.read"
+        flat round dense
+        icon="mark_email_read"
+        size="xs"
+        color="teal-4"
+        class="notif-read-btn"
+        @click.stop="$emit('mark-read', notification.id)"
+      >
+        <q-tooltip>Mark as read</q-tooltip>
+      </q-btn>
       <div v-if="!notification.read" class="unread-dot" />
     </div>
   </div>
@@ -37,7 +48,7 @@ const props = defineProps({
   notification: { type: Object, required: true }
 })
 
-defineEmits(['click'])
+defineEmits(['click', 'mark-read'])
 
 const actorName = computed(() => {
   const a = props.notification.actor
@@ -136,10 +147,16 @@ function timeAgo(dateStr) {
 .notif-meta {
   flex-shrink: 0;
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
+  align-items: center;
+  gap: 8px;
   min-width: 60px;
+}
+.notif-read-btn {
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.notif-row:hover .notif-read-btn {
+  opacity: 1;
 }
 .notif-time {
   font-size: 0.7rem;

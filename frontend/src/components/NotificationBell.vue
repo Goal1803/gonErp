@@ -26,12 +26,12 @@
         </div>
         <div class="notif-header-right">
           <q-btn
-            v-if="store.unreadCount > 0"
             flat dense no-caps
             icon="done_all"
             label="Mark all read"
-            color="teal-4"
+            :color="store.unreadCount > 0 ? 'teal-4' : 'grey-7'"
             size="sm"
+            :disable="store.unreadCount === 0"
             @click="store.markAllAsRead()"
           />
         </div>
@@ -64,6 +64,7 @@
                 :key="n.id"
                 :notification="n"
                 @click="handleClick"
+                @mark-read="store.markAsRead"
               />
             </template>
             <div v-else-if="!store.loadingAll" class="notif-empty">
@@ -90,6 +91,7 @@
                 :key="n.id"
                 :notification="n"
                 @click="handleClick"
+                @mark-read="store.markAsRead"
               />
             </template>
             <div v-else-if="!store.loadingImportant" class="notif-empty">
