@@ -50,6 +50,12 @@ const routes = [
       },
       {
         path: 'designs',
+        name: 'designsHome',
+        component: () => import('pages/DesignsHomePage.vue'),
+        meta: { title: 'Designs', requiresModule: 'hasDesigns' }
+      },
+      {
+        path: 'designs/list',
         name: 'designs',
         component: () => import('pages/DesignsPage.vue'),
         meta: { title: 'Designs', requiresModule: 'hasDesigns' }

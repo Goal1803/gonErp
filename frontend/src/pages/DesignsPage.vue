@@ -2,6 +2,7 @@
   <q-page class="designs-page">
     <!-- Header -->
     <div class="page-header row items-center no-wrap q-px-xl q-pt-lg q-pb-md">
+      <q-btn flat round dense icon="arrow_back" color="grey-5" class="q-mr-sm" to="/designs" />
       <div>
         <div class="text-h5 text-white text-weight-light row items-center gap-2">
           <q-icon name="palette" color="teal-5" />
@@ -12,8 +13,6 @@
       <q-space />
       <q-btn icon="add" label="New Design" color="teal-6" unelevated
         class="q-mr-sm" @click="openCreateDialog" />
-      <q-btn icon="dashboard_customize" label="Boards" color="teal-6" unelevated
-        class="q-mr-sm" to="/designs/boards" />
       <q-btn v-if="authStore.isAdmin" flat round icon="settings" color="teal-5"
         @click="showConfigDialog = true">
         <q-tooltip>Design Config</q-tooltip>
