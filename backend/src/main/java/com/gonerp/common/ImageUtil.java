@@ -4,8 +4,11 @@ import net.coobird.thumbnailator.Thumbnails;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
+import java.util.stream.Stream;
 
 public final class ImageUtil {
 
@@ -36,6 +39,54 @@ public final class ImageUtil {
         } catch (Exception e) {
             log.warn("Thumbnail generation failed for {}: {}", originalFile.getFileName(), e.getMessage());
         }
+    }
+
+    private static final java.util.Set<String> IMAGE_EXTENSIONS = java.util.Set.of(
+            ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".tiff", ".tif"
+    );
+
+    public static Map<String, Integer> generateThumbnailsForDirectory(Path directory) {
+        int generated = 0;
+        int skipped = 0;
+        int failed = 0;
+
+        if (!Files.isDirectory(directory)) {
+            return Map.of("generated", 0, "skipped", 0, "failed", 0);
+        }
+
+        try (Stream<Path> files = Files.list(directory)) {
+            for (Path file : files.toList()) {
+                String name = file.getFileName().toString();
+                if (name.contains("_thumb.")) {
+                    continue;
+                }
+                String ext = name.contains(".") ? name.substring(name.lastIndexOf('.')).toLowerCase() : "";
+                if (!IMAGE_EXTENSIONS.contains(ext)) {
+                    continue;
+                }
+                String baseName = name.substring(0, name.lastIndexOf('.'));
+                Path thumbPath = directory.resolve(baseName + "_thumb.jpg");
+                if (Files.exists(thumbPath)) {
+                    skipped++;
+                    continue;
+                }
+                try {
+                    Thumbnails.of(file.toFile())
+                            .width(THUMB_MAX_WIDTH)
+                            .outputFormat("jpg")
+                            .outputQuality(THUMB_QUALITY)
+                            .toFile(thumbPath.toFile());
+                    generated++;
+                } catch (Exception e) {
+                    log.warn("Thumbnail generation failed for {}: {}", name, e.getMessage());
+                    failed++;
+                }
+            }
+        } catch (IOException e) {
+            log.error("Failed to scan directory {}: {}", directory, e.getMessage());
+        }
+
+        return Map.of("generated", generated, "skipped", skipped, "failed", failed);
     }
 
     public static void deleteThumbnail(Path directory, String filename) {
