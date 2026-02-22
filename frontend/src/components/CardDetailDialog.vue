@@ -710,6 +710,7 @@
             :card-id="detail.id"
             :board-members="props.boardMembers"
             @updated="emit('updated')"
+            @view-images="openSlideshow($event)"
           />
 
           <!-- Description -->
@@ -1018,10 +1019,15 @@
             class="slideshow-arrow slideshow-arrow-right"
             @click.stop="slideshowNext"
           />
-          <div class="slideshow-counter" @click.stop>
-            {{ slideshowIndex + 1 }} / {{ slideshowImages.length }}
-          </div>
         </template>
+        <!-- Thumbnail strip -->
+        <div v-if="slideshowImages.length > 1" class="lightbox-thumbstrip" @click.stop>
+          <div v-for="(url, i) in slideshowImages" :key="i"
+            class="lightbox-thumb" :class="{ active: i === slideshowIndex }"
+            @click="slideshowIndex = i">
+            <img :src="url" />
+          </div>
+        </div>
         <div class="lightbox-toolbar" @click.stop>
           <q-btn
             flat round dense icon="download" color="white" size="md"
@@ -2019,7 +2025,7 @@ const deleteLink = async (link) => {
 }
 .lightbox-img {
   max-width: 90vw;
-  max-height: 90vh;
+  max-height: calc(90vh - 80px);
   object-fit: contain;
   border-radius: 6px;
   cursor: default;
@@ -2045,17 +2051,42 @@ const deleteLink = async (link) => {
 .slideshow-arrow-right {
   right: 16px;
 }
-.slideshow-counter {
+/* Thumbnail strip */
+.lightbox-thumbstrip {
   position: absolute;
-  bottom: 20px;
+  bottom: 16px;
   left: 50%;
   transform: translateX(-50%);
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 0.85rem;
-  font-weight: 600;
-  background: rgba(0, 0, 0, 0.5);
-  padding: 4px 14px;
-  border-radius: 12px;
+  display: flex;
+  gap: 6px;
+  padding: 6px 10px;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 8px;
+  max-width: 80vw;
+  overflow-x: auto;
+}
+.lightbox-thumb {
+  width: 48px;
+  height: 48px;
+  border-radius: 4px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 2px solid transparent;
+  flex-shrink: 0;
+  opacity: 0.5;
+  transition: opacity 0.15s, border-color 0.15s;
+}
+.lightbox-thumb.active {
+  border-color: #26a69a;
+  opacity: 1;
+}
+.lightbox-thumb:hover {
+  opacity: 1;
+}
+.lightbox-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 /* Description editor wrapper for image overlay */

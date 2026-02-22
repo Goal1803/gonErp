@@ -32,7 +32,8 @@
           <div class="col-12 col-md-7">
             <!-- Main Mockup -->
             <div v-if="mainMockup" class="main-mockup-container q-mb-md">
-              <img :src="mainMockup.url" class="main-mockup-img" />
+              <img :src="mainMockup.url" class="main-mockup-img" style="cursor:pointer"
+                @click="openSlideshow({ images: detail.mockups.map(x => x.url), index: detail.mockups.indexOf(mainMockup) })" />
               <div class="main-mockup-actions">
                 <q-btn flat round dense icon="download" color="white" size="sm"
                   @click="downloadFile(mainMockup.url, 'mockup-' + mainMockup.id + '.png')">
@@ -47,10 +48,10 @@
 
             <!-- Mockup Thumbnails -->
             <div v-if="detail?.mockups?.length" class="mockup-thumbnails q-mb-md">
-              <div v-for="m in detail.mockups" :key="m.id"
+              <div v-for="(m, i) in detail.mockups" :key="m.id"
                 class="mockup-thumb-item" :class="{ active: selectedMockup === m.id, 'mockup-main-border': m.mainMockup }"
                 @click="selectedMockup = m.id">
-                <img :src="m.url" />
+                <img :src="m.url" @click.stop="openSlideshow({ images: detail.mockups.map(x => x.url), index: i })" />
                 <div class="mockup-thumb-actions">
                   <q-btn flat round dense icon="download" color="white" size="8px"
                     @click.stop="downloadFile(m.url, 'mockup-' + m.id + '.png')" />
@@ -75,8 +76,9 @@
               <div class="col">
                 <div class="info-label"><q-icon name="image" size="xs" /> PNG Files</div>
                 <div v-if="detail?.pngFiles?.length" class="q-mb-sm">
-                  <div v-for="f in detail.pngFiles" :key="f.id" class="row items-center q-gutter-sm q-mb-xs">
-                    <span class="text-teal-4 ellipsis" style="font-size:0.82rem; max-width: 160px">{{ f.name || 'PNG file' }}</span>
+                  <div v-for="(f, i) in detail.pngFiles" :key="f.id" class="row items-center q-gutter-sm q-mb-xs">
+                    <span class="text-teal-4 ellipsis" style="font-size:0.82rem; max-width: 160px; cursor:pointer"
+                      @click="openSlideshow({ images: detail.pngFiles.map(x => x.url), index: i })">{{ f.name || 'PNG file' }}</span>
                     <q-btn flat round dense icon="download" color="white" size="xs"
                       @click="downloadFile(f.url, f.name || 'design.png')" />
                     <q-btn flat round dense icon="delete" color="red-4" size="xs" @click="deletePngFile(f)" />
@@ -222,11 +224,40 @@
         </div>
       </q-scroll-area>
     </q-card>
+
+    <!-- Image lightbox / slideshow -->
+    <q-dialog v-model="showLightbox" maximized transition-show="fade" transition-hide="fade">
+      <div class="lightbox-backdrop" @click="closeLightbox" @keydown="onLightboxKeydown" tabindex="0" ref="lightboxBackdrop">
+        <img :src="lightboxUrl" class="lightbox-img" @click.stop />
+        <template v-if="slideshowImages.length > 1">
+          <q-btn flat round icon="chevron_left" color="white" size="lg"
+            class="slideshow-arrow slideshow-arrow-left" @click.stop="slideshowPrev" />
+          <q-btn flat round icon="chevron_right" color="white" size="lg"
+            class="slideshow-arrow slideshow-arrow-right" @click.stop="slideshowNext" />
+        </template>
+        <div v-if="slideshowImages.length > 1" class="lightbox-thumbstrip" @click.stop>
+          <div v-for="(url, i) in slideshowImages" :key="i"
+            class="lightbox-thumb" :class="{ active: i === slideshowIndex }"
+            @click="slideshowIndex = i">
+            <img :src="url" />
+          </div>
+        </div>
+        <div class="lightbox-toolbar" @click.stop>
+          <q-btn flat round dense icon="download" color="white" size="md"
+            @click="downloadFile(lightboxUrl, lightboxUrl?.split('/').pop())">
+            <q-tooltip>Download</q-tooltip>
+          </q-btn>
+          <q-btn flat round dense icon="close" color="white" size="md" @click="closeLightbox">
+            <q-tooltip>Close</q-tooltip>
+          </q-btn>
+        </div>
+      </div>
+    </q-dialog>
   </q-dialog>
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import { useQuasar } from 'quasar'
 import { designApi, designsApi, lookupApi } from 'src/api/tasks'
 
@@ -317,6 +348,40 @@ const downloadFile = async (url, filename) => {
   } catch {
     $q.notify({ type: 'negative', message: 'Download failed' })
   }
+}
+
+// ─── Lightbox / slideshow ────────────────────────────────────────────────────
+const slideshowImages = ref([])
+const slideshowIndex = ref(0)
+const lightboxBackdrop = ref(null)
+const lightboxUrl = computed(() =>
+  slideshowImages.value.length ? slideshowImages.value[slideshowIndex.value] : null
+)
+const showLightbox = computed({
+  get: () => slideshowImages.value.length > 0,
+  set: (v) => { if (!v) slideshowImages.value = [] },
+})
+const openSlideshow = ({ images, index }) => {
+  slideshowImages.value = images
+  slideshowIndex.value = index || 0
+  nextTick(() => lightboxBackdrop.value?.focus())
+}
+const closeLightbox = () => {
+  slideshowImages.value = []
+  slideshowIndex.value = 0
+}
+const slideshowPrev = () => {
+  if (slideshowImages.value.length <= 1) return
+  slideshowIndex.value = (slideshowIndex.value - 1 + slideshowImages.value.length) % slideshowImages.value.length
+}
+const slideshowNext = () => {
+  if (slideshowImages.value.length <= 1) return
+  slideshowIndex.value = (slideshowIndex.value + 1) % slideshowImages.value.length
+}
+const onLightboxKeydown = (e) => {
+  if (e.key === 'ArrowLeft') slideshowPrev()
+  else if (e.key === 'ArrowRight') slideshowNext()
+  else if (e.key === 'Escape') closeLightbox()
 }
 
 const uploadMockup = async (files) => {
@@ -607,5 +672,78 @@ watch(() => props.design, (d) => {
 .info-value {
   color: #ffffffde;
   font-size: 0.9rem;
+}
+
+/* Lightbox */
+.lightbox-backdrop {
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: zoom-out;
+}
+.lightbox-img {
+  max-width: 90vw;
+  max-height: calc(90vh - 80px);
+  object-fit: contain;
+  border-radius: 6px;
+  cursor: default;
+}
+.lightbox-toolbar {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  gap: 8px;
+}
+.slideshow-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(0, 0, 0, 0.5) !important;
+}
+.slideshow-arrow-left {
+  left: 16px;
+}
+.slideshow-arrow-right {
+  right: 16px;
+}
+.lightbox-thumbstrip {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  padding: 6px 10px;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 8px;
+  max-width: 80vw;
+  overflow-x: auto;
+}
+.lightbox-thumb {
+  width: 48px;
+  height: 48px;
+  border-radius: 4px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 2px solid transparent;
+  flex-shrink: 0;
+  opacity: 0.5;
+  transition: opacity 0.15s, border-color 0.15s;
+}
+.lightbox-thumb.active {
+  border-color: #26a69a;
+  opacity: 1;
+}
+.lightbox-thumb:hover {
+  opacity: 1;
+}
+.lightbox-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 </style>

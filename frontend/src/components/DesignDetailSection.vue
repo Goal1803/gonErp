@@ -11,8 +11,9 @@
         <div class="col">
           <div class="sidebar-label"><q-icon name="image" size="xs" /> PNG Files</div>
           <div v-if="designDetail.pngFiles?.length" class="q-mb-sm">
-            <div v-for="f in designDetail.pngFiles" :key="f.id" class="row items-center q-gutter-sm q-mb-xs">
-              <span class="text-teal-4 ellipsis" style="font-size:0.82rem; max-width: 160px">{{ f.name || 'PNG file' }}</span>
+            <div v-for="(f, i) in designDetail.pngFiles" :key="f.id" class="row items-center q-gutter-sm q-mb-xs">
+              <span class="text-teal-4 ellipsis" style="font-size:0.82rem; max-width: 160px; cursor:pointer"
+                @click="emit('view-images', { images: designDetail.pngFiles.map(x => x.url), index: i })">{{ f.name || 'PNG file' }}</span>
               <q-btn flat round dense icon="download" color="white" size="xs"
                 @click="downloadFile(f.url, f.name || 'design.png')" />
               <q-btn flat round dense icon="delete" color="red-4" size="xs" @click="deletePngFile(f)" />
@@ -48,7 +49,8 @@
         <div v-if="designDetail.mockups?.length" class="mockup-grid q-mb-sm">
           <div v-for="m in designDetail.mockups" :key="m.id" class="mockup-thumb-wrap"
             :class="{ 'mockup-main': m.mainMockup }">
-            <img :src="m.url" class="mockup-thumb" />
+            <img :src="m.url" class="mockup-thumb" style="cursor:pointer"
+              @click="emit('view-images', { images: designDetail.mockups.map(x => x.url), index: designDetail.mockups.indexOf(m) })" />
             <div class="mockup-actions">
               <q-btn flat round dense icon="download" color="white" size="xs"
                 @click.stop="downloadFile(m.url, 'mockup-' + m.id + '.png')" />
@@ -136,7 +138,7 @@ const props = defineProps({
   cardId: { type: Number, required: true },
   boardMembers: { type: Array, default: () => [] }
 })
-const emit = defineEmits(['updated'])
+const emit = defineEmits(['updated', 'view-images'])
 const $q = useQuasar()
 
 const designDetail = ref(null)
