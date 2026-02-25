@@ -81,7 +81,7 @@
           </template>
           <template v-else-if="detail.mainImageUrl">
             <img
-              :src="detail.mainImageUrl"
+              :src="detail.mainImageUrl + '?thumb=true'"
               class="cover-image"
               style="cursor: pointer"
               @click="openSlideshow({ images: [detail.mainImageUrl], index: 0 })"
@@ -133,7 +133,7 @@
                   class="cover-pick-item"
                   @click="setCoverFromExisting(img); showCoverPicker = false"
                 >
-                  <img :src="img.url" />
+                  <img :src="img.url + '?thumb=true'" />
                 </div>
               </div>
               <div v-else class="text-grey-6 text-center q-py-md" style="font-size: 0.78rem">
@@ -863,8 +863,9 @@
                 class="image-thumb-wrap"
               >
                 <img
-                  :src="img.url"
+                  :src="img.url + '?thumb=true'"
                   class="image-thumb"
+                  loading="lazy"
                   @click.stop="openSlideshow({ images: [img.url], index: 0 })"
                 />
                 <div class="image-thumb-actions">
