@@ -491,8 +491,11 @@ public class CardService {
             CardMember member = CardMember.builder().card(card).user(user).build();
             cardMemberRepository.save(member);
             User currentUser = getCurrentUser();
+            Map<String, Object> memberPayload = new HashMap<>();
+            memberPayload.put("user", UserSummaryResponse.from(user));
+            memberPayload.put("card", CardSummaryResponse.from(card));
             eventPublisher.publish(card.getColumn().getBoard().getId(), "CARD_MEMBER_ADDED",
-                    cardId, null, currentUser.getUserName(), UserSummaryResponse.from(user));
+                    cardId, card.getColumn().getId(), currentUser.getUserName(), memberPayload);
 
             // Notify the added user (skip if adding self)
             if (!currentUser.getId().equals(userId)) {
@@ -514,7 +517,7 @@ public class CardService {
                 .ifPresent(cardMemberRepository::delete);
         Card card = getCardOrThrow(cardId);
         eventPublisher.publish(card.getColumn().getBoard().getId(), "CARD_MEMBER_REMOVED",
-                cardId, null, getCurrentUser().getUserName(), Map.of("userId", userId));
+                cardId, card.getColumn().getId(), getCurrentUser().getUserName(), Map.of("userId", userId));
     }
 
     public Resource loadFileAsResource(String filename) {

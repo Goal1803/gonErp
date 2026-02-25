@@ -508,30 +508,43 @@ const handleBoardEvent = (event) => {
       break
     }
     case 'CARD_MEMBER_ADDED': {
+      const user = payload?.user ?? payload
+      const cardData = payload?.card
       const found = findCardInBoard(cardId)
-      if (found && payload) {
+      if (found && user) {
         const card = found.column.cards[found.cardIndex]
         if (!card.members) card.members = []
-        if (!card.members.some(m => m.id === payload.id)) {
-          card.members.push(payload)
+        if (!card.members.some(m => m.id === user.id)) {
+          card.members.push(user)
         }
-      } else if (!found && !canManage.value && payload) {
-        // Card not in our view — if the added member is me, fetch and show it
+      } else if (!found && !canManage.value && user) {
+        // Card not in our view — if the added member is me, show the card
         const myId = authStore.currentUser?.userId ?? authStore.currentUser?.id
-        if (payload.id === myId) {
-          refreshBoard()
+        if (user.id === myId) {
+          if (cardData) {
+            const col = findColumn(columnId)
+            if (col) {
+              if (!col.cards) col.cards = []
+              if (!col.cards.some(c => c.id === cardData.id)) {
+                col.cards.push(cardData)
+              }
+            }
+          } else {
+            refreshBoard()
+          }
         }
       }
       break
     }
     case 'CARD_MEMBER_REMOVED': {
+      const userId = payload?.userId
       const found = findCardInBoard(cardId)
-      if (found && payload) {
+      if (found && userId) {
         const card = found.column.cards[found.cardIndex]
-        card.members = (card.members || []).filter(m => m.id !== payload.id)
+        card.members = (card.members || []).filter(m => m.id !== userId)
         // If I was removed and I'm not board owner/admin, hide the card
         const myId = authStore.currentUser?.userId ?? authStore.currentUser?.id
-        if (!canManage.value && payload.id === myId) {
+        if (!canManage.value && userId === myId) {
           found.column.cards.splice(found.cardIndex, 1)
         }
       }
