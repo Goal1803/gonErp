@@ -1,5 +1,7 @@
 package com.gonerp.usermanager.service;
 
+import com.gonerp.auth.dto.ChangePasswordRequest;
+import com.gonerp.auth.dto.ProfileUpdateRequest;
 import com.gonerp.common.ImageUtil;
 import com.gonerp.common.OrgContext;
 import com.gonerp.organization.model.Organization;
@@ -165,6 +167,53 @@ public class UserService implements UserDetailsService {
         deletePhysicalFile(user.getAvatarUrl());
         user.setAvatarUrl(null);
         return UserResponse.from(userRepository.save(user));
+    }
+
+    // ── Profile (self-service) ──────────────────────────────────────
+
+    public UserResponse getProfile(String userName) {
+        User user = userRepository.findByUserName(userName)
+                .orElseThrow(() -> new EntityNotFoundException("User not found: " + userName));
+        return UserResponse.from(user);
+    }
+
+    public UserResponse updateProfile(String userName, ProfileUpdateRequest request) {
+        User user = userRepository.findByUserName(userName)
+                .orElseThrow(() -> new EntityNotFoundException("User not found: " + userName));
+        user.setFirstName(request.getFirstName());
+        user.setLastName(request.getLastName());
+        user.setDateOfBirth(request.getDateOfBirth());
+        return UserResponse.from(userRepository.save(user));
+    }
+
+    public UserResponse uploadProfileAvatar(String userName, MultipartFile file) {
+        User user = userRepository.findByUserName(userName)
+                .orElseThrow(() -> new EntityNotFoundException("User not found: " + userName));
+        deletePhysicalFile(user.getAvatarUrl());
+        String filename = storeFile(file);
+        user.setAvatarUrl("/api/users/files/" + filename);
+        return UserResponse.from(userRepository.save(user));
+    }
+
+    public UserResponse deleteProfileAvatar(String userName) {
+        User user = userRepository.findByUserName(userName)
+                .orElseThrow(() -> new EntityNotFoundException("User not found: " + userName));
+        deletePhysicalFile(user.getAvatarUrl());
+        user.setAvatarUrl(null);
+        return UserResponse.from(userRepository.save(user));
+    }
+
+    public void changePassword(String userName, ChangePasswordRequest request) {
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw new IllegalArgumentException("New password and confirm password do not match");
+        }
+        User user = userRepository.findByUserName(userName)
+                .orElseThrow(() -> new EntityNotFoundException("User not found: " + userName));
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+            throw new IllegalArgumentException("Current password is incorrect");
+        }
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
     }
 
     public Resource loadFileAsResource(String filename) {

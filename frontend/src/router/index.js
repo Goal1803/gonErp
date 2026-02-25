@@ -25,6 +25,12 @@ const routes = [
         meta: { title: 'Dashboard' }
       },
       {
+        path: 'profile',
+        name: 'profile',
+        component: () => import('pages/ProfilePage.vue'),
+        meta: { title: 'My Profile' }
+      },
+      {
         path: 'users',
         name: 'users',
         component: () => import('pages/UserManagerPage.vue'),

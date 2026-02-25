@@ -49,6 +49,15 @@
                   </q-item-section>
                 </q-item>
                 <q-separator dark />
+                <q-item clickable v-ripple to="/profile">
+                  <q-item-section avatar>
+                    <q-icon name="person" size="sm" color="green-4" />
+                  </q-item-section>
+                  <q-item-section>
+                    <q-item-label>My Profile</q-item-label>
+                  </q-item-section>
+                </q-item>
+                <q-separator dark />
                 <q-item clickable v-ripple @click="handleLogout">
                   <q-item-section avatar>
                     <q-icon name="logout" size="sm" color="red-4" />
