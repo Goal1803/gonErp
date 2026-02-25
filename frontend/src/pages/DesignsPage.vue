@@ -79,6 +79,10 @@
                 {{ pt.name }}
               </q-chip>
             </div>
+            <q-btn v-if="authStore.isAdmin" flat round dense icon="delete" color="red-4" size="xs"
+              class="design-card-delete" @click.stop="confirmDeleteDesign(d)">
+              <q-tooltip>Delete design</q-tooltip>
+            </q-btn>
           </div>
         </div>
       </div>
@@ -91,7 +95,7 @@
     </div>
 
     <!-- Design View Dialog -->
-    <design-view-dialog v-model="showDesignDialog" :design="selectedDesign" @open-card="onOpenCard" @updated="loadDesigns" />
+    <design-view-dialog v-model="showDesignDialog" :design="selectedDesign" @open-card="onOpenCard" @updated="loadDesigns" @deleted="loadDesigns" />
 
     <!-- Card Detail Dialog -->
     <card-detail-dialog
@@ -297,6 +301,25 @@ const loadLookups = async () => {
   } catch { /* silent */ }
 }
 
+const confirmDeleteDesign = (d) => {
+  $q.dialog({
+    title: 'Delete Design',
+    message: `Are you sure you want to delete "${d.cardName || d.name || 'Untitled'}"? This action cannot be undone.`,
+    dark: true,
+    color: 'red',
+    cancel: { flat: true, color: 'grey-5' },
+    ok: { label: 'Delete', color: 'red', unelevated: true }
+  }).onOk(async () => {
+    try {
+      await designsApi.delete(d.id)
+      $q.notify({ type: 'positive', message: 'Design deleted' })
+      loadDesigns()
+    } catch {
+      $q.notify({ type: 'negative', message: 'Failed to delete design' })
+    }
+  })
+}
+
 const openDesign = (d) => {
   selectedDesign.value = d
   showDesignDialog.value = true
@@ -486,5 +509,18 @@ onMounted(() => {
   display: flex;
   flex-wrap: wrap;
   gap: 3px;
+}
+.design-card-delete {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.design-card:hover .design-card-delete {
+  opacity: 1;
+}
+.design-card-body {
+  position: relative;
 }
 </style>

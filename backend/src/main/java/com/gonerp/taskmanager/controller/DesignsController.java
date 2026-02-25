@@ -144,4 +144,11 @@ public class DesignsController {
         return ResponseEntity.ok(ApiResponse.ok("Designer removed",
                 designDetailService.removeDesignerById(designId, userId)));
     }
+
+    @DeleteMapping("/{designId}")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> deleteDesign(@PathVariable Long designId) {
+        designDetailService.deleteDesignById(designId);
+        return ResponseEntity.ok(ApiResponse.ok("Design deleted", null));
+    }
 }

@@ -108,7 +108,8 @@ export const designsApi = {
   deleteMockup: (designId, mockupId) => api.delete(`/tasks/designs/${designId}/mockups/${mockupId}`),
   setMainMockup: (designId, mockupId) => api.patch(`/tasks/designs/${designId}/mockups/${mockupId}/main`),
   addDesigner: (designId, userId) => api.post(`/tasks/designs/${designId}/designers/${userId}`),
-  removeDesigner: (designId, userId) => api.delete(`/tasks/designs/${designId}/designers/${userId}`)
+  removeDesigner: (designId, userId) => api.delete(`/tasks/designs/${designId}/designers/${userId}`),
+  delete: (designId) => api.delete(`/tasks/designs/${designId}`)
 }
 
 export const taskConfigApi = {

@@ -18,6 +18,9 @@
         </q-chip>
         <q-btn v-if="design?.cardId" flat dense icon="open_in_new" color="teal-5" label="View Card" class="q-ml-sm" @click="openCard" />
         <q-space />
+        <q-btn v-if="authStore.isAdmin" flat round dense icon="delete" color="red-4" @click="confirmDelete">
+          <q-tooltip>Delete design</q-tooltip>
+        </q-btn>
         <q-btn flat round dense icon="close" color="grey-5" v-close-popup />
       </q-card-section>
 
@@ -275,15 +278,17 @@
 import { ref, computed, watch, nextTick } from 'vue'
 import { useQuasar } from 'quasar'
 import { designApi, designsApi, lookupApi } from 'src/api/tasks'
+import { useAuthStore } from 'src/stores/authStore'
 
 const $q = useQuasar()
+const authStore = useAuthStore()
 
 const props = defineProps({
   modelValue: Boolean,
   design: { type: Object, default: null }
 })
 
-const emit = defineEmits(['update:modelValue', 'open-card', 'updated'])
+const emit = defineEmits(['update:modelValue', 'open-card', 'updated', 'deleted'])
 
 const show = computed({
   get: () => props.modelValue,
@@ -507,6 +512,26 @@ const saveDetail = async () => {
   } catch {
     $q.notify({ type: 'negative', message: 'Failed to update design' })
   }
+}
+
+const confirmDelete = () => {
+  $q.dialog({
+    title: 'Delete Design',
+    message: `Are you sure you want to delete "${props.design?.cardName || props.design?.name || 'Untitled'}"? This action cannot be undone.`,
+    dark: true,
+    color: 'red',
+    cancel: { flat: true, color: 'grey-5' },
+    ok: { label: 'Delete', color: 'red', unelevated: true }
+  }).onOk(async () => {
+    try {
+      await designsApi.delete(props.design.id)
+      $q.notify({ type: 'positive', message: 'Design deleted' })
+      emit('deleted')
+      show.value = false
+    } catch {
+      $q.notify({ type: 'negative', message: 'Failed to delete design' })
+    }
+  })
 }
 
 const openCard = () => {

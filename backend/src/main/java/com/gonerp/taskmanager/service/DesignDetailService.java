@@ -275,6 +275,32 @@ public class DesignDetailService {
         return DesignDetailResponse.from(dd);
     }
 
+    public void deleteDesignById(Long designId) {
+        DesignDetail dd = getDesignDetailOrThrow(designId);
+        checkDesignAccess(dd);
+
+        // Delete physical files
+        for (DesignFile file : dd.getDesignFiles()) {
+            deletePhysicalFile(file.getUrl());
+        }
+        for (DesignMockup mockup : dd.getMockups()) {
+            deletePhysicalFile(mockup.getUrl());
+        }
+
+        // Clear ManyToMany collections
+        dd.getDesigners().clear();
+        dd.getProductTypes().clear();
+        dd.getNiches().clear();
+
+        // Detach from card if linked
+        if (dd.getCard() != null) {
+            dd.setCard(null);
+            designDetailRepository.save(dd);
+        }
+
+        designDetailRepository.delete(dd);
+    }
+
     private void initializeCollections(DesignDetail dd) {
         Hibernate.initialize(dd.getDesignFiles());
         Hibernate.initialize(dd.getMockups());
