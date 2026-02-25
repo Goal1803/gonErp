@@ -15,9 +15,9 @@
         <q-tab v-if="authStore.isSuperAdmin" name="staffRoles" label="Staff Roles" />
         <q-tab v-if="authStore.isSuperAdmin" name="userGroups" label="User Groups" />
         <q-tab name="userAssignments" label="User Assignments" />
-        <q-tab v-if="authStore.isSuperAdmin" name="productTypes" label="Product Types" />
-        <q-tab v-if="authStore.isSuperAdmin" name="niches" label="Niches" />
-        <q-tab v-if="authStore.isSuperAdmin" name="occasions" label="Occasions" />
+        <q-tab name="productTypes" label="Product Types" />
+        <q-tab name="niches" label="Niches" />
+        <q-tab name="occasions" label="Occasions" />
       </q-tabs>
 
       <!-- Tab panels -->
@@ -98,7 +98,7 @@
         </q-tab-panel>
 
         <!-- Product Types Tab -->
-        <q-tab-panel v-if="authStore.isSuperAdmin" name="productTypes" class="q-pa-lg">
+        <q-tab-panel name="productTypes" class="q-pa-lg">
           <div class="row items-center q-mb-md">
             <div class="text-subtitle1 text-weight-medium">Product Types</div>
             <q-space />
@@ -117,7 +117,7 @@
         </q-tab-panel>
 
         <!-- Niches Tab -->
-        <q-tab-panel v-if="authStore.isSuperAdmin" name="niches" class="q-pa-lg">
+        <q-tab-panel name="niches" class="q-pa-lg">
           <div class="row items-center q-mb-md">
             <div class="text-subtitle1 text-weight-medium">Niches</div>
             <q-space />
@@ -136,7 +136,7 @@
         </q-tab-panel>
 
         <!-- Occasions Tab -->
-        <q-tab-panel v-if="authStore.isSuperAdmin" name="occasions" class="q-pa-lg">
+        <q-tab-panel name="occasions" class="q-pa-lg">
           <div class="row items-center q-mb-md">
             <div class="text-subtitle1 text-weight-medium">Occasions</div>
             <q-space />

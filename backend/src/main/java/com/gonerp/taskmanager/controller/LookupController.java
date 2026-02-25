@@ -28,21 +28,21 @@ public class LookupController {
     }
 
     @PostMapping("/product-types")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<LookupResponse>> createProductType(@Valid @RequestBody LookupRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.ok("Product type created", lookupService.createProductType(request)));
     }
 
     @PutMapping("/product-types/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<LookupResponse>> updateProductType(
             @PathVariable Long id, @Valid @RequestBody LookupRequest request) {
         return ResponseEntity.ok(ApiResponse.ok("Product type updated", lookupService.updateProductType(id, request)));
     }
 
     @DeleteMapping("/product-types/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<Void>> deleteProductType(@PathVariable Long id) {
         lookupService.deleteProductType(id);
         return ResponseEntity.ok(ApiResponse.ok("Product type deleted", null));
@@ -56,21 +56,21 @@ public class LookupController {
     }
 
     @PostMapping("/niches")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<LookupResponse>> createNiche(@Valid @RequestBody LookupRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.ok("Niche created", lookupService.createNiche(request)));
     }
 
     @PutMapping("/niches/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<LookupResponse>> updateNiche(
             @PathVariable Long id, @Valid @RequestBody LookupRequest request) {
         return ResponseEntity.ok(ApiResponse.ok("Niche updated", lookupService.updateNiche(id, request)));
     }
 
     @DeleteMapping("/niches/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<Void>> deleteNiche(@PathVariable Long id) {
         lookupService.deleteNiche(id);
         return ResponseEntity.ok(ApiResponse.ok("Niche deleted", null));
@@ -84,21 +84,21 @@ public class LookupController {
     }
 
     @PostMapping("/occasions")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<LookupResponse>> createOccasion(@Valid @RequestBody LookupRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.ok("Occasion created", lookupService.createOccasion(request)));
     }
 
     @PutMapping("/occasions/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<LookupResponse>> updateOccasion(
             @PathVariable Long id, @Valid @RequestBody LookupRequest request) {
         return ResponseEntity.ok(ApiResponse.ok("Occasion updated", lookupService.updateOccasion(id, request)));
     }
 
     @DeleteMapping("/occasions/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<Void>> deleteOccasion(@PathVariable Long id) {
         lookupService.deleteOccasion(id);
         return ResponseEntity.ok(ApiResponse.ok("Occasion deleted", null));
