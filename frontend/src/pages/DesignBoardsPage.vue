@@ -11,9 +11,6 @@
         <div class="text-caption text-grey-5 q-mt-xs">Manage your POD Design boards</div>
       </div>
       <q-space />
-      <q-btn v-if="authStore.isAdmin || authStore.isSuperAdmin" flat round icon="settings" color="grey-5" class="q-mr-sm" @click="showConfigDialog = true">
-        <q-tooltip>Design Config</q-tooltip>
-      </q-btn>
       <q-btn v-if="authStore.isAdmin || authStore.isSuperAdmin" icon="add" label="New Board" color="teal-6" unelevated @click="openCreate" />
     </div>
 

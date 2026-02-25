@@ -12,11 +12,7 @@
       </div>
       <q-space />
       <q-btn icon="add" label="New Design" color="teal-6" unelevated
-        class="q-mr-sm" @click="openCreateDialog" />
-      <q-btn v-if="authStore.isAdmin" flat round icon="settings" color="teal-5"
-        @click="showConfigDialog = true">
-        <q-tooltip>Design Config</q-tooltip>
-      </q-btn>
+        @click="openCreateDialog" />
     </div>
 
     <div class="q-px-xl q-pb-xl">

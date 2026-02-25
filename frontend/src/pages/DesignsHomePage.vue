@@ -35,10 +35,34 @@
             </q-card-section>
           </q-card>
         </router-link>
+
+        <!-- Settings card (admin only) -->
+        <div v-if="authStore.isAdmin" class="home-card-link" @click="showConfigDialog = true">
+          <q-card class="home-card" flat>
+            <q-card-section class="column items-center q-pa-lg">
+              <q-icon name="settings" size="56px" color="teal-4" />
+              <div class="text-h6 text-white q-mt-md">Settings</div>
+              <div class="text-caption text-grey-5 q-mt-xs text-center">
+                Configure design options
+              </div>
+            </q-card-section>
+          </q-card>
+        </div>
       </div>
+
+    <design-config-dialog v-model="showConfigDialog" />
     </div>
   </q-page>
 </template>
+
+<script setup>
+import { ref } from 'vue'
+import { useAuthStore } from 'src/stores/authStore'
+import DesignConfigDialog from 'src/components/DesignConfigDialog.vue'
+
+const authStore = useAuthStore()
+const showConfigDialog = ref(false)
+</script>
 
 <style scoped>
 .designs-home {
