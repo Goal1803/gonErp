@@ -427,8 +427,13 @@ const handleBoardEvent = (event) => {
     case 'CARD_CREATED': {
       const col = findColumn(columnId)
       if (col && payload) {
+        // Regular members only see cards they are a member of
+        if (!canManage.value) {
+          const myId = authStore.currentUser?.userId ?? authStore.currentUser?.id
+          const isMember = (payload.members || []).some(m => m.id === myId)
+          if (!isMember) break
+        }
         if (!col.cards) col.cards = []
-        // Avoid duplicate if event arrives twice
         if (!col.cards.some(c => c.id === payload.id)) {
           col.cards.push(payload)
         }
@@ -499,6 +504,36 @@ const handleBoardEvent = (event) => {
       if (boardStore.board?.columns && Array.isArray(payload)) {
         const colMap = new Map(boardStore.board.columns.map(c => [c.id, c]))
         boardStore.board.columns = payload.map(id => colMap.get(id)).filter(Boolean)
+      }
+      break
+    }
+    case 'CARD_MEMBER_ADDED': {
+      const found = findCardInBoard(cardId)
+      if (found && payload) {
+        const card = found.column.cards[found.cardIndex]
+        if (!card.members) card.members = []
+        if (!card.members.some(m => m.id === payload.id)) {
+          card.members.push(payload)
+        }
+      } else if (!found && !canManage.value && payload) {
+        // Card not in our view — if the added member is me, fetch and show it
+        const myId = authStore.currentUser?.userId ?? authStore.currentUser?.id
+        if (payload.id === myId) {
+          refreshBoard()
+        }
+      }
+      break
+    }
+    case 'CARD_MEMBER_REMOVED': {
+      const found = findCardInBoard(cardId)
+      if (found && payload) {
+        const card = found.column.cards[found.cardIndex]
+        card.members = (card.members || []).filter(m => m.id !== payload.id)
+        // If I was removed and I'm not board owner/admin, hide the card
+        const myId = authStore.currentUser?.userId ?? authStore.currentUser?.id
+        if (!canManage.value && payload.id === myId) {
+          found.column.cards.splice(found.cardIndex, 1)
+        }
       }
       break
     }
