@@ -1,10 +1,8 @@
 package com.gonerp.taskmanager.service;
 
 import com.gonerp.common.ImageUtil;
-import com.gonerp.taskmanager.dto.DesignDetailRequest;
-import com.gonerp.taskmanager.dto.DesignDetailResponse;
-import com.gonerp.taskmanager.dto.DesignFileResponse;
-import com.gonerp.taskmanager.dto.DesignMockupResponse;
+import com.gonerp.taskmanager.dto.*;
+import com.gonerp.taskmanager.websocket.BoardEventPublisher;
 import com.gonerp.taskmanager.model.*;
 import com.gonerp.taskmanager.model.enums.BoardType;
 import com.gonerp.taskmanager.model.enums.DesignFileCategory;
@@ -26,6 +24,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -43,6 +43,7 @@ public class DesignDetailService {
     private final NicheRepository nicheRepository;
     private final OccasionRepository occasionRepository;
     private final CardMemberRepository cardMemberRepository;
+    private final BoardEventPublisher eventPublisher;
     private final DesignStaffRoleRepository designStaffRoleRepository;
     private final UserDesignStaffRoleRepository userDesignStaffRoleRepository;
 
@@ -180,6 +181,12 @@ public class DesignDetailService {
             User designer = userRepository.findById(userId)
                     .orElseThrow(() -> new EntityNotFoundException("User not found: " + userId));
             cardMemberRepository.save(CardMember.builder().card(card).user(designer).build());
+            // Publish socket event so other clients update in real-time
+            Map<String, Object> memberPayload = new HashMap<>();
+            memberPayload.put("user", UserSummaryResponse.from(designer));
+            memberPayload.put("card", CardSummaryResponse.from(card));
+            eventPublisher.publish(card.getColumn().getBoard().getId(), "CARD_MEMBER_ADDED",
+                    cardId, card.getColumn().getId(), getCurrentUser().getUserName(), memberPayload);
         }
         initializeCollections(dd);
         return DesignDetailResponse.from(dd);
@@ -191,6 +198,14 @@ public class DesignDetailService {
         DesignDetail dd = getDesignDetailByCardId(cardId);
         dd.getDesigners().removeIf(d -> d.getId().equals(userId));
         dd = designDetailRepository.save(dd);
+        // Also remove card member and publish socket event
+        cardMemberRepository.findByCardIdAndUserId(cardId, userId)
+                .ifPresent(cm -> {
+                    cardMemberRepository.delete(cm);
+                    eventPublisher.publish(card.getColumn().getBoard().getId(), "CARD_MEMBER_REMOVED",
+                            cardId, card.getColumn().getId(), getCurrentUser().getUserName(),
+                            Map.of("userId", userId));
+                });
         initializeCollections(dd);
         return DesignDetailResponse.from(dd);
     }

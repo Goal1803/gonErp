@@ -717,6 +717,7 @@
             :card-id="detail.id"
             :board-members="props.boardMembers"
             @updated="emit('updated')"
+            @members-changed="refreshDetail(); emit('updated')"
             @view-images="openSlideshow($event)"
           />
 

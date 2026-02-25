@@ -153,7 +153,7 @@ const props = defineProps({
   cardId: { type: Number, required: true },
   boardMembers: { type: Array, default: () => [] }
 })
-const emit = defineEmits(['updated', 'view-images'])
+const emit = defineEmits(['updated', 'view-images', 'members-changed'])
 const $q = useQuasar()
 
 const designDetail = ref(null)
@@ -273,6 +273,9 @@ const updateDesigners = async (newIds) => {
     for (const id of toRemove) {
       const res = await designApi.removeDesigner(props.cardId, id)
       designDetail.value = res.data.data
+    }
+    if (toAdd.length || toRemove.length) {
+      emit('members-changed')
     }
   } catch {
     $q.notify({ type: 'negative', message: 'Failed to update designers' })
