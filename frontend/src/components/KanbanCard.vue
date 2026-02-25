@@ -49,9 +49,8 @@
             <q-icon name="attach_file" size="12px" />{{ card.attachmentCount }}
           </div>
           <!-- Member avatars -->
-          <div v-if="card.members?.length" class="row" style="gap:-4px">
-            <div v-for="(m, i) in card.members.slice(0,3)" :key="m.id"
-              :style="{ marginLeft: i > 0 ? '-6px' : '0', zIndex: 3-i }">
+          <div v-if="card.members?.length" class="row items-center" style="gap:4px">
+            <div v-for="m in card.members.slice(0,3)" :key="m.id">
               <UserAvatar :user="m" size="18px" />
               <q-tooltip class="text-caption">{{ [m.firstName, m.lastName].filter(Boolean).join(' ') || m.userName }}</q-tooltip>
             </div>

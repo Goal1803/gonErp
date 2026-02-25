@@ -97,7 +97,7 @@
           <q-btn flat icon="add" label="Add column" color="grey-5"
             style="white-space:nowrap" @click="addingColumn = true" />
         </div>
-        <div v-else style="width:280px">
+        <div v-else style="width:250px">
           <q-input v-model="newColTitle" outlined dark color="teal-5" dense
             placeholder="Column title..." autofocus
             @keyup.enter="addColumn" @keyup.escape="addingColumn = false" />

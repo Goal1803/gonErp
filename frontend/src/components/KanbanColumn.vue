@@ -237,8 +237,8 @@ onUnmounted(() => {
 
 <style scoped>
 .kanban-column {
-  width: 300px;
-  min-width: 300px;
+  width: 250px;
+  min-width: 250px;
   background: #161616;
   border: 1px solid rgba(255,255,255,0.07);
   border-radius: 10px;
