@@ -17,6 +17,44 @@
 
       <q-space />
 
+      <!-- Card search -->
+      <div class="relative-position q-mr-sm">
+        <q-input
+          v-model="searchQuery"
+          dense
+          outlined
+          dark
+          color="teal-5"
+          placeholder="Search cards..."
+          style="width: 220px"
+          clearable
+          @focus="searchFocused = true"
+          @blur="onSearchBlur"
+        >
+          <template #prepend>
+            <q-icon name="search" size="xs" />
+          </template>
+        </q-input>
+        <q-list v-if="searchFocused && searchQuery && searchResults.length"
+          dark bordered class="search-results absolute">
+          <q-item v-for="card in searchResults" :key="card.id"
+            clickable v-ripple dense @mousedown.prevent="openSearchResult(card)">
+            <q-item-section>
+              <q-item-label :class="{ 'text-teal-4 text-weight-bold': card._exact }">
+                {{ card.name }}
+              </q-item-label>
+              <q-item-label caption class="text-grey-6 ellipsis">
+                {{ card._colName }}
+              </q-item-label>
+            </q-item-section>
+          </q-item>
+        </q-list>
+        <div v-if="searchFocused && searchQuery && !searchResults.length"
+          class="search-results absolute q-pa-sm text-grey-6 text-caption" style="background:#1e1e1e; border:1px solid rgba(255,255,255,0.1); border-radius:6px">
+          No cards found
+        </div>
+      </div>
+
       <!-- Live indicator -->
       <q-chip v-if="isConnected" dense color="teal-9" text-color="teal-3" size="xs" icon="circle"
         class="q-mr-sm" style="font-size:0.68rem">Live</q-chip>
@@ -184,6 +222,8 @@ const addingColumn = ref(false)
 const newColTitle = ref('')
 const isConnected = ref(false)
 const cardExternalUpdate = ref(null) // { actorName, type }
+const searchQuery = ref('')
+const searchFocused = ref(false)
 const cardCommentEvent = ref(null) // forwarded comment events
 const cardActivityEvent = ref(null) // forwarded activity events
 const kanbanScrollEl = ref(null) // ref to the horizontal scroll container
@@ -284,6 +324,38 @@ const openCard = (card) => {
   selectedCardId.value = card.id
   cardExternalUpdate.value = null
   showCard.value = true
+}
+
+const searchResults = computed(() => {
+  const q = searchQuery.value?.trim().toLowerCase()
+  if (!q) return []
+  const results = []
+  for (const col of (boardStore.board?.columns || [])) {
+    for (const card of (col.cards || [])) {
+      const nameMatch = card.name?.toLowerCase().includes(q)
+      const descMatch = card.description?.toLowerCase().includes(q)
+      if (nameMatch || descMatch) {
+        results.push({
+          ...card,
+          _colName: col.title,
+          _exact: card.name?.toLowerCase() === q
+        })
+      }
+    }
+  }
+  // Exact title matches first, then by name
+  results.sort((a, b) => (b._exact ? 1 : 0) - (a._exact ? 1 : 0))
+  return results.slice(0, 8)
+})
+
+const openSearchResult = (card) => {
+  searchQuery.value = ''
+  searchFocused.value = false
+  openCard(card)
+}
+
+const onSearchBlur = () => {
+  searchFocused.value = false
 }
 
 const onColumnDragEnd = async () => {
@@ -621,6 +693,18 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+.search-results {
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  max-height: 300px;
+  overflow-y: auto;
+  background: #1e1e1e;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px;
+  margin-top: 2px;
+}
 .board-page {
   background: #0d0d0d;
   min-height: 100vh;
