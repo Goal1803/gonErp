@@ -39,6 +39,9 @@
           dark bordered class="search-results absolute">
           <q-item v-for="card in searchResults" :key="card.id"
             clickable v-ripple dense @mousedown.prevent="openSearchResult(card)">
+            <q-item-section avatar style="min-width:32px">
+              <q-icon name="credit_card" size="xs" color="grey-6" />
+            </q-item-section>
             <q-item-section>
               <q-item-label :class="{ 'text-teal-4 text-weight-bold': card._exact }">
                 {{ card.name }}
