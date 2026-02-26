@@ -11,8 +11,18 @@ export const useWorktimeStore = defineStore('worktime', () => {
   async function fetchClockStatus() {
     try {
       const res = await worktimeClockApi.getStatus()
-      clockStatus.value = res.data.data
-      return res.data.data
+      const data = res.data.data
+      // Ensure status field exists — derive from boolean fields if missing
+      // (Jackson serializes boolean isClockedIn as "clockedIn", isOnBreak as "onBreak")
+      if (data && !data.status) {
+        if (data.clockedIn || data.isClockedIn) {
+          data.status = (data.onBreak || data.isOnBreak) ? 'ON_BREAK' : 'CHECKED_IN'
+        } else if (data.currentEntryId) {
+          data.status = 'CHECKED_OUT'
+        }
+      }
+      clockStatus.value = data
+      return data
     } catch (e) {
       console.error('Failed to fetch clock status', e)
     }
@@ -41,11 +51,26 @@ export const useWorktimeStore = defineStore('worktime', () => {
     }
   }
 
+  // Update clockStatus from a TimeEntryResponse (returned by check-in/pause/resume/check-out)
+  function updateStatusFromEntry(entry) {
+    if (!entry) return
+    clockStatus.value = {
+      status: entry.status || null,
+      currentEntryId: entry.id,
+      checkInTime: entry.checkInTime,
+      workLocation: entry.workLocation,
+      elapsedWorkMinutes: entry.totalWorkMinutes || 0,
+      elapsedBreakMinutes: entry.totalBreakMinutes || 0
+    }
+  }
+
   async function checkIn(data) {
     loading.value = true
     try {
-      await worktimeClockApi.checkIn(data)
-      await Promise.all([fetchClockStatus(), fetchTodayEntry()])
+      const res = await worktimeClockApi.checkIn(data)
+      const entry = res.data.data
+      updateStatusFromEntry(entry)
+      todayEntry.value = entry
     } catch (e) {
       console.error('Failed to check in', e)
       throw e
@@ -57,8 +82,10 @@ export const useWorktimeStore = defineStore('worktime', () => {
   async function pause() {
     loading.value = true
     try {
-      await worktimeClockApi.pause()
-      await Promise.all([fetchClockStatus(), fetchTodayEntry()])
+      const res = await worktimeClockApi.pause()
+      const entry = res.data.data
+      updateStatusFromEntry(entry)
+      todayEntry.value = entry
     } catch (e) {
       console.error('Failed to pause', e)
       throw e
@@ -70,8 +97,10 @@ export const useWorktimeStore = defineStore('worktime', () => {
   async function resume() {
     loading.value = true
     try {
-      await worktimeClockApi.resume()
-      await Promise.all([fetchClockStatus(), fetchTodayEntry()])
+      const res = await worktimeClockApi.resume()
+      const entry = res.data.data
+      updateStatusFromEntry(entry)
+      todayEntry.value = entry
     } catch (e) {
       console.error('Failed to resume', e)
       throw e
@@ -83,8 +112,10 @@ export const useWorktimeStore = defineStore('worktime', () => {
   async function checkOut(data) {
     loading.value = true
     try {
-      await worktimeClockApi.checkOut(data)
-      await Promise.all([fetchClockStatus(), fetchTodayEntry()])
+      const res = await worktimeClockApi.checkOut(data)
+      const entry = res.data.data
+      updateStatusFromEntry(entry)
+      todayEntry.value = entry
     } catch (e) {
       console.error('Failed to check out', e)
       throw e

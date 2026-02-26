@@ -162,7 +162,7 @@
                 <q-item-section>
                   <q-item-label class="text-white">Work Duration</q-item-label>
                   <q-item-label caption class="text-grey-5">
-                    {{ todayEntry?.workDurationMinutes != null ? formatDuration(todayEntry.workDurationMinutes) : '--' }}
+                    {{ todayEntry?.totalWorkMinutes != null ? formatDuration(todayEntry.totalWorkMinutes) : '--' }}
                   </q-item-label>
                 </q-item-section>
               </q-item>
@@ -174,7 +174,7 @@
                 <q-item-section>
                   <q-item-label class="text-white">Break Duration</q-item-label>
                   <q-item-label caption class="text-grey-5">
-                    {{ todayEntry?.breakDurationMinutes != null ? formatDuration(todayEntry.breakDurationMinutes) : '--' }}
+                    {{ todayEntry?.totalBreakMinutes != null ? formatDuration(todayEntry.totalBreakMinutes) : '--' }}
                   </q-item-label>
                 </q-item-section>
               </q-item>
@@ -283,7 +283,7 @@ const clockStatus = computed(() => worktimeStore.clockStatus)
 const todayEntry = computed(() => worktimeStore.todayEntry)
 
 const breakEntries = computed(() => {
-  return todayEntry.value?.breakEntries || []
+  return todayEntry.value?.breaks || []
 })
 
 const statusLabel = computed(() => {
@@ -357,7 +357,7 @@ async function handleResume() {
 
 async function handleCheckOut() {
   try {
-    await worktimeStore.checkOut({ notes: checkOutNotes.value || null })
+    await worktimeStore.checkOut({ dailyNotes: checkOutNotes.value || null })
     showCheckOutDialog.value = false
     checkOutNotes.value = ''
     $q.notify({ type: 'positive', message: 'Checked out successfully' })
