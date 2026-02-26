@@ -26,7 +26,8 @@ export const useAuthStore = defineStore('auth', {
     organizationName: (state) => state.user?.organizationName,
     hasTaskManager: (state) => state.user?.moduleTaskManager ?? true,
     hasImageManager: (state) => state.user?.moduleImageManager ?? true,
-    hasDesigns: (state) => state.user?.moduleDesigns ?? true
+    hasDesigns: (state) => state.user?.moduleDesigns ?? true,
+    hasWorkTime: (state) => state.user?.moduleWorkTime ?? false
   },
 
   actions: {

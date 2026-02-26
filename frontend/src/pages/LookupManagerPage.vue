@@ -32,7 +32,6 @@
       :loading="currentLoading"
       row-key="id"
       flat
-      dark
       class="premium-card"
       :pagination="{ rowsPerPage: 50 }"
     >
@@ -176,7 +175,6 @@ const confirmDelete = (item) => {
     html: true,
     cancel: true,
     color: 'negative',
-    dark: true
   }).onOk(async () => {
     try {
       await cfg.delete(item.id)

@@ -377,7 +377,7 @@ watch(() => props.replyTo, (v) => {
   height: 64px;
   object-fit: cover;
   border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--erp-border-subtle);
 }
 .preview-remove {
   position: absolute;
@@ -430,8 +430,8 @@ watch(() => props.replyTo, (v) => {
   right: 0;
   max-height: 200px;
   overflow-y: auto;
-  background: #1e1e1e;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: var(--erp-bg-elevated);
+  border: 1px solid var(--erp-border-subtle);
   border-radius: 6px;
   z-index: 100;
   margin-bottom: 4px;

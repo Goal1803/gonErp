@@ -6,12 +6,12 @@
     transition-show="slide-up"
     transition-hide="slide-down"
   >
-    <q-card dark style="background: #111" class="column">
+    <q-card style="background: var(--erp-bg-secondary)" class="column">
       <!-- Header -->
       <q-card-section
         class="row items-center q-py-sm"
         style="
-          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+          border-bottom: 1px solid var(--erp-border-subtle);
           flex-shrink: 0;
         "
       >
@@ -117,7 +117,7 @@
 
         <!-- Cover image picker dialog -->
         <q-dialog v-model="showCoverPicker" position="top">
-          <q-card dark style="background: #1e1e1e; width: 360px; border-radius: 10px; margin-top: 80px">
+          <q-card style="background: var(--erp-bg-elevated); width: 360px; border-radius: 10px; margin-top: 80px">
             <q-card-section class="q-pb-none q-pt-sm q-px-sm">
               <div class="row items-center">
                 <span class="text-grey-3" style="font-size: 0.82rem; font-weight: 600">Cover image</span>
@@ -155,7 +155,6 @@
           <q-input
             v-model="detail.name"
             outlined
-            dark
             color="teal-5"
             dense
             class="q-mb-md"
@@ -175,7 +174,6 @@
                   v-model="detail.status"
                   :options="statusOptions"
                   outlined
-                  dark
                   dense
                   color="teal-5"
                 />
@@ -188,7 +186,6 @@
                   v-model="detail.columnId"
                   :options="stageOptions"
                   outlined
-                  dark
                   dense
                   color="teal-5"
                   emit-value
@@ -215,8 +212,8 @@
                   persistent
                   style="
                     min-width: 270px;
-                    background: #1e1e1e;
-                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    background: var(--erp-bg-elevated);
+                    border: 1px solid var(--erp-border-subtle);
                   "
                 >
                   <div class="q-pa-sm">
@@ -290,7 +287,7 @@
                       />
                     </div>
 
-                    <q-separator dark class="q-my-sm" />
+                    <q-separator class="q-my-sm" />
 
                     <!-- Create new label form -->
                     <div
@@ -307,7 +304,6 @@
                     <q-input
                       v-model="newLabel.name"
                       outlined
-                      dark
                       color="teal-5"
                       dense
                       placeholder="Label name"
@@ -366,11 +362,11 @@
                             style="
                               width: 38px;
                               height: 26px;
-                              border: 1px solid rgba(255, 255, 255, 0.2);
+                              border: 1px solid var(--erp-border-subtle);
                               border-radius: 4px;
                               cursor: pointer;
                               padding: 2px;
-                              background: #2a2a2a;
+                              background: var(--erp-bg-elevated);
                             "
                           />
                         </div>
@@ -387,11 +383,11 @@
                             style="
                               width: 38px;
                               height: 26px;
-                              border: 1px solid rgba(255, 255, 255, 0.2);
+                              border: 1px solid var(--erp-border-subtle);
                               border-radius: 4px;
                               cursor: pointer;
                               padding: 2px;
-                              background: #2a2a2a;
+                              background: var(--erp-bg-elevated);
                             "
                           />
                         </div>
@@ -471,8 +467,8 @@
                   persistent
                   style="
                     min-width: 270px;
-                    background: #1e1e1e;
-                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    background: var(--erp-bg-elevated);
+                    border: 1px solid var(--erp-border-subtle);
                   "
                 >
                   <div class="q-pa-sm">
@@ -546,7 +542,7 @@
                       />
                     </div>
 
-                    <q-separator dark class="q-my-sm" />
+                    <q-separator class="q-my-sm" />
 
                     <!-- Create new type form -->
                     <div
@@ -563,7 +559,6 @@
                     <q-input
                       v-model="newType.name"
                       outlined
-                      dark
                       color="teal-5"
                       dense
                       placeholder="Type name"
@@ -649,8 +644,8 @@
                   persistent
                   style="
                     min-width: 270px;
-                    background: #1e1e1e;
-                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    background: var(--erp-bg-elevated);
+                    border: 1px solid var(--erp-border-subtle);
                   "
                 >
                   <div class="q-pa-sm">
@@ -735,13 +730,12 @@
             <q-editor
               ref="descEditor"
               v-model="detail.description"
-              dark
               min-height="120px"
               class="desc-editor"
               :class="{ 'q-mb-lg': descExpanded }"
               style="
-                background: #1a1a1a;
-                border: 1px solid rgba(255, 255, 255, 0.1);
+                background: var(--erp-bg-tertiary);
+                border: 1px solid var(--erp-border-subtle);
                 border-radius: 6px;
               "
               :toolbar="[
@@ -830,14 +824,14 @@
             <div class="row q-gutter-sm items-end">
               <q-input
                 v-model="newLink.url"
-                outlined dark color="teal-5" dense
+                outlined color="teal-5" dense
                 placeholder="https://..."
                 class="col"
                 label="URL"
               />
               <q-input
                 v-model="newLink.title"
-                outlined dark color="teal-5" dense
+                outlined color="teal-5" dense
                 placeholder="Title (optional)"
                 style="max-width: 180px"
               />
@@ -891,7 +885,6 @@
               v-else
               v-model="imageFile"
               outlined
-              dark
               color="teal-5"
               dense
               multiple
@@ -949,7 +942,6 @@
               v-else
               v-model="attachFile"
               outlined
-              dark
               color="teal-5"
               dense
               label="Attach a file"
@@ -988,7 +980,7 @@
           style="
             width: 420px;
             flex-shrink: 0;
-            border-left: 1px solid rgba(255, 255, 255, 0.07);
+            border-left: 1px solid var(--erp-border-subtle);
             overflow-y: auto;
             min-height: 0;
           "
@@ -1274,7 +1266,7 @@ const uploadAndInsertImage = async (file) => {
   // Show inline placeholder while uploading
   const placeholderId = "img-ph-" + Date.now();
   insertHtmlAtCaret(
-    `<span id="${placeholderId}" style="display:inline-block;background:#2a2a2a;border-radius:6px;padding:8px 16px;margin:8px 0;color:#888;font-size:0.8rem">Uploading image...</span>`
+    `<span id="${placeholderId}" style="display:inline-block;background: var(--erp-bg-elevated);border-radius:6px;padding:8px 16px;margin:8px 0;color:#888;font-size:0.8rem">Uploading image...</span>`
   );
   // Sync model with contenteditable
   const editorEl = descEditor.value?.$el?.querySelector(".q-editor__content");
@@ -1697,7 +1689,6 @@ const confirmDeleteCard = () => {
     message: `Delete "${detail.value?.name}"? This cannot be undone.`,
     cancel: true,
     persistent: true,
-    dark: true,
     color: 'red-5',
   }).onOk(async () => {
     try {
@@ -1906,7 +1897,7 @@ const deleteLink = async (link) => {
   gap: 4px;
 }
 .comment-item {
-  background: #1a1a1a;
+  background: var(--erp-bg-tertiary);
   border-radius: 6px;
   padding: 10px;
 }
@@ -1942,7 +1933,7 @@ const deleteLink = async (link) => {
 
 /* Label row hover */
 .label-row:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--erp-border-subtle);
 }
 
 /* Image thumbnails grid */
@@ -1959,7 +1950,7 @@ const deleteLink = async (link) => {
   aspect-ratio: 1;
   object-fit: cover;
   border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--erp-border-subtle);
   cursor: pointer;
   transition: opacity 0.15s, transform 0.15s;
 }
@@ -2189,15 +2180,15 @@ const deleteLink = async (link) => {
   position: relative;
   width: 100%;
   height: 200px;
-  background: #1a1a1a;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--erp-bg-tertiary);
+  border-bottom: 1px solid var(--erp-border-subtle);
 }
 .cover-image {
   width: 100%;
   height: 100%;
   object-fit: contain;
   display: block;
-  background: #1a1a1a;
+  background: var(--erp-bg-tertiary);
 }
 .cover-image-actions {
   position: absolute;
@@ -2256,8 +2247,8 @@ const deleteLink = async (link) => {
 
 /* Metadata section */
 .metadata-section {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--erp-border-subtle);
+  border: 1px solid var(--erp-border-subtle);
   border-radius: 8px;
   padding: 14px;
 }

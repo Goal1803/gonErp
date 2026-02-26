@@ -1,6 +1,6 @@
 <template>
   <q-dialog v-model="show" persistent>
-    <q-card style="min-width: 460px" dark class="premium-card">
+    <q-card style="min-width: 460px" class="premium-card">
       <q-card-section class="flex items-center gap-3" style="border-bottom: 1px solid rgba(46,125,50,0.2)">
         <q-icon :name="isEdit ? 'edit' : 'dashboard_customize'" color="teal-5" size="md" />
         <div>
@@ -12,17 +12,17 @@
       </q-card-section>
 
       <q-card-section class="q-pa-lg q-gutter-y-md">
-        <q-input v-model="form.name" label="Board Name *" outlined dark color="teal-5"
+        <q-input v-model="form.name" label="Board Name *" outlined color="teal-5"
           :rules="[v => !!v || 'Board name is required']" lazy-rules>
           <template #prepend><q-icon name="dashboard" color="grey-5" /></template>
         </q-input>
 
-        <q-input v-model="form.description" label="Description" outlined dark color="teal-5" type="textarea" rows="2">
+        <q-input v-model="form.description" label="Description" outlined color="teal-5" type="textarea" rows="2">
           <template #prepend><q-icon name="notes" color="grey-5" /></template>
         </q-input>
 
         <q-select v-if="!isEdit && !forceBoardType" v-model="form.boardType" :options="boardTypeOptions" emit-value map-options
-          outlined dark color="teal-5" label="Board Type">
+          outlined color="teal-5" label="Board Type">
           <template #prepend><q-icon name="category" color="grey-5" /></template>
         </q-select>
 

@@ -1,6 +1,6 @@
 <template>
   <q-dialog v-model="show" persistent>
-    <q-card style="min-width: 500px; max-width: 600px" dark class="premium-card">
+    <q-card style="min-width: 500px; max-width: 600px" class="premium-card">
       <q-card-section class="flex items-center gap-3" style="border-bottom: 1px solid rgba(46,125,50,0.2)">
         <q-icon :name="isEdit ? 'edit' : 'person_add'" color="green-5" size="md" />
         <div>
@@ -33,7 +33,6 @@
                 v-model="form.userName"
                 label="Username *"
                 outlined
-                dark
                 color="green-5"
                 :rules="[v => !!v || 'Username is required']"
                 lazy-rules
@@ -46,7 +45,6 @@
                 v-model="form.firstName"
                 label="First Name *"
                 outlined
-                dark
                 color="green-5"
                 :rules="[v => !!v || 'First name is required']"
                 lazy-rules
@@ -57,7 +55,6 @@
                 v-model="form.lastName"
                 label="Last Name"
                 outlined
-                dark
                 color="green-5"
               />
             </div>
@@ -68,7 +65,6 @@
                 v-model="form.dateOfBirth"
                 label="Date of Birth"
                 outlined
-                dark
                 color="green-5"
                 type="date"
               />
@@ -81,7 +77,6 @@
                 :options="roleOptions"
                 label="Role *"
                 outlined
-                dark
                 color="green-5"
                 emit-value
                 map-options
@@ -97,7 +92,6 @@
                 :options="statusOptions"
                 label="Status"
                 outlined
-                dark
                 color="green-5"
                 emit-value
                 map-options
@@ -106,7 +100,7 @@
 
             <!-- Designs Manager -->
             <div class="col-12">
-              <q-toggle v-model="form.designsManager" label="Designs Manager" dark color="teal-5" />
+              <q-toggle v-model="form.designsManager" label="Designs Manager" color="teal-5" />
               <div class="text-caption text-grey-6 q-ml-sm">Allow this user to see all designs in the Designs page</div>
             </div>
 
@@ -116,7 +110,7 @@
                 v-model="form.staffRoleIds"
                 :options="staffRoleSelectOptions"
                 label="Staff Roles"
-                outlined dark color="green-5"
+                outlined color="green-5"
                 multiple emit-value map-options
                 use-chips
               />
@@ -128,7 +122,7 @@
                 v-model="form.departmentIds"
                 :options="departmentSelectOptions"
                 label="Departments"
-                outlined dark color="green-5"
+                outlined color="green-5"
                 multiple emit-value map-options
                 use-chips
               />
@@ -140,7 +134,7 @@
                 v-model="form.userGroupIds"
                 :options="userGroupSelectOptions"
                 label="User Groups"
-                outlined dark color="green-5"
+                outlined color="green-5"
                 multiple emit-value map-options
                 use-chips
               />
@@ -152,7 +146,6 @@
                 v-model="form.password"
                 :label="isEdit ? 'New Password (leave blank to keep current)' : 'Password *'"
                 outlined
-                dark
                 color="green-5"
                 :type="showPassword ? 'text' : 'password'"
                 :rules="isEdit ? [] : [v => !!v || 'Password is required']"

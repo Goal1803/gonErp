@@ -205,7 +205,6 @@ const confirmDelete = () => {
     message: 'Are you sure you want to delete this comment?',
     cancel: true,
     persistent: true,
-    dark: true,
     color: 'red-5',
   }).onOk(() => {
     emit('delete', props.comment)
@@ -280,7 +279,7 @@ const downloadFile = async (url) => {
 <style scoped>
 .comment-item {
   position: relative;
-  background: #1a1a1a;
+  background: var(--erp-bg-tertiary);
   border-radius: 6px;
   padding: 10px;
   margin-bottom: 6px;
@@ -297,7 +296,7 @@ const downloadFile = async (url) => {
 /* Edit textarea */
 .edit-textarea {
   width: 100%;
-  background: #252525;
+  background: var(--erp-bg-elevated);
   border: 1px solid rgba(38, 166, 154, 0.5);
   border-radius: 4px;
   color: #e0e0e0;
@@ -320,8 +319,8 @@ const downloadFile = async (url) => {
   align-items: center;
   gap: 10px;
   padding: 10px 14px;
-  background: #252525;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--erp-bg-elevated);
+  border: 1px solid var(--erp-border-subtle);
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
@@ -407,9 +406,9 @@ const downloadFile = async (url) => {
   align-items: center;
   gap: 3px;
   padding: 1px 6px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--erp-border-subtle);
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--erp-border-subtle);
   color: #9e9e9e;
   cursor: pointer;
   font-size: 0.7rem;
@@ -417,16 +416,16 @@ const downloadFile = async (url) => {
   transition: background 0.15s, border-color 0.15s;
 }
 .like-count:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.18);
+  background: var(--erp-border-subtle);
+  border-color: var(--erp-border-subtle);
 }
 
 /* Likers popup */
 .likers-popup {
   margin-top: 4px;
   padding: 6px 8px;
-  background: #252525;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--erp-bg-elevated);
+  border: 1px solid var(--erp-border-subtle);
   border-radius: 6px;
   display: inline-flex;
   flex-direction: column;

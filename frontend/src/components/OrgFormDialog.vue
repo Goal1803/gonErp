@@ -1,6 +1,6 @@
 <template>
   <q-dialog v-model="show" persistent>
-    <q-card style="min-width: 550px; max-width: 650px" dark class="premium-card">
+    <q-card style="min-width: 550px; max-width: 650px" class="premium-card">
       <q-card-section class="flex items-center gap-3" style="border-bottom: 1px solid rgba(46,125,50,0.2)">
         <q-icon :name="isEdit ? 'edit' : 'add_business'" color="green-5" size="md" />
         <div>
@@ -19,7 +19,7 @@
               <q-input
                 v-model="form.name"
                 label="Organization Name *"
-                outlined dark color="green-5"
+                outlined color="green-5"
                 :rules="[v => !!v || 'Name is required']"
                 lazy-rules
                 @update:model-value="autoSlug"
@@ -31,7 +31,7 @@
               <q-input
                 v-model="form.slug"
                 label="Slug *"
-                outlined dark color="green-5"
+                outlined color="green-5"
                 :rules="[v => !!v || 'Slug is required']"
                 lazy-rules
                 hint="URL-friendly identifier"
@@ -44,7 +44,7 @@
                 v-model="form.orgTypeId"
                 :options="orgTypeOptions"
                 label="Organization Type *"
-                outlined dark color="green-5"
+                outlined color="green-5"
                 emit-value map-options
                 :rules="[v => !!v || 'Type is required']"
                 lazy-rules
@@ -53,29 +53,30 @@
 
             <!-- Active -->
             <div class="col-12">
-              <q-toggle v-model="form.active" label="Active" dark color="green-5" />
+              <q-toggle v-model="form.active" label="Active" color="green-5" />
             </div>
 
             <!-- Feature Flags -->
             <div class="col-12">
               <div class="text-caption text-grey-5 q-mb-xs">Module Access</div>
-              <q-toggle v-model="form.moduleTaskManager" label="Task Manager" dark color="teal-5" class="q-mr-md" />
-              <q-toggle v-model="form.moduleImageManager" label="Image Manager" dark color="blue-5" class="q-mr-md" />
-              <q-toggle v-model="form.moduleDesigns" label="Designs" dark color="purple-5" />
+              <q-toggle v-model="form.moduleTaskManager" label="Task Manager" color="teal-5" class="q-mr-md" />
+              <q-toggle v-model="form.moduleImageManager" label="Image Manager" color="blue-5" class="q-mr-md" />
+              <q-toggle v-model="form.moduleDesigns" label="Designs" color="purple-5" />
+              <q-toggle v-model="form.moduleWorkTime" label="Working Time" color="orange-5" class="q-ml-md" />
             </div>
 
             <!-- Admin User (create only) -->
             <template v-if="!isEdit">
               <div class="col-12">
-                <q-separator dark class="q-my-sm" />
+                <q-separator class="q-my-sm" />
                 <div class="text-subtitle2 text-grey-4">First Admin User</div>
               </div>
               <div class="col-6">
-                <q-input v-model="form.adminUserName" label="Admin Username *" outlined dark color="green-5"
+                <q-input v-model="form.adminUserName" label="Admin Username *" outlined color="green-5"
                   :rules="[v => !!v || 'Username is required']" lazy-rules />
               </div>
               <div class="col-6">
-                <q-input v-model="form.adminPassword" label="Admin Password *" outlined dark color="green-5"
+                <q-input v-model="form.adminPassword" label="Admin Password *" outlined color="green-5"
                   :type="showPwd ? 'text' : 'password'"
                   :rules="[v => !!v || 'Password is required']" lazy-rules>
                   <template #append>
@@ -85,11 +86,11 @@
                 </q-input>
               </div>
               <div class="col-6">
-                <q-input v-model="form.adminFirstName" label="First Name *" outlined dark color="green-5"
+                <q-input v-model="form.adminFirstName" label="First Name *" outlined color="green-5"
                   :rules="[v => !!v || 'First name is required']" lazy-rules />
               </div>
               <div class="col-6">
-                <q-input v-model="form.adminLastName" label="Last Name" outlined dark color="green-5" />
+                <q-input v-model="form.adminLastName" label="Last Name" outlined color="green-5" />
               </div>
             </template>
           </div>
@@ -134,7 +135,7 @@ const showPwd = ref(false)
 
 const defaultForm = {
   name: '', slug: '', orgTypeId: null, active: true,
-  moduleTaskManager: true, moduleImageManager: true, moduleDesigns: true,
+  moduleTaskManager: true, moduleImageManager: true, moduleDesigns: true, moduleWorkTime: false,
   adminUserName: '', adminPassword: '', adminFirstName: '', adminLastName: ''
 }
 
@@ -158,6 +159,7 @@ watch(() => props.org, (o) => {
       moduleTaskManager: o.moduleTaskManager ?? true,
       moduleImageManager: o.moduleImageManager ?? true,
       moduleDesigns: o.moduleDesigns ?? true,
+      moduleWorkTime: o.moduleWorkTime ?? false,
       adminUserName: '', adminPassword: '', adminFirstName: '', adminLastName: ''
     }
   } else {

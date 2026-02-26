@@ -1,6 +1,6 @@
 <template>
   <q-dialog v-model="show" persistent>
-    <q-card style="min-width: 420px; max-width: 500px" dark class="premium-card">
+    <q-card style="min-width: 420px; max-width: 500px" class="premium-card">
       <q-card-section class="flex items-center gap-3" style="border-bottom: 1px solid rgba(46,125,50,0.2)">
         <q-icon :name="isEdit ? 'edit' : 'add_circle'" color="green-5" size="md" />
         <div>
@@ -17,7 +17,6 @@
             v-model="form.name"
             label="Name *"
             outlined
-            dark
             color="green-5"
             :rules="[v => !!v || 'Name is required']"
             lazy-rules
@@ -26,7 +25,6 @@
             v-model="form.description"
             label="Description"
             outlined
-            dark
             color="green-5"
             type="textarea"
             rows="3"

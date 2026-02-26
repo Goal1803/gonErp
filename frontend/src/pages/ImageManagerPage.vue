@@ -25,7 +25,6 @@
         placeholder="Search images by name..."
         outlined
         dense
-        dark
         color="green-5"
         clearable
         debounce="400"
@@ -114,7 +113,6 @@
         :max="Math.ceil(pagination.rowsNumber / pagination.rowsPerPage)"
         color="primary"
         active-color="orange-8"
-        dark
         boundary-links
         @update:model-value="loadImages"
       />
@@ -196,7 +194,6 @@ const confirmDelete = (image) => {
     html: true,
     cancel: true,
     color: 'negative',
-    dark: true
   }).onOk(async () => {
     try {
       await imageApi.delete(image.id)

@@ -1,6 +1,6 @@
 <template>
   <q-dialog v-model="show" persistent>
-    <q-card style="min-width: 520px; max-width: 640px" dark class="premium-card">
+    <q-card style="min-width: 520px; max-width: 640px" class="premium-card">
       <q-card-section class="flex items-center gap-3" style="border-bottom: 1px solid rgba(46,125,50,0.2)">
         <q-icon name="group" color="teal-5" size="md" />
         <div class="text-h6 text-white text-weight-medium">Board Members</div>
@@ -19,7 +19,7 @@
               option-value="id"
               :option-label="u => userDisplayName(u)"
               label="Search user..."
-              outlined dark color="teal-5" dense class="col"
+              outlined color="teal-5" dense class="col"
               emit-value map-options
               use-input input-debounce="200"
               @filter="onFilterUsers"
@@ -43,7 +43,7 @@
               </template>
             </q-select>
             <q-select v-model="selectedRole" :options="['MEMBER','ADMIN']" label="Role"
-              outlined dark color="teal-5" dense style="width:110px" />
+              outlined color="teal-5" dense style="width:110px" />
             <q-btn icon="person_add" color="teal-6" unelevated dense @click="addMember" :loading="adding"
               :disable="!selectedUser" />
           </div>
@@ -51,7 +51,7 @@
 
         <!-- Current members -->
         <div class="text-caption text-grey-5 q-mb-sm">Members ({{ members.length }})</div>
-        <q-list dark dense separator>
+        <q-list dense separator>
           <q-item v-for="m in members" :key="m.id">
             <q-item-section avatar>
               <UserAvatar :user="m.user" size="32px" />
@@ -65,7 +65,7 @@
                 v-if="canManage && m.role !== 'OWNER'"
                 :model-value="m.role"
                 :options="['MEMBER','ADMIN']"
-                dense borderless dark color="teal-5"
+                dense borderless color="teal-5"
                 style="min-width:100px"
                 @update:model-value="changeRole(m.user.id, $event)"
               />
@@ -181,7 +181,6 @@ const confirmRemove = (member) => {
     message: `Remove "${name}" from this board? They will no longer have access.`,
     cancel: true,
     persistent: true,
-    dark: true,
     color: 'red-5'
   }).onOk(async () => {
     try {

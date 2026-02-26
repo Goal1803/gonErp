@@ -4,7 +4,7 @@
       <!-- Logo / Brand -->
       <div class="text-center q-mb-xl">
         <div class="logo-text" style="font-size: 2.5rem; letter-spacing: 4px">gonERP</div>
-        <div class="text-grey-5 q-mt-xs" style="font-size: 0.85rem; letter-spacing: 2px">
+        <div class="text-adaptive-secondary q-mt-xs" style="font-size: 0.85rem; letter-spacing: 2px">
           ENTERPRISE RESOURCE PLANNING
         </div>
         <div class="accent-divider q-mt-sm" />
@@ -13,7 +13,7 @@
       <!-- Login Card -->
       <q-card class="login-card" flat>
         <q-card-section class="q-pa-xl">
-          <div class="text-h6 text-white q-mb-lg" style="font-weight: 300; letter-spacing: 1px">
+          <div class="text-h6 text-adaptive q-mb-lg" style="font-weight: 300; letter-spacing: 1px">
             Sign In to Your Account
           </div>
 
@@ -22,10 +22,7 @@
               v-model="form.userName"
               label="Username"
               outlined
-              dark
               color="green-5"
-              label-color="grey-5"
-              bg-color="rgba(255,255,255,0.03)"
               :rules="[v => !!v || 'Username is required']"
               lazy-rules
             >
@@ -38,10 +35,7 @@
               v-model="form.password"
               label="Password"
               outlined
-              dark
               color="green-5"
-              label-color="grey-5"
-              bg-color="rgba(255,255,255,0.03)"
               :type="showPassword ? 'text' : 'password'"
               :rules="[v => !!v || 'Password is required']"
               lazy-rules
@@ -52,7 +46,7 @@
               <template #append>
                 <q-icon
                   :name="showPassword ? 'visibility_off' : 'visibility'"
-                  class="cursor-pointer text-grey-5"
+                  class="cursor-pointer text-adaptive-secondary"
                   @click="showPassword = !showPassword"
                 />
               </template>
@@ -83,7 +77,7 @@
       </q-card>
 
       <!-- Footer -->
-      <div class="text-center q-mt-lg text-grey-7 text-caption">
+      <div class="text-center q-mt-lg text-adaptive-caption text-caption">
         Default: admin / admin123
       </div>
     </div>
@@ -94,9 +88,11 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from 'src/stores/authStore'
+import { useTheme } from 'src/composables/useTheme'
 import { useQuasar } from 'quasar'
 
 const $q = useQuasar()
+useTheme() // init theme on login page
 const router = useRouter()
 const authStore = useAuthStore()
 
@@ -122,7 +118,7 @@ const handleLogin = async () => {
 
 <style scoped>
 .login-page {
-  background: radial-gradient(ellipse at center, #1a2a1a 0%, #0D0D0D 70%);
+  background: var(--erp-login-bg);
   min-height: 100vh;
   width: 100%;
 }
@@ -134,10 +130,10 @@ const handleLogin = async () => {
 }
 
 .login-card {
-  background: linear-gradient(135deg, #161616 0%, #1a1a1a 100%);
-  border: 1px solid rgba(46, 125, 50, 0.3);
+  background: linear-gradient(135deg, var(--erp-login-card-start) 0%, var(--erp-login-card-end) 100%);
+  border: 1px solid var(--erp-login-card-border);
   border-radius: 12px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 30px rgba(46, 125, 50, 0.05);
+  box-shadow: var(--erp-login-card-shadow);
 }
 
 .accent-divider {

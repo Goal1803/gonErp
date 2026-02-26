@@ -5,7 +5,7 @@
       <q-btn flat round dense icon="arrow_back" color="grey-5" @click="goBack" />
 
       <div class="q-ml-sm">
-        <div class="text-white text-weight-medium" style="font-size:1.05rem">
+        <div class="text-adaptive text-weight-medium" style="font-size:1.05rem">
           {{ boardStore.board?.name }}
         </div>
       </div>
@@ -23,7 +23,6 @@
           v-model="searchQuery"
           dense
           outlined
-          dark
           color="teal-5"
           placeholder="Search cards..."
           style="width: 220px"
@@ -36,7 +35,7 @@
           </template>
         </q-input>
         <q-list v-if="searchFocused && searchQuery && searchResults.length"
-          dark bordered class="search-results absolute">
+          bordered class="search-results absolute">
           <q-item v-for="card in searchResults" :key="card.id"
             clickable v-ripple dense @mousedown.prevent="openSearchResult(card)">
             <q-item-section avatar style="min-width:32px">
@@ -53,7 +52,7 @@
           </q-item>
         </q-list>
         <div v-if="searchFocused && searchQuery && !searchResults.length"
-          class="search-results absolute q-pa-sm text-grey-6 text-caption" style="background:#1e1e1e; border:1px solid rgba(255,255,255,0.1); border-radius:6px">
+          class="search-results absolute q-pa-sm text-adaptive-secondary text-caption">
           No cards found
         </div>
       </div>
@@ -76,20 +75,20 @@
       </q-btn>
       <template v-if="showFilters">
         <q-select v-model="filterMembers" :options="memberOptions" option-value="id" option-label="displayName"
-          emit-value map-options multiple dense outlined dark color="teal-5" label="Members"
+          emit-value map-options multiple dense outlined color="teal-5" label="Members"
           style="min-width:150px" clearable use-chips stack-label />
         <q-select v-model="filterLabels" :options="labelOptions" option-value="id" option-label="name"
-          emit-value map-options multiple dense outlined dark color="teal-5" label="Labels"
+          emit-value map-options multiple dense outlined color="teal-5" label="Labels"
           style="min-width:150px" clearable use-chips stack-label />
         <q-select v-model="filterTypes" :options="typeOptions" option-value="id" option-label="name"
-          emit-value map-options multiple dense outlined dark color="teal-5" label="Types"
+          emit-value map-options multiple dense outlined color="teal-5" label="Types"
           style="min-width:150px" clearable use-chips stack-label />
         <q-select v-model="filterStatuses" :options="statusOptions"
-          multiple dense outlined dark color="teal-5" label="Status"
+          multiple dense outlined color="teal-5" label="Status"
           style="min-width:150px" clearable use-chips stack-label />
-        <q-input v-model="filterDateFrom" type="date" dense outlined dark color="teal-5" label="From" stack-label
+        <q-input v-model="filterDateFrom" type="date" dense outlined color="teal-5" label="From" stack-label
           style="min-width:140px" clearable />
-        <q-input v-model="filterDateTo" type="date" dense outlined dark color="teal-5" label="To" stack-label
+        <q-input v-model="filterDateTo" type="date" dense outlined color="teal-5" label="To" stack-label
           style="min-width:140px" clearable />
         <q-btn v-if="hasActiveFilters" flat dense icon="clear_all" color="red-4" size="sm" label="Clear"
           @click="clearFilters" />
@@ -139,7 +138,7 @@
             style="white-space:nowrap" @click="addingColumn = true" />
         </div>
         <div v-else style="width:250px">
-          <q-input v-model="newColTitle" outlined dark color="teal-5" dense
+          <q-input v-model="newColTitle" outlined color="teal-5" dense
             placeholder="Column title..." autofocus
             @keyup.enter="addColumn" @keyup.escape="addingColumn = false" />
           <div class="row q-gutter-xs q-mt-xs">
@@ -385,7 +384,6 @@ const confirmDeleteColumn = (columnId) => {
     message: 'Delete this column and all its cards? This cannot be undone.',
     cancel: true,
     persistent: true,
-    dark: true,
     color: 'red-5'
   }).onOk(async () => {
     try {
@@ -403,7 +401,6 @@ const confirmDeleteCard = (card) => {
     message: `Delete "${card.name}"? This cannot be undone.`,
     cancel: true,
     persistent: true,
-    dark: true,
     color: 'red-5'
   }).onOk(async () => {
     try {
@@ -703,26 +700,26 @@ onUnmounted(() => {
   z-index: 100;
   max-height: 300px;
   overflow-y: auto;
-  background: #1e1e1e;
-  border: 1px solid rgba(255,255,255,0.1);
+  background: var(--erp-bg-elevated);
+  border: 1px solid var(--erp-border-subtle);
   border-radius: 6px;
   margin-top: 2px;
 }
 .board-page {
-  background: #0d0d0d;
+  background: var(--erp-bg);
   min-height: 100vh;
   display: flex;
   flex-direction: column;
 }
 .board-header {
-  background: #111;
+  background: var(--erp-bg-secondary);
   flex-shrink: 0;
-  border-bottom: 1px solid rgba(255,255,255,0.07);
+  border-bottom: 1px solid var(--erp-border-subtle);
 }
 .filter-bar {
-  background: #111;
+  background: var(--erp-bg-secondary);
   flex-shrink: 0;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
+  border-bottom: 1px solid var(--erp-border-subtle);
   overflow-x: auto;
 }
 .kanban-scroll {
@@ -742,12 +739,12 @@ onUnmounted(() => {
   flex-shrink: 0;
   padding: 8px;
   min-width: 180px;
-  background: rgba(255,255,255,0.03);
-  border: 1px dashed rgba(255,255,255,0.1);
+  background: var(--erp-hover-bg);
+  border: 1px dashed var(--erp-border-subtle);
   border-radius: 10px;
   display: flex;
   align-items: flex-start;
 }
 .col-ghost { opacity: 0.35; }
-.col-drag { transform: rotate(1deg); box-shadow: 0 12px 32px rgba(0,0,0,0.6); }
+.col-drag { transform: rotate(1deg); box-shadow: 0 12px 32px var(--erp-shadow); }
 </style>

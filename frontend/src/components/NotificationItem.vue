@@ -83,10 +83,10 @@ function timeAgo(dateStr) {
   padding: 14px 20px;
   cursor: pointer;
   transition: background 0.15s;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid var(--erp-border-subtle);
 }
 .notif-row:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--erp-border-subtle);
 }
 .notif-row.unread {
   background: rgba(38, 166, 154, 0.06);
@@ -131,8 +131,8 @@ function timeAgo(dateStr) {
   align-items: center;
   max-width: 200px;
   padding: 3px 10px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--erp-border-subtle);
+  border: 1px solid var(--erp-border-subtle);
   border-radius: 6px;
   color: #8e8e8e;
   font-size: 0.72rem;

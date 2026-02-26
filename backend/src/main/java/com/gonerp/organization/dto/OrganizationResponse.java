@@ -16,6 +16,7 @@ public class OrganizationResponse {
     private boolean moduleTaskManager;
     private boolean moduleImageManager;
     private boolean moduleDesigns;
+    private boolean moduleWorkTime;
     private Long orgTypeId;
     private String orgTypeName;
     private long userCount;
@@ -31,6 +32,7 @@ public class OrganizationResponse {
                 .moduleTaskManager(org.isModuleTaskManager())
                 .moduleImageManager(org.isModuleImageManager())
                 .moduleDesigns(org.isModuleDesigns())
+                .moduleWorkTime(org.isModuleWorkTime())
                 .orgTypeId(org.getOrgType() != null ? org.getOrgType().getId() : null)
                 .orgTypeName(org.getOrgType() != null ? org.getOrgType().getName() : null)
                 .userCount(userCount)

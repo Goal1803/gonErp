@@ -31,7 +31,7 @@
       :columns="columns"
       :loading="currentLoading"
       row-key="id"
-      flat dark
+      flat
       class="premium-card"
       :pagination="{ rowsPerPage: 50 }"
     >
@@ -194,7 +194,7 @@ const confirmDelete = (item) => {
   $q.dialog({
     title: `Delete ${cfg.label}`,
     message: `Delete <strong>${item.name}</strong>?`,
-    html: true, cancel: true, color: 'negative', dark: true
+    html: true, cancel: true, color: 'negative'
   }).onOk(async () => {
     try {
       await cfg.delete(item.id)

@@ -21,6 +21,7 @@ public class OrganizationRequest {
     private Boolean moduleTaskManager;
     private Boolean moduleImageManager;
     private Boolean moduleDesigns;
+    private Boolean moduleWorkTime;
 
     // For creating first admin user (only used on create)
     private String adminUserName;

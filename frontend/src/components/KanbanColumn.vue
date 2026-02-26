@@ -6,14 +6,14 @@
         style="font-size:0.9rem" @dblclick="startEdit">
         {{ column.title }}
       </div>
-      <q-input v-else v-model="editTitle" dense dark outlined color="teal-5" autofocus
+      <q-input v-else v-model="editTitle" dense outlined color="teal-5" autofocus
         class="col" style="font-size:0.85rem"
         @keyup.enter="saveTitle" @keyup.escape="editingTitle=false" @blur="saveTitle" />
 
       <div class="row items-center q-ml-xs">
         <q-badge color="grey-8" :label="visibleCount" rounded style="font-size:0.65rem" />
         <q-btn flat round dense icon="more_vert" color="grey-5" size="xs" class="q-ml-xs">
-          <q-menu dark>
+          <q-menu>
             <q-list dense>
               <q-item clickable v-close-popup @click="startEdit">
                 <q-item-section avatar><q-icon name="edit" size="xs" /></q-item-section>
@@ -56,7 +56,7 @@
           class="full-width" style="justify-content:flex-start" @click="addingCard=true" />
       </div>
       <div v-else>
-        <q-input v-model="newCardName" outlined dark color="teal-5" dense placeholder="Card name..."
+        <q-input v-model="newCardName" outlined color="teal-5" dense placeholder="Card name..."
           autofocus @keyup.enter="addCard" @keyup.escape="addingCard=false"
           style="font-size:0.85rem" />
         <div class="row q-gutter-xs q-mt-xs">
@@ -239,15 +239,15 @@ onUnmounted(() => {
 .kanban-column {
   width: 250px;
   min-width: 250px;
-  background: #161616;
-  border: 1px solid rgba(255,255,255,0.07);
+  background: var(--erp-bg-tertiary);
+  border: 1px solid var(--erp-border-subtle);
   border-radius: 10px;
   display: flex;
   flex-direction: column;
   /* No max-height here — the scroll container below is bounded instead */
 }
 .col-header {
-  border-bottom: 1px solid rgba(255,255,255,0.07);
+  border-bottom: 1px solid var(--erp-border-subtle);
   min-height: 44px;
 }
 .col-cards {

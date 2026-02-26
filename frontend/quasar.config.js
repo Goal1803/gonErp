@@ -40,7 +40,7 @@ module.exports = configure(function (/* ctx */) {
 
     framework: {
       config: {
-        dark: true,
+        dark: true, // default; overridden by useTheme composable at runtime
         brand: {
           primary: '#2E7D32',
           secondary: '#388E3C',

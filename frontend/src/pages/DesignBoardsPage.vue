@@ -56,7 +56,7 @@
                   </div>
                   <q-btn flat round dense icon="more_vert" color="grey-5" size="sm"
                     class="q-ml-xs" @click.prevent.stop>
-                    <q-menu dark>
+                    <q-menu>
                       <q-list dense>
                         <q-item clickable v-close-popup @click="openEdit(board)">
                           <q-item-section avatar><q-icon name="edit" size="xs" /></q-item-section>
@@ -159,7 +159,6 @@ const confirmDelete = (board) => {
     message: `Deactivate board "${board.name}"? The board will be hidden but its design cards will remain accessible in the Designs page.`,
     cancel: true,
     persistent: true,
-    dark: true,
     color: 'orange-5'
   }).onOk(async () => {
     try {
@@ -177,12 +176,12 @@ onMounted(loadBoards)
 
 <style scoped>
 .design-boards-page {
-  background: #0d0d0d;
+  background: var(--erp-bg);
   min-height: 100vh;
 }
 .board-card {
-  background: #161616;
-  border: 1px solid rgba(255,255,255,0.07);
+  background: var(--erp-bg-tertiary);
+  border: 1px solid var(--erp-border-subtle);
   border-radius: 10px;
   overflow: hidden;
   transition: box-shadow 0.15s, transform 0.1s;

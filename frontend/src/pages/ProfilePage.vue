@@ -8,7 +8,7 @@
     <div class="row q-col-gutter-md">
       <!-- LEFT: Avatar Card -->
       <div class="col-12 col-md-4">
-        <q-card dark bordered class="q-pa-md">
+        <q-card bordered class="q-pa-md">
           <q-card-section class="text-center">
             <UserAvatar :user="profile" size="120px" />
             <div class="text-subtitle1 text-weight-bold text-white q-mt-md">
@@ -48,7 +48,7 @@
       <!-- RIGHT Column -->
       <div class="col-12 col-md-8">
         <!-- Profile Form -->
-        <q-card dark bordered class="q-mb-md">
+        <q-card bordered class="q-mb-md">
           <q-card-section>
             <div class="text-subtitle1 text-weight-bold text-white q-mb-md">Profile Information</div>
             <div class="row q-col-gutter-sm">
@@ -58,7 +58,6 @@
                   label="First Name"
                   outlined
                   dense
-                  dark
                   :rules="[val => !!val || 'First name is required']"
                 />
               </div>
@@ -68,7 +67,6 @@
                   label="Last Name"
                   outlined
                   dense
-                  dark
                 />
               </div>
               <div class="col-12 col-sm-6">
@@ -77,7 +75,6 @@
                   label="Date of Birth"
                   outlined
                   dense
-                  dark
                   type="date"
                 />
               </div>
@@ -87,7 +84,6 @@
                   label="Username"
                   outlined
                   dense
-                  dark
                   readonly
                 />
               </div>
@@ -97,7 +93,6 @@
                   label="Role"
                   outlined
                   dense
-                  dark
                   readonly
                 />
               </div>
@@ -115,7 +110,7 @@
         </q-card>
 
         <!-- Password Card -->
-        <q-card dark bordered>
+        <q-card bordered>
           <q-card-section>
             <div class="text-subtitle1 text-weight-bold text-white q-mb-md">Change Password</div>
             <div class="row q-col-gutter-sm">
@@ -125,7 +120,6 @@
                   label="Current Password"
                   outlined
                   dense
-                  dark
                   :type="showCurrentPwd ? 'text' : 'password'"
                   :rules="[val => !!val || 'Current password is required']"
                 >
@@ -144,7 +138,6 @@
                   label="New Password"
                   outlined
                   dense
-                  dark
                   :type="showNewPwd ? 'text' : 'password'"
                   :rules="[val => !!val || 'Required', val => val.length >= 6 || 'Min 6 characters']"
                 >
@@ -163,7 +156,6 @@
                   label="Confirm Password"
                   outlined
                   dense
-                  dark
                   :type="showConfirmPwd ? 'text' : 'password'"
                   :rules="[val => !!val || 'Required', val => val === passwordForm.newPassword || 'Passwords do not match']"
                 >

@@ -95,6 +95,55 @@ const routes = [
         name: 'orgStructure',
         component: () => import('pages/OrgStructurePage.vue'),
         meta: { title: 'Organization Structure', requiresAdmin: true }
+      },
+      // ─── Working Time Management ─────────────────────────────────────
+      {
+        path: 'worktime',
+        name: 'worktime',
+        component: () => import('pages/WorkTimePage.vue'),
+        meta: { title: 'Working Time', requiresModule: 'hasWorkTime' }
+      },
+      {
+        path: 'worktime/clock',
+        name: 'worktimeClock',
+        component: () => import('pages/WorkTimeClockPage.vue'),
+        meta: { title: 'Time Clock', requiresModule: 'hasWorkTime' }
+      },
+      {
+        path: 'worktime/day-off',
+        name: 'worktimeDayOff',
+        component: () => import('pages/WorkTimeDayOffPage.vue'),
+        meta: { title: 'Day Off', requiresModule: 'hasWorkTime' }
+      },
+      {
+        path: 'worktime/day-off/admin',
+        name: 'worktimeDayOffAdmin',
+        component: () => import('pages/WorkTimeDayOffAdminPage.vue'),
+        meta: { title: 'Day Off Admin', requiresModule: 'hasWorkTime', requiresAdmin: true }
+      },
+      {
+        path: 'worktime/calendar',
+        name: 'worktimeCalendar',
+        component: () => import('pages/WorkTimeCalendarPage.vue'),
+        meta: { title: 'Team Calendar', requiresModule: 'hasWorkTime' }
+      },
+      {
+        path: 'worktime/reports',
+        name: 'worktimeReports',
+        component: () => import('pages/WorkTimeReportsPage.vue'),
+        meta: { title: 'Reports', requiresModule: 'hasWorkTime' }
+      },
+      {
+        path: 'worktime/team',
+        name: 'worktimeTeam',
+        component: () => import('pages/WorkTimeTeamPage.vue'),
+        meta: { title: 'Team', requiresModule: 'hasWorkTime' }
+      },
+      {
+        path: 'worktime/settings',
+        name: 'worktimeSettings',
+        component: () => import('pages/WorkTimeSettingsPage.vue'),
+        meta: { title: 'Work Time Settings', requiresModule: 'hasWorkTime', requiresAdmin: true }
       }
     ]
   },

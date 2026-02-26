@@ -156,10 +156,10 @@ function handleClick(notification) {
 .notification-menu {
   width: 760px !important;
   max-width: 95vw !important;
-  background: #141414;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--erp-bg-secondary);
+  border: 1px solid var(--erp-notif-border);
   border-radius: 12px;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 16px 48px var(--erp-shadow);
 }
 .notification-menu .notif-header {
   display: flex;
@@ -175,7 +175,7 @@ function handleClick(notification) {
 .notification-menu .notif-title {
   font-size: 1.1rem;
   font-weight: 700;
-  color: #f5f5f5;
+  color: var(--erp-notif-title);
 }
 .notification-menu .notif-header-right {
   display: flex;
@@ -183,7 +183,7 @@ function handleClick(notification) {
 }
 .notification-menu .notif-tabs-bar {
   padding: 0 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--erp-notif-tab-border);
 }
 .notification-menu .notif-tabs {
   max-width: 280px;

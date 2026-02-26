@@ -72,14 +72,16 @@ public class AuthController {
         if (isSuperAdmin) {
             builder.moduleTaskManager(true)
                     .moduleImageManager(true)
-                    .moduleDesigns(true);
+                    .moduleDesigns(true)
+                    .moduleWorkTime(true);
         } else if (org != null) {
             builder.organizationId(org.getId())
                     .organizationName(org.getName())
                     .organizationSlug(org.getSlug())
                     .moduleTaskManager(org.isModuleTaskManager())
                     .moduleImageManager(org.isModuleImageManager())
-                    .moduleDesigns(org.isModuleDesigns());
+                    .moduleDesigns(org.isModuleDesigns())
+                    .moduleWorkTime(org.isModuleWorkTime());
         }
 
         return builder.build();

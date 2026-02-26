@@ -27,7 +27,6 @@
             placeholder="Search by username, first/last name..."
             outlined
             dense
-            dark
             color="green-5"
             clearable
             debounce="400"
@@ -45,7 +44,6 @@
             label="Filter by Organization"
             outlined
             dense
-            dark
             color="green-5"
             clearable
             emit-value
@@ -60,7 +58,6 @@
             label="Filter by Status"
             outlined
             dense
-            dark
             color="green-5"
             clearable
             emit-value
@@ -87,7 +84,6 @@
       :pagination="pagination"
       row-key="id"
       flat
-      dark
       class="premium-card"
       @request="onRequest"
     >
@@ -370,7 +366,6 @@ const confirmDelete = (user) => {
     html: true,
     cancel: true,
     color: 'negative',
-    dark: true
   }).onOk(async () => {
     try {
       await userApi.delete(user.id)

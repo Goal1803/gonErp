@@ -1,6 +1,6 @@
 <template>
   <q-dialog v-model="show" persistent>
-    <q-card style="min-width: 480px" dark class="premium-card">
+    <q-card style="min-width: 480px" class="premium-card">
       <q-card-section class="flex items-center gap-3" style="border-bottom: 1px solid rgba(46,125,50,0.2)">
         <q-icon :name="isEdit ? 'edit' : 'add_photo_alternate'" color="green-5" size="md" />
         <div>
@@ -17,7 +17,6 @@
             v-model="form.name"
             label="Image Name"
             outlined
-            dark
             color="green-5"
           >
             <template #prepend>
@@ -29,7 +28,6 @@
             v-model="selectedFile"
             :label="isEdit ? 'Replace Image (optional)' : 'Select Image *'"
             outlined
-            dark
             color="green-5"
             accept="image/*"
             @update:model-value="onFileSelected"
@@ -54,7 +52,7 @@
               {{ selectedFile ? 'New Image Preview' : 'Current Image' }}
             </div>
             <div
-              style="width: 100%; height: 200px; border: 1px solid rgba(46,125,50,0.2); border-radius: 6px; overflow: hidden; background: #111"
+              style="width: 100%; height: 200px; border: 1px solid rgba(46,125,50,0.2); border-radius: 6px; overflow: hidden; background: var(--erp-bg-secondary)"
             >
               <img
                 :src="previewUrl"

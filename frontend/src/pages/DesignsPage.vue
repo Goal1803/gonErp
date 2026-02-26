@@ -18,28 +18,28 @@
     <div class="q-px-xl q-pb-xl">
       <!-- Filter bar -->
       <div class="row q-gutter-sm q-mb-md items-end" style="flex-wrap: wrap">
-        <q-input v-model="filters.search" outlined dark color="teal-5" dense label="Search" clearable
+        <q-input v-model="filters.search" outlined color="teal-5" dense label="Search" clearable
           style="min-width:200px" debounce="400" @update:model-value="loadDesigns">
           <template #prepend><q-icon name="search" /></template>
         </q-input>
-        <q-select v-model="filters.stage" :options="stageOptions" outlined dark dense color="teal-5"
+        <q-select v-model="filters.stage" :options="stageOptions" outlined dense color="teal-5"
           label="Stage" clearable style="min-width:140px" @update:model-value="loadDesigns" />
-        <q-select v-model="filters.status" :options="statusOptions" outlined dark dense color="teal-5"
+        <q-select v-model="filters.status" :options="statusOptions" outlined dense color="teal-5"
           label="Status" clearable style="min-width:140px" @update:model-value="loadDesigns" />
         <q-select v-model="filters.productTypeId" :options="productTypeOptions" option-value="id" option-label="name"
-          emit-value map-options outlined dark dense color="teal-5" label="Product Type" clearable
+          emit-value map-options outlined dense color="teal-5" label="Product Type" clearable
           style="min-width:160px" @update:model-value="loadDesigns" />
         <q-select v-model="filters.nicheId" :options="nicheOptions" option-value="id" option-label="name"
-          emit-value map-options outlined dark dense color="teal-5" label="Niche" clearable
+          emit-value map-options outlined dense color="teal-5" label="Niche" clearable
           style="min-width:140px" @update:model-value="loadDesigns" />
         <q-select v-model="filters.occasionId" :options="occasionOptions" option-value="id" option-label="name"
-          emit-value map-options outlined dark dense color="teal-5" label="Occasion" clearable
+          emit-value map-options outlined dense color="teal-5" label="Occasion" clearable
           style="min-width:140px" @update:model-value="loadDesigns" />
-        <q-toggle v-model="filters.custom" dark color="teal-5" label="Custom only"
+        <q-toggle v-model="filters.custom" color="teal-5" label="Custom only"
           @update:model-value="loadDesigns" />
-        <q-input v-model="filters.dateFrom" type="date" outlined dark dense color="teal-5" label="From"
+        <q-input v-model="filters.dateFrom" type="date" outlined dense color="teal-5" label="From"
           stack-label clearable style="min-width:140px" @update:model-value="loadDesigns" />
-        <q-input v-model="filters.dateTo" type="date" outlined dark dense color="teal-5" label="To"
+        <q-input v-model="filters.dateTo" type="date" outlined dense color="teal-5" label="To"
           stack-label clearable style="min-width:140px" @update:model-value="loadDesigns" />
       </div>
 
@@ -90,7 +90,7 @@
       <!-- Pagination -->
       <div v-if="totalPages > 1" class="flex flex-center q-mt-lg">
         <q-pagination v-model="page" :max="totalPages" direction-links boundary-links
-          color="teal-5" active-color="teal-6" dark @update:model-value="loadDesigns" />
+          color="teal-5" active-color="teal-6" @update:model-value="loadDesigns" />
       </div>
     </div>
 
@@ -115,21 +115,21 @@
 
     <!-- Create Design Dialog -->
     <q-dialog v-model="showCreateDialog" persistent>
-      <q-card dark style="min-width: 500px; max-width: 700px">
+      <q-card style="min-width: 500px; max-width: 700px">
         <!-- Step 1: Basic Info -->
         <template v-if="!createdDesignId">
           <q-card-section>
             <div class="text-h6 text-white">New Design</div>
           </q-card-section>
           <q-card-section class="q-pt-none">
-            <q-input v-model="newDesign.name" outlined dark dense color="teal-5" label="Design Name *" class="q-mb-md" />
+            <q-input v-model="newDesign.name" outlined dense color="teal-5" label="Design Name *" class="q-mb-md" />
             <q-select v-model="newDesign.productTypeIds" :options="productTypeOptions" option-value="id" option-label="name"
-              emit-value map-options multiple outlined dark dense color="teal-5" label="Product Types" use-chips class="q-mb-md" />
+              emit-value map-options multiple outlined dense color="teal-5" label="Product Types" use-chips class="q-mb-md" />
             <q-select v-model="newDesign.nicheIds" :options="nicheOptions" option-value="id" option-label="name"
-              emit-value map-options multiple outlined dark dense color="teal-5" label="Niches" use-chips class="q-mb-md" />
+              emit-value map-options multiple outlined dense color="teal-5" label="Niches" use-chips class="q-mb-md" />
             <q-select v-model="newDesign.occasionId" :options="occasionOptions" option-value="id" option-label="name"
-              emit-value map-options outlined dark dense color="teal-5" label="Occasion" clearable class="q-mb-md" />
-            <q-toggle v-model="newDesign.custom" dark color="teal-5" label="Custom" />
+              emit-value map-options outlined dense color="teal-5" label="Occasion" clearable class="q-mb-md" />
+            <q-toggle v-model="newDesign.custom" color="teal-5" label="Custom" />
           </q-card-section>
           <q-card-actions align="right">
             <q-btn flat label="Cancel" color="grey-5" v-close-popup />
@@ -154,7 +154,7 @@
                 <span class="text-teal-4 ellipsis" style="font-size:0.82rem; max-width:240px">{{ f.name }}</span>
                 <q-btn flat round dense icon="delete" color="red-4" size="xs" @click="deleteCreatedFile(f, 'png')" />
               </div>
-              <q-file v-model="createPngFile" outlined dark color="teal-5" dense label="Upload PNG"
+              <q-file v-model="createPngFile" outlined color="teal-5" dense label="Upload PNG"
                 accept=".png" :loading="uploadingPng" @update:model-value="uploadCreatedPng">
                 <template #prepend><q-icon name="upload" color="grey-5" /></template>
               </q-file>
@@ -167,7 +167,7 @@
                 <span class="text-purple-4 ellipsis" style="font-size:0.82rem; max-width:240px">{{ f.name }}</span>
                 <q-btn flat round dense icon="delete" color="red-4" size="xs" @click="deleteCreatedFile(f, 'psd')" />
               </div>
-              <q-file v-model="createPsdFile" outlined dark color="teal-5" dense label="Upload PSD"
+              <q-file v-model="createPsdFile" outlined color="teal-5" dense label="Upload PSD"
                 accept=".psd,.psb" :loading="uploadingPsd" @update:model-value="uploadCreatedPsd">
                 <template #prepend><q-icon name="upload" color="grey-5" /></template>
               </q-file>
@@ -185,7 +185,7 @@
                     @click="deleteCreatedMockup(m)" />
                 </div>
               </div>
-              <q-file v-model="createMockupFile" outlined dark color="teal-5" dense label="Upload mockup"
+              <q-file v-model="createMockupFile" outlined color="teal-5" dense label="Upload mockup"
                 accept="image/*" :loading="uploadingMockup" @update:model-value="uploadCreatedMockup">
                 <template #prepend><q-icon name="add_photo_alternate" color="grey-5" /></template>
               </q-file>
@@ -305,7 +305,6 @@ const confirmDeleteDesign = (d) => {
   $q.dialog({
     title: 'Delete Design',
     message: `Are you sure you want to delete "${d.cardName || d.name || 'Untitled'}"? This action cannot be undone.`,
-    dark: true,
     color: 'red',
     cancel: { flat: true, color: 'grey-5' },
     ok: { label: 'Delete', color: 'red', unelevated: true }
@@ -446,7 +445,7 @@ onMounted(() => {
 
 <style scoped>
 .designs-page {
-  background: #0d0d0d;
+  background: var(--erp-bg);
   min-height: 100vh;
 }
 .design-grid {
@@ -455,8 +454,8 @@ onMounted(() => {
   gap: 16px;
 }
 .design-card {
-  background: #161616;
-  border: 1px solid rgba(255,255,255,0.07);
+  background: var(--erp-bg-tertiary);
+  border: 1px solid var(--erp-border-subtle);
   border-radius: 10px;
   overflow: hidden;
   cursor: pointer;
@@ -469,7 +468,7 @@ onMounted(() => {
 .design-card-img {
   width: 100%;
   aspect-ratio: 1;
-  background: #111;
+  background: var(--erp-bg-secondary);
 }
 .design-card-img img {
   width: 100%;

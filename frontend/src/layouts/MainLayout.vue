@@ -24,6 +24,16 @@
         </q-toolbar-title>
 
         <div class="flex items-center gap-2">
+          <q-btn
+            flat
+            round
+            dense
+            :icon="isDark ? 'dark_mode' : 'light_mode'"
+            :color="isDark ? 'yellow-5' : 'amber-7'"
+            @click="toggleTheme"
+          >
+            <q-tooltip>{{ isDark ? 'Switch to light mode' : 'Switch to dark mode' }}</q-tooltip>
+          </q-btn>
           <NotificationBell />
           <q-chip
             dense
@@ -40,7 +50,7 @@
               <q-list dense style="min-width: 160px">
                 <q-item>
                   <q-item-section>
-                    <q-item-label class="text-weight-bold text-white">
+                    <q-item-label class="text-weight-bold text-adaptive">
                       {{ authStore.currentUser?.userName }}
                     </q-item-label>
                     <q-item-label caption class="text-green-4">
@@ -48,7 +58,7 @@
                     </q-item-label>
                   </q-item-section>
                 </q-item>
-                <q-separator dark />
+                <q-separator />
                 <q-item clickable v-ripple to="/profile">
                   <q-item-section avatar>
                     <q-icon name="person" size="sm" color="green-4" />
@@ -57,7 +67,7 @@
                     <q-item-label>My Profile</q-item-label>
                   </q-item-section>
                 </q-item>
-                <q-separator dark />
+                <q-separator />
                 <q-item clickable v-ripple @click="handleLogout">
                   <q-item-section avatar>
                     <q-icon name="logout" size="sm" color="red-4" />
@@ -81,13 +91,13 @@
       class="main-drawer"
     >
       <!-- Drawer Header -->
-      <div class="q-pa-md flex items-center gap-2" style="border-bottom: 1px solid rgba(46,125,50,0.2)">
+      <div class="q-pa-md flex items-center gap-2" style="border-bottom: 1px solid var(--erp-border)">
         <q-icon name="business" color="green-5" size="md" />
         <div>
-          <div class="text-weight-bold text-white" style="font-size: 0.85rem">
+          <div class="text-weight-bold text-adaptive" style="font-size: 0.85rem">
             {{ authStore.isSuperAdmin ? 'gonERP Platform' : (authStore.organizationName || 'gonERP System') }}
           </div>
-          <div class="text-caption text-grey-5">
+          <div class="text-caption text-adaptive-secondary">
             {{ authStore.isSuperAdmin ? 'Super Admin Console' : 'Enterprise Resource Planning' }}
           </div>
         </div>
@@ -234,6 +244,22 @@
             </q-item-section>
           </q-item>
 
+          <!-- Working Time -->
+          <q-item
+            v-if="authStore.hasWorkTime"
+            clickable
+            v-ripple
+            to="/worktime"
+            class="rounded-borders q-mb-xs"
+          >
+            <q-item-section avatar>
+              <q-icon name="schedule" />
+            </q-item-section>
+            <q-item-section>
+              <q-item-label>Working Time</q-item-label>
+            </q-item-section>
+          </q-item>
+
           <!-- Coming Soon -->
           <q-item-label header class="text-grey-6 text-uppercase text-caption q-mb-xs q-mt-sm">
             Coming Soon
@@ -255,8 +281,8 @@
 
       <!-- Drawer Footer -->
       <div
-        class="q-pa-sm text-center text-grey-7"
-        style="position: absolute; bottom: 0; left: 0; right: 0; border-top: 1px solid rgba(46,125,50,0.15); font-size: 0.7rem"
+        class="q-pa-sm text-center text-adaptive-caption"
+        style="position: absolute; bottom: 0; left: 0; right: 0; border-top: 1px solid var(--erp-border); font-size: 0.7rem"
       >
         gonERP &copy; {{ new Date().getFullYear() }}
       </div>
@@ -279,6 +305,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from 'src/stores/authStore'
 import { useNotificationStore } from 'src/stores/notificationStore'
 import { useNotificationSocket } from 'src/composables/useNotificationSocket'
+import { useTheme } from 'src/composables/useTheme'
 import { useQuasar } from 'quasar'
 import UserAvatar from 'src/components/UserAvatar.vue'
 import NotificationBell from 'src/components/NotificationBell.vue'
@@ -287,6 +314,7 @@ const $q = useQuasar()
 const router = useRouter()
 const authStore = useAuthStore()
 const notificationStore = useNotificationStore()
+const { isDark, toggle: toggleTheme } = useTheme()
 
 useNotificationSocket()
 notificationStore.fetchUnreadCount()
@@ -317,7 +345,6 @@ const handleLogout = () => {
     cancel: true,
     persistent: false,
     color: 'primary',
-    dark: true
   }).onOk(() => {
     authStore.logout()
     router.push('/login')

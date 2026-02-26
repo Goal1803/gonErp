@@ -24,7 +24,7 @@
             <span class="text-grey-4" style="font-size:0.82rem">Uploading PNG files...</span>
             <q-linear-progress indeterminate color="teal-5" size="2px" class="q-mt-xs" />
           </div>
-          <q-file v-else v-model="pngFile" outlined dark color="teal-5" dense label="Upload PNG files"
+          <q-file v-else v-model="pngFile" outlined color="teal-5" dense label="Upload PNG files"
             accept=".png" multiple @update:model-value="uploadPng">
             <template #prepend><q-icon name="upload" color="grey-5" /></template>
           </q-file>
@@ -46,7 +46,7 @@
             <span class="text-grey-4" style="font-size:0.82rem">Uploading PSD files...</span>
             <q-linear-progress indeterminate color="teal-5" size="2px" class="q-mt-xs" />
           </div>
-          <q-file v-else v-model="psdFile" outlined dark color="teal-5" dense label="Upload PSD files"
+          <q-file v-else v-model="psdFile" outlined color="teal-5" dense label="Upload PSD files"
             accept=".psd,.psb" multiple @update:model-value="uploadPsd">
             <template #prepend><q-icon name="upload" color="grey-5" /></template>
           </q-file>
@@ -77,7 +77,7 @@
           <span class="text-grey-4" style="font-size:0.82rem">Uploading mockups...</span>
           <q-linear-progress indeterminate color="teal-5" size="2px" class="q-mt-xs" />
         </div>
-        <q-file v-else v-model="mockupFile" outlined dark color="teal-5" dense label="Upload mockups"
+        <q-file v-else v-model="mockupFile" outlined color="teal-5" dense label="Upload mockups"
           accept="image/*" multiple @update:model-value="uploadMockup">
           <template #prepend><q-icon name="add_photo_alternate" color="grey-5" /></template>
         </q-file>
@@ -87,7 +87,7 @@
       <div class="q-mb-sm">
         <div class="sidebar-label"><q-icon name="lightbulb" size="xs" /> Idea Creator</div>
         <q-select v-model="ideaCreatorId" :options="memberOptions" option-value="id" option-label="displayName"
-          emit-value map-options outlined dark dense color="teal-5" clearable
+          emit-value map-options outlined dense color="teal-5" clearable
           @update:model-value="updateIdeaCreator" />
       </div>
 
@@ -95,7 +95,7 @@
       <div class="q-mb-sm">
         <div class="sidebar-label"><q-icon name="design_services" size="xs" /> Designers</div>
         <q-select v-model="designerIds" :options="memberOptions" option-value="id" option-label="displayName"
-          emit-value map-options multiple outlined dark dense color="teal-5" use-chips
+          emit-value map-options multiple outlined dense color="teal-5" use-chips
           @update:model-value="updateDesigners" />
       </div>
 
@@ -103,7 +103,7 @@
       <div class="q-mb-sm">
         <div class="sidebar-label"><q-icon name="inventory_2" size="xs" /> Product Types</div>
         <q-select v-model="productTypeIds" :options="productTypeOptions" option-value="id" option-label="name"
-          emit-value map-options multiple outlined dark dense color="teal-5" use-chips
+          emit-value map-options multiple outlined dense color="teal-5" use-chips
           @update:model-value="updateDetail" />
       </div>
 
@@ -111,7 +111,7 @@
       <div class="q-mb-sm">
         <div class="sidebar-label"><q-icon name="category" size="xs" /> Niches</div>
         <q-select v-model="nicheIds" :options="nicheOptions" option-value="id" option-label="name"
-          emit-value map-options multiple outlined dark dense color="teal-5" use-chips
+          emit-value map-options multiple outlined dense color="teal-5" use-chips
           @update:model-value="updateDetail" />
       </div>
 
@@ -119,14 +119,14 @@
       <div class="q-mb-sm">
         <div class="sidebar-label"><q-icon name="celebration" size="xs" /> Occasion</div>
         <q-select v-model="occasionId" :options="occasionOptions" option-value="id" option-label="name"
-          emit-value map-options outlined dark dense color="teal-5" clearable
+          emit-value map-options outlined dense color="teal-5" clearable
           @update:model-value="updateDetail" />
       </div>
 
       <!-- Custom Toggle -->
       <div class="q-mb-sm row items-center">
         <div class="sidebar-label q-mr-md"><q-icon name="tune" size="xs" /> Custom</div>
-        <q-toggle v-model="isCustom" color="teal-5" dark @update:model-value="updateDetail" />
+        <q-toggle v-model="isCustom" color="teal-5" @update:model-value="updateDetail" />
       </div>
 
       <!-- Design Status (read-only) -->
@@ -382,8 +382,8 @@ watch(() => props.cardId, (id) => {
 
 <style scoped>
 .design-detail-card {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--erp-border-subtle);
+  border: 1px solid var(--erp-border-subtle);
   border-radius: 8px;
 }
 .sidebar-label {

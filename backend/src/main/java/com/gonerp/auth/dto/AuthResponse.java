@@ -25,4 +25,5 @@ public class AuthResponse {
     private boolean moduleTaskManager;
     private boolean moduleImageManager;
     private boolean moduleDesigns;
+    private boolean moduleWorkTime;
 }

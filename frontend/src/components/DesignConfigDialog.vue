@@ -1,8 +1,8 @@
 <template>
   <q-dialog v-model="show" maximized transition-show="slide-up" transition-hide="slide-down">
-    <q-card dark class="column" style="background: #0d0d0d">
+    <q-card class="column" style="background: var(--erp-bg)">
       <!-- Header -->
-      <q-card-section class="row items-center q-px-lg" style="border-bottom: 1px solid rgba(255,255,255,0.07)">
+      <q-card-section class="row items-center q-px-lg" style="border-bottom: 1px solid var(--erp-border-subtle)">
         <q-icon name="settings" color="teal-5" size="sm" class="q-mr-sm" />
         <div class="text-h6 text-white text-weight-medium">Design Config</div>
         <q-space />
@@ -11,7 +11,7 @@
 
       <!-- Tabs -->
       <q-tabs v-model="activeTab" dense active-color="teal-5" indicator-color="teal-5"
-        align="left" class="text-grey-5 q-px-md" style="border-bottom: 1px solid rgba(255,255,255,0.07)">
+        align="left" class="text-grey-5 q-px-md" style="border-bottom: 1px solid var(--erp-border-subtle)">
         <q-tab v-if="authStore.isSuperAdmin" name="staffRoles" label="Staff Roles" />
         <q-tab v-if="authStore.isSuperAdmin" name="userGroups" label="User Groups" />
         <q-tab name="userAssignments" label="User Assignments" />
@@ -30,7 +30,7 @@
             <q-space />
             <q-btn color="teal-6" unelevated icon="add" label="Add Role" @click="openRoleForm(null)" />
           </div>
-          <q-table :rows="staffRoles" :columns="lookupColumns" row-key="id" dark flat
+          <q-table :rows="staffRoles" :columns="lookupColumns" row-key="id" flat
             :loading="loadingRoles" no-data-label="No staff roles yet"
             class="premium-table" hide-pagination :rows-per-page-options="[0]">
             <template #body-cell-actions="props">
@@ -49,7 +49,7 @@
             <q-space />
             <q-btn color="teal-6" unelevated icon="add" label="Add Group" @click="openGroupForm(null)" />
           </div>
-          <q-table :rows="userGroups" :columns="lookupColumns" row-key="id" dark flat
+          <q-table :rows="userGroups" :columns="lookupColumns" row-key="id" flat
             :loading="loadingGroups" no-data-label="No user groups yet"
             class="premium-table" hide-pagination :rows-per-page-options="[0]">
             <template #body-cell-actions="props">
@@ -68,7 +68,7 @@
             <q-space />
             <q-btn flat color="teal-5" icon="refresh" label="Refresh" @click="loadUsers" />
           </div>
-          <q-table :rows="users" :columns="userColumns" row-key="userId" dark flat
+          <q-table :rows="users" :columns="userColumns" row-key="userId" flat
             :loading="loadingUsers" no-data-label="No users found"
             class="premium-table" hide-pagination :rows-per-page-options="[0]">
             <template #body-cell-designStaffRoles="props">
@@ -104,7 +104,7 @@
             <q-space />
             <q-btn color="teal-6" unelevated icon="add" label="Add Product Type" @click="openLookupForm('productTypes', null)" />
           </div>
-          <q-table :rows="productTypes" :columns="lookupColumns" row-key="id" dark flat
+          <q-table :rows="productTypes" :columns="lookupColumns" row-key="id" flat
             :loading="loadingProductTypes" no-data-label="No product types yet"
             class="premium-table" hide-pagination :rows-per-page-options="[0]">
             <template #body-cell-actions="props">
@@ -123,7 +123,7 @@
             <q-space />
             <q-btn color="teal-6" unelevated icon="add" label="Add Niche" @click="openLookupForm('niches', null)" />
           </div>
-          <q-table :rows="niches" :columns="lookupColumns" row-key="id" dark flat
+          <q-table :rows="niches" :columns="lookupColumns" row-key="id" flat
             :loading="loadingNiches" no-data-label="No niches yet"
             class="premium-table" hide-pagination :rows-per-page-options="[0]">
             <template #body-cell-actions="props">
@@ -142,7 +142,7 @@
             <q-space />
             <q-btn color="teal-6" unelevated icon="add" label="Add Occasion" @click="openLookupForm('occasions', null)" />
           </div>
-          <q-table :rows="occasions" :columns="lookupColumns" row-key="id" dark flat
+          <q-table :rows="occasions" :columns="lookupColumns" row-key="id" flat
             :loading="loadingOccasions" no-data-label="No occasions yet"
             class="premium-table" hide-pagination :rows-per-page-options="[0]">
             <template #body-cell-actions="props">
@@ -174,7 +174,7 @@
 
   <!-- Assignment Dialog -->
   <q-dialog v-model="showAssignDialog" persistent>
-    <q-card dark style="min-width: 500px; max-width: 600px" class="premium-card">
+    <q-card style="min-width: 500px; max-width: 600px" class="premium-card">
       <q-card-section class="flex items-center gap-3" style="border-bottom: 1px solid rgba(0,150,136,0.2)">
         <q-icon name="person" color="teal-5" size="md" />
         <div>
@@ -187,10 +187,10 @@
 
       <q-card-section class="q-pa-lg q-gutter-y-md">
         <q-select v-model="selectedRoleIds" :options="staffRoleOptions" multiple emit-value map-options
-          outlined dark color="teal-5" label="Design Staff Roles" option-value="value" option-label="label"
+          outlined color="teal-5" label="Design Staff Roles" option-value="value" option-label="label"
           use-chips stack-label />
         <q-select v-model="selectedGroupIds" :options="userGroupOptions" multiple emit-value map-options
-          outlined dark color="teal-5" label="Design User Groups" option-value="value" option-label="label"
+          outlined color="teal-5" label="Design User Groups" option-value="value" option-label="label"
           use-chips stack-label />
       </q-card-section>
 
@@ -250,7 +250,7 @@ const confirmDeleteRole = (role) => {
   $q.dialog({
     title: 'Delete Staff Role',
     message: `Delete "${role.name}"? This cannot be undone.`,
-    dark: true, cancel: true, persistent: true
+    cancel: true, persistent: true
   }).onOk(async () => {
     try {
       await designConfigApi.deleteStaffRole(role.id)
@@ -290,7 +290,7 @@ const confirmDeleteGroup = (group) => {
   $q.dialog({
     title: 'Delete User Group',
     message: `Delete "${group.name}"? This cannot be undone.`,
-    dark: true, cancel: true, persistent: true
+    cancel: true, persistent: true
   }).onOk(async () => {
     try {
       await designConfigApi.deleteUserGroup(group.id)
@@ -453,7 +453,7 @@ const confirmDeleteLookup = (type, item) => {
   $q.dialog({
     title: `Delete ${cfg.label}`,
     message: `Delete "${item.name}"? This cannot be undone.`,
-    dark: true, cancel: true, persistent: true
+    cancel: true, persistent: true
   }).onOk(async () => {
     try {
       await cfg.delete(item.id)

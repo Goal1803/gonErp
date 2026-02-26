@@ -161,6 +161,7 @@ const allModules = [
   { title: 'Image Manager', description: 'Manage media files', icon: 'image', color: 'blue-4', to: '/images', disabled: false, flag: 'hasImageManager' },
   { title: 'Task Manager', description: 'Project & task tracking', icon: 'task_alt', color: 'teal-5', to: '/tasks', disabled: false, flag: 'hasTaskManager' },
   { title: 'Designs', description: 'Design management', icon: 'palette', color: 'purple-4', to: '/designs', disabled: false, flag: 'hasDesigns' },
+  { title: 'Working Time', description: 'Time tracking & day off', icon: 'schedule', color: 'orange-5', to: '/worktime', disabled: false, flag: 'hasWorkTime' },
   { title: 'Finance', description: 'Financial management', icon: 'account_balance', color: 'yellow-6', to: null, disabled: true },
   { title: 'Sales', description: 'Sales & CRM', icon: 'point_of_sale', color: 'orange-5', to: null, disabled: true },
   { title: 'Marketing', description: 'Marketing campaigns', icon: 'campaign', color: 'purple-4', to: null, disabled: true },

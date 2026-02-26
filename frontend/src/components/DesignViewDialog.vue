@@ -1,8 +1,8 @@
 <template>
   <q-dialog v-model="show" maximized transition-show="fade" transition-hide="fade">
-    <q-card dark class="design-view-dialog">
+    <q-card class="design-view-dialog">
       <!-- Header -->
-      <q-card-section class="row items-center no-wrap q-py-sm" style="border-bottom: 1px solid rgba(255,255,255,0.07)">
+      <q-card-section class="row items-center no-wrap q-py-sm" style="border-bottom: 1px solid var(--erp-border-subtle)">
         <q-icon name="palette" color="teal-5" size="sm" class="q-mr-sm" />
         <div class="text-h6 text-white text-weight-medium ellipsis" style="max-width: 500px">
           {{ design?.cardName || design?.name || 'Untitled' }}
@@ -73,7 +73,7 @@
               <span class="text-grey-4" style="font-size:0.82rem">Uploading mockups...</span>
               <q-linear-progress indeterminate color="teal-5" size="2px" class="q-mt-xs" />
             </div>
-            <q-file v-else v-model="mockupFile" outlined dark color="teal-5" dense label="Upload mockups"
+            <q-file v-else v-model="mockupFile" outlined color="teal-5" dense label="Upload mockups"
               accept="image/*" multiple class="q-mb-md" @update:model-value="uploadMockup">
               <template #prepend><q-icon name="add_photo_alternate" color="grey-5" /></template>
             </q-file>
@@ -97,7 +97,7 @@
                   <span class="text-grey-4" style="font-size:0.82rem">Uploading PNG files...</span>
                   <q-linear-progress indeterminate color="teal-5" size="2px" class="q-mt-xs" />
                 </div>
-                <q-file v-else v-model="pngFile" outlined dark color="teal-5" dense label="Upload PNG files"
+                <q-file v-else v-model="pngFile" outlined color="teal-5" dense label="Upload PNG files"
                   accept=".png" multiple @update:model-value="uploadPng">
                   <template #prepend><q-icon name="upload" color="grey-5" /></template>
                 </q-file>
@@ -118,7 +118,7 @@
                   <span class="text-grey-4" style="font-size:0.82rem">Uploading PSD files...</span>
                   <q-linear-progress indeterminate color="teal-5" size="2px" class="q-mt-xs" />
                 </div>
-                <q-file v-else v-model="psdFile" outlined dark color="teal-5" dense label="Upload PSD files"
+                <q-file v-else v-model="psdFile" outlined color="teal-5" dense label="Upload PSD files"
                   accept=".psd,.psb" multiple @update:model-value="uploadPsd">
                   <template #prepend><q-icon name="upload" color="grey-5" /></template>
                 </q-file>
@@ -137,7 +137,7 @@
             <!-- Name (standalone editable) -->
             <div v-if="isStandalone" class="info-block">
               <div class="info-label"><q-icon name="label" size="xs" /> Name</div>
-              <q-input v-model="editName" outlined dark dense color="teal-5"
+              <q-input v-model="editName" outlined dense color="teal-5"
                 @blur="saveDetail" @keyup.enter="saveDetail" />
             </div>
 
@@ -179,7 +179,7 @@
             <div class="info-block">
               <div class="info-label"><q-icon name="inventory_2" size="xs" /> Product Types</div>
               <q-select v-if="isStandalone" v-model="editProductTypeIds" :options="productTypeOptions"
-                option-value="id" option-label="name" emit-value map-options multiple outlined dark dense
+                option-value="id" option-label="name" emit-value map-options multiple outlined dense
                 color="teal-5" use-chips @update:model-value="saveDetail" />
               <template v-else>
                 <div v-if="detail?.productTypes?.length" class="row items-center q-gutter-xs" style="flex-wrap:wrap">
@@ -194,7 +194,7 @@
             <div class="info-block">
               <div class="info-label"><q-icon name="category" size="xs" /> Niches</div>
               <q-select v-if="isStandalone" v-model="editNicheIds" :options="nicheOptions"
-                option-value="id" option-label="name" emit-value map-options multiple outlined dark dense
+                option-value="id" option-label="name" emit-value map-options multiple outlined dense
                 color="teal-5" use-chips @update:model-value="saveDetail" />
               <template v-else>
                 <div v-if="detail?.niches?.length" class="row items-center q-gutter-xs" style="flex-wrap:wrap">
@@ -209,7 +209,7 @@
             <div class="info-block">
               <div class="info-label"><q-icon name="celebration" size="xs" /> Occasion</div>
               <q-select v-if="isStandalone" v-model="editOccasionId" :options="occasionOptions"
-                option-value="id" option-label="name" emit-value map-options outlined dark dense
+                option-value="id" option-label="name" emit-value map-options outlined dense
                 color="teal-5" clearable @update:model-value="saveDetail" />
               <template v-else>
                 <div v-if="detail?.occasion" class="text-grey-3" style="font-size:0.85rem">{{ detail.occasion.name }}</div>
@@ -220,7 +220,7 @@
             <!-- Custom (standalone editable) -->
             <div class="info-block">
               <div class="info-label"><q-icon name="tune" size="xs" /> Custom</div>
-              <q-toggle v-if="isStandalone" v-model="editCustom" dark color="teal-5" @update:model-value="saveDetail" />
+              <q-toggle v-if="isStandalone" v-model="editCustom" color="teal-5" @update:model-value="saveDetail" />
               <q-chip v-else dense size="sm"
                 :color="detail?.custom ? 'teal-9' : 'grey-9'"
                 :text-color="detail?.custom ? 'teal-2' : 'grey-5'"
@@ -518,7 +518,6 @@ const confirmDelete = () => {
   $q.dialog({
     title: 'Delete Design',
     message: `Are you sure you want to delete "${props.design?.cardName || props.design?.name || 'Untitled'}"? This action cannot be undone.`,
-    dark: true,
     color: 'red',
     cancel: { flat: true, color: 'grey-5' },
     ok: { label: 'Delete', color: 'red', unelevated: true }
@@ -602,7 +601,7 @@ watch(() => props.design, (d) => {
 
 <style scoped>
 .design-view-dialog {
-  background: #0d0d0d;
+  background: var(--erp-bg);
 }
 .design-view-scroll {
   height: calc(100vh - 56px);
@@ -611,7 +610,7 @@ watch(() => props.design, (d) => {
   width: 100%;
   border-radius: 10px;
   overflow: hidden;
-  background: #111;
+  background: var(--erp-bg-secondary);
   position: relative;
 }
 .main-mockup-actions {
@@ -639,7 +638,7 @@ watch(() => props.design, (d) => {
   width: 100%;
   aspect-ratio: 1;
   max-height: 400px;
-  background: #111;
+  background: var(--erp-bg-secondary);
   border-radius: 10px;
   display: flex;
   flex-direction: column;
@@ -696,8 +695,8 @@ watch(() => props.design, (d) => {
   margin-top: 8px;
 }
 .design-file-chip {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--erp-border-subtle);
+  border: 1px solid var(--erp-border-subtle);
   border-radius: 6px;
   padding: 6px 12px;
 }

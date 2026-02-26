@@ -66,7 +66,7 @@ const showConfigDialog = ref(false)
 
 <style scoped>
 .designs-home {
-  background: #0d0d0d;
+  background: var(--erp-bg);
   min-height: 100vh;
   display: flex;
   align-items: center;
@@ -81,8 +81,8 @@ const showConfigDialog = ref(false)
   text-decoration: none;
 }
 .home-card {
-  background: #161616;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--erp-bg-tertiary);
+  border: 1px solid var(--erp-border-subtle);
   border-radius: 12px;
   width: 200px;
   cursor: pointer;
@@ -91,6 +91,6 @@ const showConfigDialog = ref(false)
 .home-card:hover {
   transform: translateY(-4px);
   border-color: rgba(38, 166, 154, 0.4);
-  background: #1a1a1a;
+  background: var(--erp-bg-tertiary);
 }
 </style>

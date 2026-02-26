@@ -75,8 +75,8 @@ const statusColor = (s) => ({
 <style scoped>
 .kanban-card {
   position: relative;
-  background: #1e1e1e;
-  border: 1px solid rgba(255,255,255,0.07);
+  background: var(--erp-bg-elevated);
+  border: 1px solid var(--erp-border-subtle);
   border-radius: 8px;
   cursor: pointer;
   transition: box-shadow 0.15s, transform 0.1s;
@@ -129,7 +129,7 @@ const statusColor = (s) => ({
   white-space: nowrap;
 }
 .type-pill {
-  border: 1px dashed rgba(255,255,255,0.25);
+  border: 1px dashed var(--erp-border-subtle);
 }
 
 /* Card name */

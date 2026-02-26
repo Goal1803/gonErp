@@ -39,6 +39,10 @@ public class Organization extends BaseModel {
     @Builder.Default
     private boolean moduleDesigns = true;
 
+    @Column(name = "module_work_time", nullable = false, columnDefinition = "boolean default false")
+    @Builder.Default
+    private boolean moduleWorkTime = false;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "org_type_id")
     private OrganizationType orgType;

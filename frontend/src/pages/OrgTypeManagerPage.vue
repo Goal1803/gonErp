@@ -18,7 +18,7 @@
       :columns="typeColumns"
       :loading="loadingTypes"
       row-key="id"
-      flat dark
+      flat
       class="premium-card q-mb-lg"
       :pagination="{ rowsPerPage: 20 }"
     >
@@ -63,7 +63,7 @@
         :columns="defaultColumns"
         :loading="loadingDefaults"
         row-key="id"
-        flat dark
+        flat
         class="premium-card"
         :pagination="{ rowsPerPage: 50 }"
       >
@@ -212,7 +212,7 @@ const confirmDeleteType = (type) => {
   $q.dialog({
     title: 'Delete Organization Type',
     message: `Delete <strong>${type.name}</strong>?`,
-    html: true, cancel: true, color: 'negative', dark: true
+    html: true, cancel: true, color: 'negative'
   }).onOk(async () => {
     try {
       await orgTypeApi.delete(type.id)
@@ -234,7 +234,7 @@ const confirmDeleteDefault = (item) => {
   $q.dialog({
     title: `Delete ${label}`,
     message: `Delete <strong>${item.name}</strong>?`,
-    html: true, cancel: true, color: 'negative', dark: true
+    html: true, cancel: true, color: 'negative'
   }).onOk(async () => {
     try {
       if (defaultsTab.value === 'staffRoles') await orgTypeApi.deleteStaffRole(item.id)

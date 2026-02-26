@@ -1,6 +1,6 @@
 <template>
   <q-dialog v-model="show" maximized transition-show="fade" transition-hide="fade">
-    <q-card dark style="background: rgba(10,10,10,0.97)" class="flex column">
+    <q-card style="background: rgba(10,10,10,0.97)" class="flex column">
       <!-- Header -->
       <q-card-section class="flex items-center gap-2 q-pa-md" style="border-bottom: 1px solid rgba(46,125,50,0.2)">
         <q-icon name="image" color="green-5" />

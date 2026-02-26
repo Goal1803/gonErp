@@ -19,7 +19,6 @@
       :loading="loading"
       row-key="id"
       flat
-      dark
       class="premium-card"
       :pagination="{ rowsPerPage: 20 }"
     >
