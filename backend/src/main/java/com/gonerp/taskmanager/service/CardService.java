@@ -121,6 +121,9 @@ public class CardService {
         String actor = currentUser.getUserName();
         logActivity(card, actor + " created this card");
 
+        // Auto-assign creator as card member so they can see the card
+        cardMemberRepository.save(CardMember.builder().card(card).user(currentUser).build());
+
         if (column.getBoard().getBoardType() == BoardType.POD_DESIGN) {
             DesignDetail dd = DesignDetail.builder()
                     .card(card)
@@ -128,8 +131,6 @@ public class CardService {
                     .build();
             designDetailRepository.save(dd);
             ensureDesignStaffRole(currentUser, "IdeaCreator");
-            // Auto-assign creator as card member
-            cardMemberRepository.save(CardMember.builder().card(card).user(currentUser).build());
         }
 
         eventPublisher.publish(column.getBoard().getId(), "CARD_CREATED",
