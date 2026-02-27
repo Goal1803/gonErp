@@ -13,11 +13,11 @@
     <div class="row q-col-gutter-lg">
       <!-- LEFT: Clock & Actions -->
       <div class="col-12 col-md-6">
-        <!-- Digital Clock -->
+        <!-- Work Timer -->
         <q-card class="premium-card q-mb-md" flat>
           <q-card-section class="text-center q-pa-lg">
-            <div class="digital-clock text-h2 text-weight-bold" style="color: var(--erp-text); letter-spacing: 4px;">
-              {{ currentTime }}
+            <div class="digital-clock text-h2 text-weight-bold" :style="{ color: timerColor, letterSpacing: '4px' }">
+              {{ workTimerDisplay }}
             </div>
             <div class="text-caption text-grey-5 q-mt-sm">{{ currentDate }}</div>
 
@@ -267,8 +267,8 @@ import { useWorktimeStore } from 'src/stores/worktimeStore'
 const $q = useQuasar()
 const worktimeStore = useWorktimeStore()
 
-const currentTime = ref('')
 const currentDate = ref('')
+const workSeconds = ref(0)
 const workLocation = ref('OFFICE')
 const checkOutNotes = ref('')
 const showCheckOutDialog = ref(false)
@@ -286,6 +286,11 @@ const breakEntries = computed(() => {
   return todayEntry.value?.breaks || []
 })
 
+const isClockedIn = computed(() => {
+  const s = clockStatus.value?.status
+  return s === 'CHECKED_IN' || s === 'ON_BREAK'
+})
+
 const statusLabel = computed(() => {
   if (!clockStatus.value || clockStatus.value.status === 'CHECKED_OUT') return 'Not Checked In'
   if (clockStatus.value.status === 'CHECKED_IN') return 'Working'
@@ -300,10 +305,60 @@ const statusColor = computed(() => {
   return 'grey-7'
 })
 
-function updateClock() {
+const workTimerDisplay = computed(() => {
+  const s = workSeconds.value
+  const hrs = Math.floor(s / 3600)
+  const mins = Math.floor((s % 3600) / 60)
+  const secs = s % 60
+  return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
+})
+
+const timerColor = computed(() => {
+  const s = clockStatus.value?.status
+  if (s === 'CHECKED_IN') return 'var(--q-green-5, #4caf50)'
+  if (s === 'ON_BREAK') return 'var(--q-amber-5, #ffc107)'
+  return 'var(--erp-text)'
+})
+
+function computeWorkSeconds() {
+  const entry = todayEntry.value
+  const status = clockStatus.value?.status
+
+  // Not checked in yet
+  if (!entry || !entry.checkInTime || !status) {
+    workSeconds.value = 0
+    return
+  }
+
+  // Already checked out — show final total
+  if (status === 'CHECKED_OUT') {
+    workSeconds.value = (entry.totalWorkMinutes || 0) * 60
+    return
+  }
+
+  // Currently working or on break — compute live
+  const checkIn = new Date(entry.checkInTime)
   const now = new Date()
-  currentTime.value = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
-  currentDate.value = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+  const totalElapsed = Math.max(0, Math.floor((now - checkIn) / 1000))
+
+  // Sum all completed break durations in seconds
+  let breakSecs = (entry.totalBreakMinutes || 0) * 60
+
+  // If on break, add the ongoing break duration
+  if (status === 'ON_BREAK') {
+    const openBreak = (entry.breaks || []).find(b => !b.endTime)
+    if (openBreak) {
+      const breakStart = new Date(openBreak.startTime)
+      breakSecs += Math.max(0, Math.floor((now - breakStart) / 1000))
+    }
+  }
+
+  workSeconds.value = Math.max(0, totalElapsed - breakSecs)
+}
+
+function tick() {
+  currentDate.value = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+  computeWorkSeconds()
 }
 
 function formatTime(timeStr) {
@@ -366,11 +421,11 @@ async function handleCheckOut() {
   }
 }
 
-onMounted(() => {
-  updateClock()
-  clockTimer = setInterval(updateClock, 1000)
-  worktimeStore.fetchClockStatus()
-  worktimeStore.fetchTodayEntry()
+onMounted(async () => {
+  tick()
+  await Promise.all([worktimeStore.fetchClockStatus(), worktimeStore.fetchTodayEntry()])
+  computeWorkSeconds()
+  clockTimer = setInterval(tick, 1000)
 })
 
 onUnmounted(() => {
