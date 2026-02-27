@@ -76,16 +76,16 @@
       <template v-if="showFilters">
         <q-select v-model="filterMembers" :options="memberOptions" option-value="id" option-label="displayName"
           emit-value map-options multiple dense outlined color="teal-5" label="Members"
-          style="min-width:150px" clearable use-chips stack-label />
+          style="min-width:150px" use-chips stack-label />
         <q-select v-model="filterLabels" :options="labelOptions" option-value="id" option-label="name"
           emit-value map-options multiple dense outlined color="teal-5" label="Labels"
-          style="min-width:150px" clearable use-chips stack-label />
+          style="min-width:150px" use-chips stack-label />
         <q-select v-model="filterTypes" :options="typeOptions" option-value="id" option-label="name"
           emit-value map-options multiple dense outlined color="teal-5" label="Types"
-          style="min-width:150px" clearable use-chips stack-label />
+          style="min-width:150px" use-chips stack-label />
         <q-select v-model="filterStatuses" :options="statusOptions"
           multiple dense outlined color="teal-5" label="Status"
-          style="min-width:150px" clearable use-chips stack-label />
+          style="min-width:150px" use-chips stack-label />
         <q-input v-model="filterDateFrom" type="date" dense outlined color="teal-5" label="From" stack-label
           style="min-width:140px" clearable />
         <q-input v-model="filterDateTo" type="date" dense outlined color="teal-5" label="To" stack-label
