@@ -260,6 +260,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useQuasar } from 'quasar'
 import { useWorktimeStore } from 'src/stores/worktimeStore'
 
@@ -276,11 +277,10 @@ let clockTimer = null
 const locationOptions = [
   { label: 'Office', value: 'OFFICE' },
   { label: 'Remote', value: 'REMOTE' },
-  { label: 'Hybrid', value: 'HYBRID' }
+  { label: 'On Site', value: 'ON_SITE' }
 ]
 
-const clockStatus = computed(() => worktimeStore.clockStatus)
-const todayEntry = computed(() => worktimeStore.todayEntry)
+const { clockStatus, todayEntry } = storeToRefs(worktimeStore)
 
 const breakEntries = computed(() => {
   return todayEntry.value?.breaks || []

@@ -28,8 +28,13 @@ public class TimeEntryResponse {
     private int totalWorkMinutes;
     private int totalBreakMinutes;
     private int overtimeMinutes;
+
+    @com.fasterxml.jackson.annotation.JsonProperty("isLateArrival")
     private boolean isLateArrival;
+
+    @com.fasterxml.jackson.annotation.JsonProperty("isEarlyDeparture")
     private boolean isEarlyDeparture;
+
     private String dailyNotes;
     private List<BreakEntryResponse> breaks;
 

@@ -37,6 +37,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
 import { useQuasar } from 'quasar'
 import { useWorktimeStore } from 'src/stores/worktimeStore'
@@ -48,7 +49,7 @@ const worktimeStore = useWorktimeStore()
 const elapsedSeconds = ref(0)
 let elapsedTimer = null
 
-const clockStatus = computed(() => worktimeStore.clockStatus)
+const { clockStatus } = storeToRefs(worktimeStore)
 
 const statusText = computed(() => {
   if (!clockStatus.value || clockStatus.value.status === 'CHECKED_OUT') return 'Not clocked in'

@@ -280,8 +280,12 @@ public class TimeClockService {
 
     private User getCurrentUser() {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        return userRepository.findByUserName(username)
+        User user = userRepository.findByUserName(username)
                 .orElseThrow(() -> new IllegalStateException("Current user not found: " + username));
+        if (user.getOrganization() == null) {
+            throw new IllegalStateException("Cannot use time clock: your account is not assigned to an organization.");
+        }
+        return user;
     }
 
     private TimeEntry getTodayEntryOrThrow(User user) {
