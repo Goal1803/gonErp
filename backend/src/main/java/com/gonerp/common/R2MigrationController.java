@@ -22,4 +22,10 @@ public class R2MigrationController {
         Map<String, Object> result = r2MigrationService.migrate();
         return ResponseEntity.ok(ApiResponse.ok("Migration completed", result));
     }
+
+    @PostMapping("/regenerate-thumbnails")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> regenerateThumbnails() {
+        Map<String, Object> result = r2MigrationService.regenerateMissingThumbnails();
+        return ResponseEntity.ok(ApiResponse.ok("Thumbnail regeneration completed", result));
+    }
 }

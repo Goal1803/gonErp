@@ -87,6 +87,13 @@
             <version>0.4.20</version>
         </dependency>
 
+        <!-- WebP support for ImageIO (used by Thumbnailator) -->
+        <dependency>
+            <groupId>com.twelvemonkeys.imageio</groupId>
+            <artifactId>imageio-webp</artifactId>
+            <version>3.11.0</version>
+        </dependency>
+
         <!-- Lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>

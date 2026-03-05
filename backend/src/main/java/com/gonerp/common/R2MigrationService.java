@@ -13,12 +13,20 @@ import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
+import software.amazon.awssdk.core.ResponseInputStream;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
+import software.amazon.awssdk.services.s3.model.S3Object;
+
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -146,6 +154,122 @@ public class R2MigrationService {
 
         log.info("Uploaded {} files from {} to R2 prefix '{}'", uploaded.get(), directory, prefix);
         return uploaded.get();
+    }
+
+    private static final Set<String> IMAGE_EXTENSIONS = Set.of(
+            ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".tiff", ".tif"
+    );
+
+    /**
+     * Scans R2 for image files missing a _thumb.jpg and generates them.
+     */
+    public Map<String, Object> regenerateMissingThumbnails() {
+        String[] prefixes = {"images", "taskmanager", "users"};
+        Map<String, Object> result = new LinkedHashMap<>();
+        int totalGenerated = 0;
+        int totalSkipped = 0;
+        int totalFailed = 0;
+
+        ExecutorService executor = Executors.newFixedThreadPool(4);
+
+        for (String prefix : prefixes) {
+            AtomicInteger generated = new AtomicInteger(0);
+            AtomicInteger skipped = new AtomicInteger(0);
+            AtomicInteger failed = new AtomicInteger(0);
+
+            // Collect all existing keys in this prefix to check for thumbs
+            Set<String> existingKeys = java.util.concurrent.ConcurrentHashMap.newKeySet();
+            String continuationToken = null;
+
+            do {
+                var reqBuilder = ListObjectsV2Request.builder()
+                        .bucket(r2Props.getBucket())
+                        .prefix(prefix + "/");
+                if (continuationToken != null) {
+                    reqBuilder.continuationToken(continuationToken);
+                }
+                var response = s3Client.listObjectsV2(reqBuilder.build());
+                for (S3Object obj : response.contents()) {
+                    existingKeys.add(obj.key());
+                }
+                continuationToken = response.isTruncated() ? response.nextContinuationToken() : null;
+            } while (continuationToken != null);
+
+            // Find image files missing thumbnails
+            for (String key : existingKeys) {
+                if (key.contains("_thumb.")) continue;
+
+                String ext = key.contains(".") ? key.substring(key.lastIndexOf('.')).toLowerCase() : "";
+                if (!IMAGE_EXTENSIONS.contains(ext)) continue;
+
+                String baseName = key.substring(0, key.lastIndexOf('.'));
+                String thumbKey = baseName + "_thumb.jpg";
+                if (existingKeys.contains(thumbKey)) {
+                    skipped.incrementAndGet();
+                    continue;
+                }
+
+                executor.submit(() -> {
+                    try {
+                        ResponseInputStream<GetObjectResponse> obj = s3Client.getObject(
+                                GetObjectRequest.builder()
+                                        .bucket(r2Props.getBucket())
+                                        .key(key)
+                                        .build());
+
+                        String contentType = obj.response().contentType();
+                        byte[] fileBytes = obj.readAllBytes();
+                        byte[] thumbBytes = ImageUtil.generateThumbnailBytes(
+                                new ByteArrayInputStream(fileBytes), contentType);
+
+                        if (thumbBytes != null) {
+                            s3Client.putObject(
+                                    PutObjectRequest.builder()
+                                            .bucket(r2Props.getBucket())
+                                            .key(thumbKey)
+                                            .contentType("image/jpeg")
+                                            .build(),
+                                    RequestBody.fromBytes(thumbBytes));
+                            generated.incrementAndGet();
+                            log.info("Generated thumbnail: {}", thumbKey);
+                        } else {
+                            failed.incrementAndGet();
+                            log.warn("Could not generate thumbnail for: {}", key);
+                        }
+                    } catch (Exception e) {
+                        failed.incrementAndGet();
+                        log.error("Failed to generate thumbnail for {}: {}", key, e.getMessage());
+                    }
+                });
+            }
+
+            executor.shutdown();
+            try {
+                executor.awaitTermination(1, java.util.concurrent.TimeUnit.HOURS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            executor = Executors.newFixedThreadPool(4); // fresh pool for next prefix
+
+            result.put(prefix, Map.of(
+                    "generated", generated.get(),
+                    "skipped", skipped.get(),
+                    "failed", failed.get()
+            ));
+            totalGenerated += generated.get();
+            totalSkipped += skipped.get();
+            totalFailed += failed.get();
+        }
+
+        result.put("total", Map.of(
+                "generated", totalGenerated,
+                "skipped", totalSkipped,
+                "failed", totalFailed
+        ));
+
+        log.info("Thumbnail regeneration complete: generated={}, skipped={}, failed={}",
+                totalGenerated, totalSkipped, totalFailed);
+        return result;
     }
 
     private boolean existsInR2(String key) {
