@@ -85,14 +85,8 @@ public class R2MigrationService {
                 "UPDATE tm_design_mockups SET url = REPLACE(url, '/api/tasks/files/', ?) WHERE url LIKE '/api/tasks/files/%'",
                 publicUrl + "/taskmanager/"));
 
-        // tm_card_comments.image_urls is a text[] array column - need special handling
         dbUpdates.put("tm_card_comments", jdbcTemplate.update(
-                "UPDATE tm_card_comments SET image_urls = (" +
-                "  SELECT array_agg(REPLACE(elem, '/api/tasks/files/', ?)) " +
-                "  FROM unnest(image_urls) AS elem" +
-                ") WHERE EXISTS (" +
-                "  SELECT 1 FROM unnest(image_urls) AS elem WHERE elem LIKE '/api/tasks/files/%'" +
-                ")",
+                "UPDATE tm_card_comments SET image_urls = REPLACE(image_urls, '/api/tasks/files/', ?) WHERE image_urls LIKE '%/api/tasks/files/%'",
                 publicUrl + "/taskmanager/"));
 
         result.put("databaseUpdates", dbUpdates);
