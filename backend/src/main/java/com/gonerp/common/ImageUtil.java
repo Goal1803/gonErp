@@ -4,7 +4,9 @@ import net.coobird.thumbnailator.Thumbnails;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
@@ -87,6 +89,25 @@ public final class ImageUtil {
         }
 
         return Map.of("generated", generated, "skipped", skipped, "failed", failed);
+    }
+
+    public static byte[] generateThumbnailBytes(InputStream inputStream, String contentType) {
+        if (contentType == null || !contentType.startsWith("image/")) return null;
+        String lower = contentType.toLowerCase();
+        if (lower.contains("psd") || lower.contains("photoshop") || lower.contains("svg")) return null;
+
+        try {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            Thumbnails.of(inputStream)
+                    .width(THUMB_MAX_WIDTH)
+                    .outputFormat("jpg")
+                    .outputQuality(THUMB_QUALITY)
+                    .toOutputStream(baos);
+            return baos.toByteArray();
+        } catch (Exception e) {
+            log.warn("In-memory thumbnail generation failed: {}", e.getMessage());
+            return null;
+        }
     }
 
     public static void deleteThumbnail(Path directory, String filename) {

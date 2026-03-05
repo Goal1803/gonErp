@@ -1,12 +1,13 @@
 <template>
   <q-avatar :size="size" :style="avatarStyle">
-    <img v-if="user?.avatarUrl" :src="user.avatarUrl + '?thumb=true'" loading="lazy" style="object-fit: cover; width: 100%; height: 100%" />
+    <img v-if="user?.avatarUrl" :src="thumbUrl(user.avatarUrl)" loading="lazy" style="object-fit: cover; width: 100%; height: 100%" />
     <span v-else :style="{ fontSize: fontSize }">{{ initials }}</span>
   </q-avatar>
 </template>
 
 <script setup>
 import { computed } from 'vue'
+import { thumbUrl } from 'src/utils/fileUrl'
 
 const PALETTE = [
   '#e53935', '#d81b60', '#8e24aa', '#5e35b1',

@@ -79,7 +79,7 @@
           class="comment-img-wrap"
         >
           <img
-            :src="url + '?thumb=true'"
+            :src="thumbUrl(url)"
             class="comment-img-thumb"
             loading="lazy"
             @click="$emit('view-images', { images: comment.imageUrls, index: i })"
@@ -150,6 +150,7 @@
 import { ref, computed, nextTick } from 'vue'
 import { useQuasar } from 'quasar'
 import UserAvatar from 'src/components/UserAvatar.vue'
+import { thumbUrl } from 'src/utils/fileUrl'
 
 const props = defineProps({
   comment: { type: Object, required: true },

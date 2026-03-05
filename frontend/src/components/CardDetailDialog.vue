@@ -81,7 +81,7 @@
           </template>
           <template v-else-if="detail.mainImageUrl">
             <img
-              :src="detail.mainImageUrl + '?thumb=true'"
+              :src="thumbUrl(detail.mainImageUrl)"
               class="cover-image"
               style="cursor: pointer"
               @click="openSlideshow({ images: [detail.mainImageUrl], index: 0 })"
@@ -133,7 +133,7 @@
                   class="cover-pick-item"
                   @click="setCoverFromExisting(img); showCoverPicker = false"
                 >
-                  <img :src="img.url + '?thumb=true'" />
+                  <img :src="thumbUrl(img.url)" />
                 </div>
               </div>
               <div v-else class="text-grey-6 text-center q-py-md" style="font-size: 0.78rem">
@@ -858,7 +858,7 @@
                 class="image-thumb-wrap"
               >
                 <img
-                  :src="img.url + '?thumb=true'"
+                  :src="thumbUrl(img.url)"
                   class="image-thumb"
                   loading="lazy"
                   @click.stop="openSlideshow({ images: [img.url], index: 0 })"
@@ -1061,6 +1061,7 @@ import { useAuthStore } from "src/stores/authStore";
 import UserAvatar from "src/components/UserAvatar.vue";
 import CommentSection from "src/components/CommentSection.vue";
 import DesignDetailSection from "src/components/DesignDetailSection.vue";
+import { thumbUrl } from "src/utils/fileUrl";
 
 // ─── Label color presets ──────────────────────────────────────────────────────
 const LABEL_PRESETS = [

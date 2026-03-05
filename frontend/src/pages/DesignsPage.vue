@@ -59,7 +59,7 @@
       <div v-else class="design-grid">
         <div v-for="d in designs" :key="d.id" class="design-card" @click="openDesign(d)">
           <div class="design-card-img">
-            <img v-if="d.mainMockupUrl" :src="d.mainMockupUrl + '?thumb=true'" loading="lazy" />
+            <img v-if="d.mainMockupUrl" :src="thumbUrl(d.mainMockupUrl)" loading="lazy" />
             <div v-else class="design-card-no-img">
               <q-icon name="image" size="32px" color="grey-7" />
             </div>
@@ -179,7 +179,7 @@
               <div v-if="createdMockups.length" class="row q-gutter-sm q-mb-sm" style="flex-wrap:wrap">
                 <div v-for="m in createdMockups" :key="m.id" style="position:relative; width:64px; height:64px; border-radius:6px; overflow:hidden; border:2px solid transparent"
                   :style="m.mainMockup ? 'border-color:#ffc107' : ''">
-                  <img :src="m.url + '?thumb=true'" style="width:100%; height:100%; object-fit:cover" loading="lazy" />
+                  <img :src="thumbUrl(m.url)" style="width:100%; height:100%; object-fit:cover" loading="lazy" />
                   <q-btn flat round dense icon="close" color="red-4" size="8px"
                     style="position:absolute; top:1px; right:1px; background:rgba(0,0,0,0.6)"
                     @click="deleteCreatedMockup(m)" />
@@ -206,6 +206,7 @@ import { ref, onMounted } from 'vue'
 import { useQuasar } from 'quasar'
 import { useAuthStore } from 'src/stores/authStore'
 import { designsApi, lookupApi } from 'src/api/tasks'
+import { thumbUrl } from 'src/utils/fileUrl'
 import DesignViewDialog from 'src/components/DesignViewDialog.vue'
 import DesignConfigDialog from 'src/components/DesignConfigDialog.vue'
 import CardDetailDialog from 'src/components/CardDetailDialog.vue'

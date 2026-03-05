@@ -1,6 +1,7 @@
 package com.gonerp.usermanager.controller;
 
 import com.gonerp.common.ApiResponse;
+import com.gonerp.config.R2StorageProperties;
 import com.gonerp.usermanager.dto.UserRequest;
 import com.gonerp.usermanager.dto.UserResponse;
 import com.gonerp.usermanager.model.enums.UserStatus;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 
@@ -30,6 +32,7 @@ import java.nio.file.Paths;
 public class UserController {
 
     private final UserService userService;
+    private final R2StorageProperties r2Props;
 
     @GetMapping
     public ResponseEntity<ApiResponse<Page<UserResponse>>> findAll(
@@ -84,7 +87,7 @@ public class UserController {
 
     @GetMapping("/files/{filename:.+}")
     @PreAuthorize("permitAll()")
-    public ResponseEntity<Resource> serveFile(
+    public ResponseEntity<?> serveFile(
             @PathVariable String filename,
             @RequestParam(defaultValue = "false") boolean thumb) {
         String resolvedFilename = filename;
@@ -92,24 +95,29 @@ public class UserController {
             String baseName = filename.contains(".")
                     ? filename.substring(0, filename.lastIndexOf('.'))
                     : filename;
-            String thumbName = baseName + "_thumb.jpg";
-            try {
-                Resource thumbResource = userService.loadFileAsResource(thumbName);
-                if (thumbResource.exists()) {
-                    resolvedFilename = thumbName;
-                }
-            } catch (Exception ignored) {}
+            resolvedFilename = baseName + "_thumb.jpg";
         }
+
+        // Try local disk first (backward compat)
         Resource resource = userService.loadFileAsResource(resolvedFilename);
-        String contentType = "application/octet-stream";
-        try {
-            contentType = Files.probeContentType(Paths.get(resolvedFilename));
-            if (contentType == null) contentType = "application/octet-stream";
-        } catch (IOException ignored) {}
-        return ResponseEntity.ok()
-                .contentType(MediaType.parseMediaType(contentType))
-                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + resource.getFilename() + "\"")
+        if (resource != null) {
+            String contentType = "application/octet-stream";
+            try {
+                contentType = Files.probeContentType(Paths.get(resolvedFilename));
+                if (contentType == null) contentType = "application/octet-stream";
+            } catch (IOException ignored) {}
+            return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType(contentType))
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + resource.getFilename() + "\"")
+                    .header(HttpHeaders.CACHE_CONTROL, "public, max-age=31536000, immutable")
+                    .body(resource);
+        }
+
+        // Fallback: redirect to R2
+        String r2Url = r2Props.getPublicUrl() + "/users/" + resolvedFilename;
+        return ResponseEntity.status(HttpStatus.MOVED_PERMANENTLY)
+                .location(URI.create(r2Url))
                 .header(HttpHeaders.CACHE_CONTROL, "public, max-age=31536000, immutable")
-                .body(resource);
+                .build();
     }
 }

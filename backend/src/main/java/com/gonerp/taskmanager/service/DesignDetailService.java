@@ -1,6 +1,7 @@
 package com.gonerp.taskmanager.service;
 
-import com.gonerp.common.ImageUtil;
+import com.gonerp.common.FileStorageService;
+import com.gonerp.config.R2StorageProperties;
 import com.gonerp.taskmanager.dto.*;
 import com.gonerp.taskmanager.websocket.BoardEventPublisher;
 import com.gonerp.taskmanager.model.*;
@@ -12,21 +13,14 @@ import com.gonerp.usermanager.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.hibernate.Hibernate;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -46,9 +40,8 @@ public class DesignDetailService {
     private final BoardEventPublisher eventPublisher;
     private final DesignStaffRoleRepository designStaffRoleRepository;
     private final UserDesignStaffRoleRepository userDesignStaffRoleRepository;
-
-    @Value("${app.upload.taskmanager}")
-    private String uploadDir;
+    private final FileStorageService fileStorageService;
+    private final R2StorageProperties r2Props;
 
     private User getCurrentUser() {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -349,10 +342,10 @@ public class DesignDetailService {
     }
 
     private DesignFileResponse doUploadDesignFile(DesignDetail dd, MultipartFile file, DesignFileCategory category) {
-        String filename = storeFile(file);
+        String url = fileStorageService.store(file, "taskmanager");
         DesignFile designFile = DesignFile.builder()
                 .name(file.getOriginalFilename())
-                .url("/api/tasks/files/" + filename)
+                .url(url)
                 .fileType(file.getContentType())
                 .fileCategory(category)
                 .designDetail(dd)
@@ -369,11 +362,11 @@ public class DesignDetailService {
     }
 
     private DesignMockupResponse doUploadMockup(DesignDetail dd, MultipartFile file) {
-        String filename = storeFile(file);
+        String url = fileStorageService.store(file, "taskmanager");
         boolean isFirst = dd.getMockups().isEmpty();
         DesignMockup mockup = DesignMockup.builder()
                 .name(file.getOriginalFilename())
-                .url("/api/tasks/files/" + filename)
+                .url(url)
                 .fileType(file.getContentType())
                 .mainMockup(isFirst)
                 .designDetail(dd)
@@ -419,29 +412,10 @@ public class DesignDetailService {
         });
     }
 
-    private String storeFile(MultipartFile file) {
-        try {
-            Path uploadPath = Paths.get(uploadDir);
-            if (!Files.exists(uploadPath)) Files.createDirectories(uploadPath);
-            String original = file.getOriginalFilename();
-            String ext = (original != null && original.contains("."))
-                    ? original.substring(original.lastIndexOf('.')) : "";
-            String filename = UUID.randomUUID() + ext;
-            Path filePath = uploadPath.resolve(filename);
-            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
-            ImageUtil.generateThumbnail(filePath, file.getContentType());
-            return filename;
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to store file", e);
-        }
-    }
-
     private void deletePhysicalFile(String url) {
-        if (url == null || !url.startsWith("/api/tasks/files/")) return;
-        String filename = url.substring("/api/tasks/files/".length());
-        try {
-            Files.deleteIfExists(Paths.get(uploadDir).resolve(filename));
-            ImageUtil.deleteThumbnail(Paths.get(uploadDir), filename);
-        } catch (IOException ignored) {}
+        if (url == null) return;
+        if (url.startsWith(r2Props.getPublicUrl())) {
+            fileStorageService.delete(url);
+        }
     }
 }

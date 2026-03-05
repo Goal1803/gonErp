@@ -73,6 +73,13 @@
             <artifactId>spring-boot-starter-websocket</artifactId>
         </dependency>
 
+        <!-- AWS S3 SDK (Cloudflare R2) -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+            <version>2.25.16</version>
+        </dependency>
+
         <!-- Thumbnail generation -->
         <dependency>
             <groupId>net.coobird</groupId>

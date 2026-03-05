@@ -1,6 +1,6 @@
 package com.gonerp.imagemanager.service;
 
-import com.gonerp.common.ImageUtil;
+import com.gonerp.common.FileStorageService;
 import com.gonerp.imagemanager.dto.ImageInfoResponse;
 import com.gonerp.imagemanager.model.ImageInfo;
 import com.gonerp.imagemanager.repository.ImageInfoRepository;
@@ -15,9 +15,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-import java.nio.file.*;
-import java.util.UUID;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 @Service
 @RequiredArgsConstructor
@@ -25,6 +24,7 @@ import java.util.UUID;
 public class ImageInfoService {
 
     private final ImageInfoRepository imageInfoRepository;
+    private final FileStorageService fileStorageService;
 
     @Value("${app.upload.dir}")
     private String uploadDir;
@@ -41,11 +41,11 @@ public class ImageInfoService {
     }
 
     public ImageInfoResponse create(String name, MultipartFile file) {
-        String filename = storeFile(file);
+        String url = fileStorageService.store(file, "images");
         String resolvedName = (name != null && !name.isBlank()) ? name : file.getOriginalFilename();
         ImageInfo image = ImageInfo.builder()
                 .name(resolvedName)
-                .url("/api/images/files/" + filename)
+                .url(url)
                 .build();
         return ImageInfoResponse.from(imageInfoRepository.save(image));
     }
@@ -55,9 +55,9 @@ public class ImageInfoService {
                 .orElseThrow(() -> new EntityNotFoundException("Image not found with id: " + id));
         image.setName(name);
         if (file != null && !file.isEmpty()) {
-            deletePhysicalFile(image.getUrl());
-            String filename = storeFile(file);
-            image.setUrl("/api/images/files/" + filename);
+            fileStorageService.delete(image.getUrl());
+            String url = fileStorageService.store(file, "images");
+            image.setUrl(url);
         }
         return ImageInfoResponse.from(imageInfoRepository.save(image));
     }
@@ -65,10 +65,13 @@ public class ImageInfoService {
     public void delete(Long id) {
         ImageInfo image = imageInfoRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Image not found with id: " + id));
-        deletePhysicalFile(image.getUrl());
+        fileStorageService.delete(image.getUrl());
         imageInfoRepository.deleteById(id);
     }
 
+    /**
+     * Legacy: loads file from local disk (for backward-compat redirect fallback).
+     */
     public Resource loadFileAsResource(String filename) {
         try {
             Path filePath = Paths.get(uploadDir).resolve(filename).normalize();
@@ -76,39 +79,9 @@ public class ImageInfoService {
             if (resource.exists() && resource.isReadable()) {
                 return resource;
             }
-            throw new RuntimeException("File not found: " + filename);
+            return null;
         } catch (Exception e) {
-            throw new RuntimeException("File not found: " + filename, e);
-        }
-    }
-
-    private String storeFile(MultipartFile file) {
-        try {
-            Path uploadPath = Paths.get(uploadDir);
-            if (!Files.exists(uploadPath)) {
-                Files.createDirectories(uploadPath);
-            }
-            String original = file.getOriginalFilename();
-            String ext = (original != null && original.contains("."))
-                    ? original.substring(original.lastIndexOf('.'))
-                    : "";
-            String filename = UUID.randomUUID() + ext;
-            Path filePath = uploadPath.resolve(filename);
-            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
-            ImageUtil.generateThumbnail(filePath, file.getContentType());
-            return filename;
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to store uploaded file", e);
-        }
-    }
-
-    private void deletePhysicalFile(String url) {
-        if (url == null || !url.startsWith("/api/images/files/")) return;
-        String filename = url.substring("/api/images/files/".length());
-        try {
-            Files.deleteIfExists(Paths.get(uploadDir).resolve(filename));
-            ImageUtil.deleteThumbnail(Paths.get(uploadDir), filename);
-        } catch (IOException ignored) {
+            return null;
         }
     }
 }

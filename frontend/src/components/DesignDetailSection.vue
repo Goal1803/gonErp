@@ -59,7 +59,7 @@
         <div v-if="designDetail.mockups?.length" class="mockup-grid q-mb-sm">
           <div v-for="m in designDetail.mockups" :key="m.id" class="mockup-thumb-wrap"
             :class="{ 'mockup-main': m.mainMockup }">
-            <img :src="m.url + '?thumb=true'" class="mockup-thumb" style="cursor:pointer" loading="lazy"
+            <img :src="thumbUrl(m.url)" class="mockup-thumb" style="cursor:pointer" loading="lazy"
               @click="emit('view-images', { images: designDetail.mockups.map(x => x.url), index: designDetail.mockups.indexOf(m) })" />
             <div class="mockup-actions">
               <q-btn flat round dense icon="download" color="white" size="xs"
@@ -148,6 +148,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { useQuasar } from 'quasar'
 import { designApi, lookupApi } from 'src/api/tasks'
+import { thumbUrl } from 'src/utils/fileUrl'
 
 const props = defineProps({
   cardId: { type: Number, required: true },

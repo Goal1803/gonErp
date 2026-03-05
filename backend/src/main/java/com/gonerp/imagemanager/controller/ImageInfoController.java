@@ -1,6 +1,7 @@
 package com.gonerp.imagemanager.controller;
 
 import com.gonerp.common.ApiResponse;
+import com.gonerp.config.R2StorageProperties;
 import com.gonerp.imagemanager.dto.ImageInfoResponse;
 import com.gonerp.imagemanager.service.ImageInfoService;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 
@@ -22,6 +24,7 @@ import java.nio.file.Paths;
 public class ImageInfoController {
 
     private final ImageInfoService imageInfoService;
+    private final R2StorageProperties r2Props;
 
     @GetMapping
     public ResponseEntity<ApiResponse<Page<ImageInfoResponse>>> findAll(
@@ -61,34 +64,48 @@ public class ImageInfoController {
     }
 
     @GetMapping("/files/{filename:.+}")
-    public ResponseEntity<Resource> serveFile(
+    public ResponseEntity<?> serveFile(
             @PathVariable String filename,
             @RequestParam(defaultValue = "false") boolean thumb) {
+        // Resolve thumbnail filename if requested
         String resolvedFilename = filename;
         if (thumb) {
             String baseName = filename.contains(".")
                     ? filename.substring(0, filename.lastIndexOf('.'))
                     : filename;
-            String thumbName = baseName + "_thumb.jpg";
-            try {
-                Resource thumbResource = imageInfoService.loadFileAsResource(thumbName);
-                if (thumbResource.exists()) {
-                    resolvedFilename = thumbName;
-                }
-            } catch (Exception ignored) {}
+            resolvedFilename = baseName + "_thumb.jpg";
         }
+
+        // Try local disk first (backward compat)
         Resource resource = imageInfoService.loadFileAsResource(resolvedFilename);
-        String contentType = "application/octet-stream";
-        try {
-            contentType = Files.probeContentType(Paths.get(resolvedFilename));
-            if (contentType == null) contentType = "application/octet-stream";
-        } catch (IOException ignored) {
+        if (resource != null) {
+            // If thumb was requested but thumbnail doesn't exist, fall back to original
+            if (thumb) {
+                Resource originalResource = imageInfoService.loadFileAsResource(filename);
+                if (originalResource == null) {
+                    resource = null; // will fall through to R2 redirect
+                }
+            }
+            if (resource != null) {
+                String contentType = "application/octet-stream";
+                try {
+                    contentType = Files.probeContentType(Paths.get(resolvedFilename));
+                    if (contentType == null) contentType = "application/octet-stream";
+                } catch (IOException ignored) {}
+                return ResponseEntity.ok()
+                        .contentType(MediaType.parseMediaType(contentType))
+                        .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + resource.getFilename() + "\"")
+                        .header(HttpHeaders.CACHE_CONTROL, "public, max-age=31536000, immutable")
+                        .body(resource);
+            }
         }
-        return ResponseEntity.ok()
-                .contentType(MediaType.parseMediaType(contentType))
-                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + resource.getFilename() + "\"")
+
+        // Fallback: redirect to R2
+        String r2Url = r2Props.getPublicUrl() + "/images/" + resolvedFilename;
+        return ResponseEntity.status(HttpStatus.MOVED_PERMANENTLY)
+                .location(URI.create(r2Url))
                 .header(HttpHeaders.CACHE_CONTROL, "public, max-age=31536000, immutable")
-                .body(resource);
+                .build();
     }
 
     @DeleteMapping("/{id}")

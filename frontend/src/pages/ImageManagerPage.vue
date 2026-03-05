@@ -67,7 +67,7 @@
         <!-- Thumbnail -->
         <div class="thumbnail-wrapper" @click="openViewDialog(image)">
           <img
-            :src="image.url + '?thumb=true'"
+            :src="thumbUrl(image.url)"
             :alt="image.name"
             class="image-thumbnail"
             loading="lazy"
@@ -137,6 +137,7 @@
 import { ref, onMounted } from 'vue'
 import { useQuasar } from 'quasar'
 import { imageApi } from 'src/api/images'
+import { thumbUrl } from 'src/utils/fileUrl'
 import ImageViewDialog from 'src/components/ImageViewDialog.vue'
 import ImageFormDialog from 'src/components/ImageFormDialog.vue'
 

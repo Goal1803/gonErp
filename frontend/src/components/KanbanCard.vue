@@ -11,7 +11,7 @@
 
     <!-- Main image (always square, image fits without cropping) -->
     <div v-if="card.mainImageUrl" class="card-cover">
-      <img :src="card.mainImageUrl + '?thumb=true'" class="card-cover-inner" alt="" loading="lazy" />
+      <img :src="thumbUrl(card.mainImageUrl)" class="card-cover-inner" alt="" loading="lazy" />
     </div>
 
     <div class="card-body">
@@ -63,6 +63,7 @@
 
 <script setup>
 import UserAvatar from 'src/components/UserAvatar.vue'
+import { thumbUrl } from 'src/utils/fileUrl'
 
 defineProps({ card: { type: Object, required: true } })
 defineEmits(['open', 'delete'])

@@ -1,6 +1,6 @@
 package com.gonerp.taskmanager.service;
 
-import com.gonerp.common.ImageUtil;
+import com.gonerp.common.FileStorageService;
 import com.gonerp.taskmanager.dto.*;
 import com.gonerp.taskmanager.event.NotificationEvent;
 import com.gonerp.taskmanager.model.*;
@@ -18,14 +18,15 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
+import com.gonerp.config.R2StorageProperties;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-import java.nio.file.*;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -51,6 +52,8 @@ public class CardService {
     private final UserRepository userRepository;
     private final BoardEventPublisher eventPublisher;
     private final ApplicationEventPublisher appEventPublisher;
+    private final FileStorageService fileStorageService;
+    private final R2StorageProperties r2Props;
 
     @Value("${app.upload.taskmanager}")
     private String uploadDir;
@@ -348,8 +351,7 @@ public class CardService {
     public String uploadCommentImage(Long cardId, MultipartFile file) {
         Card card = getCardOrThrow(cardId);
         checkBoardAccess(card.getColumn());
-        String filename = storeFile(file);
-        return "/api/tasks/files/" + filename;
+        return fileStorageService.store(file, "taskmanager");
     }
 
     public CommentResponse updateComment(Long cardId, Long commentId, CommentRequest request) {
@@ -386,11 +388,11 @@ public class CardService {
     public AttachmentResponse uploadAttachment(Long cardId, MultipartFile file, String name) {
         Card card = getCardOrThrow(cardId);
         checkBoardAccess(card.getColumn());
-        String filename = storeFile(file);
+        String url = fileStorageService.store(file, "taskmanager");
         String resolvedName = (name != null && !name.isBlank()) ? name : file.getOriginalFilename();
         CardAttachment attachment = CardAttachment.builder()
                 .name(resolvedName)
-                .url("/api/tasks/files/" + filename)
+                .url(url)
                 .fileType(file.getContentType())
                 .card(card)
                 .build();
@@ -526,36 +528,17 @@ public class CardService {
             Path filePath = Paths.get(uploadDir).resolve(filename).normalize();
             Resource resource = new UrlResource(filePath.toUri());
             if (resource.exists() && resource.isReadable()) return resource;
-            throw new RuntimeException("File not found: " + filename);
+            return null;
         } catch (Exception e) {
-            throw new RuntimeException("File not found: " + filename, e);
-        }
-    }
-
-    private String storeFile(MultipartFile file) {
-        try {
-            Path uploadPath = Paths.get(uploadDir);
-            if (!Files.exists(uploadPath)) Files.createDirectories(uploadPath);
-            String original = file.getOriginalFilename();
-            String ext = (original != null && original.contains("."))
-                    ? original.substring(original.lastIndexOf('.')) : "";
-            String filename = UUID.randomUUID() + ext;
-            Path filePath = uploadPath.resolve(filename);
-            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
-            ImageUtil.generateThumbnail(filePath, file.getContentType());
-            return filename;
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to store file", e);
+            return null;
         }
     }
 
     private void deletePhysicalFile(String url) {
-        if (url == null || !url.startsWith("/api/tasks/files/")) return;
-        String filename = url.substring("/api/tasks/files/".length());
-        try {
-            Files.deleteIfExists(Paths.get(uploadDir).resolve(filename));
-            ImageUtil.deleteThumbnail(Paths.get(uploadDir), filename);
-        } catch (IOException ignored) {}
+        if (url == null) return;
+        if (url.startsWith(r2Props.getPublicUrl())) {
+            fileStorageService.delete(url);
+        }
     }
 
     private void logActivity(Card card, String action) {

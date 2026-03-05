@@ -2,8 +2,9 @@ package com.gonerp.usermanager.service;
 
 import com.gonerp.auth.dto.ChangePasswordRequest;
 import com.gonerp.auth.dto.ProfileUpdateRequest;
-import com.gonerp.common.ImageUtil;
+import com.gonerp.common.FileStorageService;
 import com.gonerp.common.OrgContext;
+import com.gonerp.config.R2StorageProperties;
 import com.gonerp.organization.model.Organization;
 import com.gonerp.usermanager.dto.UserRequest;
 import com.gonerp.usermanager.dto.UserResponse;
@@ -28,13 +29,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.util.List;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -44,6 +41,8 @@ public class UserService implements UserDetailsService {
     private final UserRepository userRepository;
     private final UserRoleRepository userRoleRepository;
     private final PasswordEncoder passwordEncoder;
+    private final FileStorageService fileStorageService;
+    private final R2StorageProperties r2Props;
 
     @Value("${app.upload.users}")
     private String uploadDir;
@@ -156,8 +155,8 @@ public class UserService implements UserDetailsService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException("User not found with id: " + userId));
         deletePhysicalFile(user.getAvatarUrl());
-        String filename = storeFile(file);
-        user.setAvatarUrl("/api/users/files/" + filename);
+        String url = fileStorageService.store(file, "users");
+        user.setAvatarUrl(url);
         return UserResponse.from(userRepository.save(user));
     }
 
@@ -190,8 +189,8 @@ public class UserService implements UserDetailsService {
         User user = userRepository.findByUserName(userName)
                 .orElseThrow(() -> new EntityNotFoundException("User not found: " + userName));
         deletePhysicalFile(user.getAvatarUrl());
-        String filename = storeFile(file);
-        user.setAvatarUrl("/api/users/files/" + filename);
+        String url = fileStorageService.store(file, "users");
+        user.setAvatarUrl(url);
         return UserResponse.from(userRepository.save(user));
     }
 
@@ -221,35 +220,16 @@ public class UserService implements UserDetailsService {
             Path filePath = Paths.get(uploadDir).resolve(filename).normalize();
             Resource resource = new UrlResource(filePath.toUri());
             if (resource.exists() && resource.isReadable()) return resource;
-            throw new RuntimeException("File not found: " + filename);
+            return null;
         } catch (Exception e) {
-            throw new RuntimeException("File not found: " + filename, e);
-        }
-    }
-
-    private String storeFile(MultipartFile file) {
-        try {
-            Path uploadPath = Paths.get(uploadDir);
-            if (!Files.exists(uploadPath)) Files.createDirectories(uploadPath);
-            String original = file.getOriginalFilename();
-            String ext = (original != null && original.contains("."))
-                    ? original.substring(original.lastIndexOf('.')) : "";
-            String filename = UUID.randomUUID() + ext;
-            Path filePath = uploadPath.resolve(filename);
-            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
-            ImageUtil.generateThumbnail(filePath, file.getContentType());
-            return filename;
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to store file", e);
+            return null;
         }
     }
 
     private void deletePhysicalFile(String url) {
-        if (url == null || !url.startsWith("/api/users/files/")) return;
-        String filename = url.substring("/api/users/files/".length());
-        try {
-            Files.deleteIfExists(Paths.get(uploadDir).resolve(filename));
-            ImageUtil.deleteThumbnail(Paths.get(uploadDir), filename);
-        } catch (IOException ignored) {}
+        if (url == null) return;
+        if (url.startsWith(r2Props.getPublicUrl())) {
+            fileStorageService.delete(url);
+        }
     }
 }
