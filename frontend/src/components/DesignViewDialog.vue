@@ -279,6 +279,7 @@ import { ref, computed, watch, nextTick } from 'vue'
 import { useQuasar } from 'quasar'
 import { designApi, designsApi, lookupApi } from 'src/api/tasks'
 import { useAuthStore } from 'src/stores/authStore'
+import { downloadUrl } from 'src/utils/fileUrl'
 
 const $q = useQuasar()
 const authStore = useAuthStore()
@@ -361,11 +362,7 @@ const formatDate = (d) => d ? new Date(d).toLocaleString() : '-'
 
 const downloadFile = async (url, filename) => {
   try {
-    if (url.startsWith('http') && !url.startsWith(window.location.origin)) {
-      window.open(url, '_blank')
-      return
-    }
-    const res = await fetch(url)
+    const res = await fetch(downloadUrl(url))
     const blob = await res.blob()
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)

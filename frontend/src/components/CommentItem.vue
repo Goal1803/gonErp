@@ -150,7 +150,7 @@
 import { ref, computed, nextTick } from 'vue'
 import { useQuasar } from 'quasar'
 import UserAvatar from 'src/components/UserAvatar.vue'
-import { thumbUrl } from 'src/utils/fileUrl'
+import { thumbUrl, downloadUrl } from 'src/utils/fileUrl'
 
 const props = defineProps({
   comment: { type: Object, required: true },
@@ -266,11 +266,7 @@ const formatDate = (d) => (d ? new Date(d).toLocaleString() : '')
 
 const downloadFile = async (url) => {
   try {
-    if (url.startsWith('http') && !url.startsWith(window.location.origin)) {
-      window.open(url, '_blank')
-      return
-    }
-    const res = await fetch(url)
+    const res = await fetch(downloadUrl(url))
     const blob = await res.blob()
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)

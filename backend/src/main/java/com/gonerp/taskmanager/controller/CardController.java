@@ -1,6 +1,7 @@
 package com.gonerp.taskmanager.controller;
 
 import com.gonerp.common.ApiResponse;
+import com.gonerp.common.FileStorageService;
 import com.gonerp.config.R2StorageProperties;
 import com.gonerp.taskmanager.dto.*;
 import com.gonerp.taskmanager.service.CardService;
@@ -23,6 +24,7 @@ public class CardController {
 
     private final CardService cardService;
     private final R2StorageProperties r2Props;
+    private final FileStorageService fileStorageService;
 
     @PostMapping("/columns/{columnId}/cards")
     public ResponseEntity<ApiResponse<CardDetailResponse>> create(
@@ -199,11 +201,17 @@ public class CardController {
                     .body(resource);
         }
 
-        // Fallback: redirect to R2
-        String r2Url = r2Props.getPublicUrl() + "/taskmanager/" + resolvedFilename;
-        return ResponseEntity.status(HttpStatus.MOVED_PERMANENTLY)
-                .location(URI.create(r2Url))
-                .header(HttpHeaders.CACHE_CONTROL, "public, max-age=31536000, immutable")
-                .build();
+        // Fallback: proxy from R2
+        Resource r2Resource = fileStorageService.loadFromR2("taskmanager/" + resolvedFilename);
+        if (r2Resource != null) {
+            String ct = "application/octet-stream";
+            try { ct = Files.probeContentType(Paths.get(resolvedFilename)); if (ct == null) ct = "application/octet-stream"; } catch (IOException ignored) {}
+            return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType(ct))
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + resolvedFilename + "\"")
+                    .header(HttpHeaders.CACHE_CONTROL, "public, max-age=31536000, immutable")
+                    .body(r2Resource);
+        }
+        return ResponseEntity.notFound().build();
     }
 }

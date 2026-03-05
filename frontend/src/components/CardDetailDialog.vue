@@ -1061,7 +1061,7 @@ import { useAuthStore } from "src/stores/authStore";
 import UserAvatar from "src/components/UserAvatar.vue";
 import CommentSection from "src/components/CommentSection.vue";
 import DesignDetailSection from "src/components/DesignDetailSection.vue";
-import { thumbUrl } from "src/utils/fileUrl";
+import { thumbUrl, downloadUrl } from "src/utils/fileUrl";
 
 // ─── Label color presets ──────────────────────────────────────────────────────
 const LABEL_PRESETS = [
@@ -1468,12 +1468,7 @@ const onLightboxKeydown = (e) => {
 
 const downloadFile = async (url, filename) => {
   try {
-    if (url.startsWith("http") && !url.startsWith(window.location.origin)) {
-      // External URL (R2) — open directly to avoid CORS
-      window.open(url, "_blank");
-      return;
-    }
-    const res = await fetch(url);
+    const res = await fetch(downloadUrl(url));
     const blob = await res.blob();
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);

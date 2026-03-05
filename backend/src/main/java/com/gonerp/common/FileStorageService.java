@@ -6,9 +6,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.core.io.Resource;
+import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 import java.io.IOException;
@@ -92,6 +97,23 @@ public class FileStorageService {
         if (url == null) return null;
         int dot = url.lastIndexOf('.');
         return dot == -1 ? url : url.substring(0, dot) + "_thumb.jpg";
+    }
+
+    /**
+     * Downloads a file from R2 by key and returns it as a Resource.
+     */
+    public Resource loadFromR2(String key) {
+        try {
+            ResponseInputStream<GetObjectResponse> response = s3Client.getObject(
+                    GetObjectRequest.builder()
+                            .bucket(r2Props.getBucket())
+                            .key(key)
+                            .build());
+            return new InputStreamResource(response);
+        } catch (Exception e) {
+            log.warn("Failed to load from R2 {}: {}", key, e.getMessage());
+            return null;
+        }
     }
 
     private String thumbnailKey(String key) {
