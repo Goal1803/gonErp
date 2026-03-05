@@ -81,6 +81,9 @@ jobs:
     needs: build-and-push
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Configure SSH
         env:
           SSH_KEY_B64: ${{ secrets.VPS_SSH_KEY }}
@@ -89,6 +92,10 @@ jobs:
           echo "$SSH_KEY_B64" | base64 -d > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Sync docker-compose.yml to VPS
+        run: |
+          scp -i ~/.ssh/deploy_key docker-compose.yml ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/opt/gonerp/docker-compose.yml
 
       - name: Deploy to VPS
         run: |
