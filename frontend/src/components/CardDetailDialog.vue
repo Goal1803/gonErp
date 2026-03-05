@@ -1468,6 +1468,11 @@ const onLightboxKeydown = (e) => {
 
 const downloadFile = async (url, filename) => {
   try {
+    if (url.startsWith("http") && !url.startsWith(window.location.origin)) {
+      // External URL (R2) — open directly to avoid CORS
+      window.open(url, "_blank");
+      return;
+    }
     const res = await fetch(url);
     const blob = await res.blob();
     const a = document.createElement("a");
