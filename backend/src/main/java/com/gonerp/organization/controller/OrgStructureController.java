@@ -4,7 +4,7 @@ import com.gonerp.common.ApiResponse;
 import com.gonerp.organization.dto.OrgStructureRequest;
 import com.gonerp.organization.dto.OrgStructureResponse;
 import com.gonerp.organization.service.OrgStructureService;
-import com.gonerp.usermanager.dto.UserResponse;
+import com.gonerp.organization.dto.GroupMemberResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -101,8 +101,24 @@ public class OrgStructureController {
     }
 
     @GetMapping("/user-groups/{id}/members")
-    public ResponseEntity<ApiResponse<List<UserResponse>>> getGroupMembers(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<List<GroupMemberResponse>>> getGroupMembers(@PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.ok(orgStructureService.getGroupMembers(id)));
+    }
+
+    @PatchMapping("/user-groups/{groupId}/members/{userId}/role")
+    public ResponseEntity<ApiResponse<Void>> changeGroupRole(
+            @PathVariable Long groupId, @PathVariable Long userId,
+            @RequestParam String role) {
+        orgStructureService.changeGroupRole(userId, groupId,
+                com.gonerp.organization.model.enums.GroupRole.valueOf(role));
+        return ResponseEntity.ok(ApiResponse.ok("Group role updated", null));
+    }
+
+    @PatchMapping("/user-groups/{groupId}/transfer-ownership/{userId}")
+    public ResponseEntity<ApiResponse<Void>> transferOwnership(
+            @PathVariable Long groupId, @PathVariable Long userId) {
+        orgStructureService.transferOwnership(userId, groupId);
+        return ResponseEntity.ok(ApiResponse.ok("Ownership transferred", null));
     }
 
     // ─── User Assignments ────────────────────────────────────────────────

@@ -158,12 +158,34 @@
                 {{ props.row.firstName }} {{ props.row.lastName }}
               </q-td>
             </template>
+            <template #body-cell-role="props">
+              <q-td :props="props" auto-width>
+                <q-chip v-if="props.row.groupRole === 'OWNER'" dense square size="sm" color="deep-purple-9" text-color="white"
+                  label="Owner" icon="star" />
+                <q-chip v-else-if="props.row.groupRole === 'ADMIN'" dense square size="sm" color="amber-9" text-color="white"
+                  label="Admin" icon="shield" />
+                <span v-else class="text-grey-6 text-caption">Member</span>
+              </q-td>
+            </template>
             <template #body-cell-actions="props">
               <q-td :props="props" auto-width>
-                <q-btn flat round dense icon="person_remove" color="red-5" size="sm"
-                  @click="confirmRemoveMember(props.row)">
-                  <q-tooltip>Remove from group</q-tooltip>
-                </q-btn>
+                <template v-if="props.row.groupRole !== 'OWNER'">
+                  <q-btn flat round dense
+                    :icon="props.row.groupRole === 'ADMIN' ? 'remove_moderator' : 'add_moderator'"
+                    :color="props.row.groupRole === 'ADMIN' ? 'orange-5' : 'blue-5'" size="sm"
+                    @click="toggleAdmin(props.row)">
+                    <q-tooltip>{{ props.row.groupRole === 'ADMIN' ? 'Demote to member' : 'Make admin' }}</q-tooltip>
+                  </q-btn>
+                  <q-btn flat round dense icon="swap_horiz" color="deep-purple-5" size="sm"
+                    @click="confirmTransferOwnership(props.row)">
+                    <q-tooltip>Transfer Group Ownership</q-tooltip>
+                  </q-btn>
+                  <q-btn flat round dense icon="person_remove" color="red-5" size="sm"
+                    @click="confirmRemoveMember(props.row)">
+                    <q-tooltip>Remove from group</q-tooltip>
+                  </q-btn>
+                </template>
+                <span v-else class="text-grey-7 text-caption">Owner</span>
               </q-td>
             </template>
             <template #no-data>
@@ -286,7 +308,9 @@ const confirmDelete = (item) => {
   $q.dialog({
     title: `Delete ${cfg.label}`,
     message: `Delete <strong>${item.name}</strong>?`,
-    html: true, cancel: true, color: 'negative'
+    html: true,
+    cancel: { label: 'Cancel', flat: true, color: 'grey-5' },
+    ok: { label: 'Delete', unelevated: true, color: 'negative' }
   }).onOk(async () => {
     try {
       await cfg.delete(item.id)
@@ -319,6 +343,7 @@ const memberColumns = [
   { name: 'avatar', label: '', field: 'avatarUrl', align: 'left', style: 'width: 48px' },
   { name: 'userName', label: 'Username', field: 'userName', sortable: true, align: 'left' },
   { name: 'name', label: 'Name', field: 'firstName', sortable: true, align: 'left' },
+  { name: 'role', label: 'Role', field: 'groupRole', sortable: true, align: 'left' },
   { name: 'actions', label: '', field: 'actions', align: 'center' }
 ]
 
@@ -397,11 +422,69 @@ const addMember = async () => {
   }
 }
 
+const toggleAdmin = (user) => {
+  const newRole = user.groupRole === 'ADMIN' ? 'MEMBER' : 'ADMIN'
+  const isPromoting = newRole === 'ADMIN'
+  $q.dialog({
+    title: isPromoting ? 'Make Group Admin' : 'Remove Group Admin',
+    message: isPromoting
+      ? `Promote <strong>${user.firstName} ${user.lastName}</strong> to Admin of <strong>${membersDialog.value.group.name}</strong>?`
+        + `<br><br><strong>What this means:</strong>`
+        + `<ul>`
+        + `<li>This user will be able to add and remove regular members from the group.</li>`
+        + `<li>Admins cannot modify other admins or the group owner.</li>`
+        + `</ul>`
+      : `Demote <strong>${user.firstName} ${user.lastName}</strong> to regular member of <strong>${membersDialog.value.group.name}</strong>?`
+        + `<br><br><strong>What this means:</strong>`
+        + `<ul>`
+        + `<li>This user will lose the ability to manage group members.</li>`
+        + `<li>They will remain a member of the group.</li>`
+        + `</ul>`,
+    html: true,
+    cancel: { label: 'Cancel', flat: true, color: 'grey-5' },
+    ok: { label: isPromoting ? 'Make Admin' : 'Demote', unelevated: true, color: isPromoting ? 'primary' : 'orange' }
+  }).onOk(async () => {
+    try {
+      await orgStructureApi.changeGroupRole(membersDialog.value.group.id, user.id, newRole)
+      await loadMembers()
+      $q.notify({ type: 'positive', message: isPromoting ? 'Admin granted' : 'Demoted to member' })
+    } catch (err) {
+      $q.notify({ type: 'negative', message: err.response?.data?.message || 'Failed to change role' })
+    }
+  })
+}
+
+const confirmTransferOwnership = (user) => {
+  $q.dialog({
+    title: 'Transfer Group Ownership',
+    message: `Are you sure you want to transfer ownership of <strong>${membersDialog.value.group.name}</strong> to <strong>${user.firstName} ${user.lastName}</strong>?`
+      + `<br><br><strong>What this means:</strong>`
+      + `<ul>`
+      + `<li>The new owner will have full control over this group, including managing all members and admins.</li>`
+      + `<li>The current owner will be demoted to Admin role.</li>`
+      + `<li>Each group can only have one owner. This action is immediate.</li>`
+      + `</ul>`,
+    html: true,
+    cancel: { label: 'Cancel', flat: true, color: 'grey-5' },
+    ok: { label: 'Transfer', unelevated: true, color: 'deep-purple' }
+  }).onOk(async () => {
+    try {
+      await orgStructureApi.transferOwnership(membersDialog.value.group.id, user.id)
+      await loadMembers()
+      $q.notify({ type: 'positive', message: 'Ownership transferred' })
+    } catch (err) {
+      $q.notify({ type: 'negative', message: err.response?.data?.message || 'Failed to transfer ownership' })
+    }
+  })
+}
+
 const confirmRemoveMember = (user) => {
   $q.dialog({
     title: 'Remove Member',
     message: `Remove <strong>${user.firstName} ${user.lastName}</strong> from <strong>${membersDialog.value.group.name}</strong>?`,
-    html: true, cancel: true, color: 'negative'
+    html: true,
+    cancel: { label: 'Cancel', flat: true, color: 'grey-5' },
+    ok: { label: 'Remove', unelevated: true, color: 'negative' }
   }).onOk(async () => {
     try {
       await orgStructureApi.removeUserGroup(user.id, membersDialog.value.group.id)

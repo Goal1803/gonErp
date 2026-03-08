@@ -7,7 +7,8 @@ import com.gonerp.organization.model.*;
 import com.gonerp.organization.repository.*;
 import com.gonerp.usermanager.model.User;
 import com.gonerp.usermanager.repository.UserRepository;
-import com.gonerp.usermanager.dto.UserResponse;
+import com.gonerp.organization.dto.GroupMemberResponse;
+import com.gonerp.organization.model.enums.GroupRole;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
@@ -281,22 +282,58 @@ public class OrgStructureService {
         UserGroup group = userGroupRepository.findById(userGroupId)
                 .orElseThrow(() -> new EntityNotFoundException("User group not found: " + userGroupId));
         if (!userUserGroupRepository.existsByUserIdAndUserGroupId(userId, userGroupId)) {
-            userUserGroupRepository.save(UserUserGroup.builder().user(user).userGroup(group).build());
+            // First member becomes OWNER
+            boolean hasOwner = userUserGroupRepository.findByUserGroupIdAndGroupRole(userGroupId, GroupRole.OWNER).isPresent();
+            GroupRole role = hasOwner ? GroupRole.MEMBER : GroupRole.OWNER;
+            userUserGroupRepository.save(UserUserGroup.builder()
+                    .user(user).userGroup(group).groupRole(role).build());
         }
     }
 
     public void removeUserGroup(Long userId, Long userGroupId) {
-        userUserGroupRepository.deleteByUserIdAndUserGroupId(userId, userGroupId);
+        UserUserGroup uug = userUserGroupRepository.findByUserIdAndUserGroupId(userId, userGroupId)
+                .orElseThrow(() -> new EntityNotFoundException("User is not a member of this group"));
+        if (uug.getGroupRole() == GroupRole.OWNER) {
+            throw new IllegalArgumentException("Cannot remove the group owner. Transfer ownership first.");
+        }
+        userUserGroupRepository.delete(uug);
     }
 
     // ─── Group members ─────────────────────────────────────────────────
 
-    public List<UserResponse> getGroupMembers(Long groupId) {
+    public List<GroupMemberResponse> getGroupMembers(Long groupId) {
         userGroupRepository.findById(groupId)
                 .orElseThrow(() -> new EntityNotFoundException("User group not found: " + groupId));
         return userUserGroupRepository.findByUserGroupId(groupId).stream()
-                .map(uug -> UserResponse.from(uug.getUser()))
+                .map(GroupMemberResponse::from)
                 .toList();
+    }
+
+    public void changeGroupRole(Long userId, Long userGroupId, GroupRole newRole) {
+        UserUserGroup uug = userUserGroupRepository.findByUserIdAndUserGroupId(userId, userGroupId)
+                .orElseThrow(() -> new EntityNotFoundException("User is not a member of this group"));
+        if (uug.getGroupRole() == GroupRole.OWNER) {
+            throw new IllegalArgumentException("Cannot change the owner's role. Transfer ownership first.");
+        }
+        if (newRole == GroupRole.OWNER) {
+            throw new IllegalArgumentException("Use the transfer ownership endpoint to assign a new owner.");
+        }
+        uug.setGroupRole(newRole);
+        userUserGroupRepository.save(uug);
+    }
+
+    public void transferOwnership(Long newOwnerUserId, Long userGroupId) {
+        // Demote current owner
+        UserUserGroup currentOwner = userUserGroupRepository.findByUserGroupIdAndGroupRole(userGroupId, GroupRole.OWNER)
+                .orElseThrow(() -> new EntityNotFoundException("No owner found for this group"));
+        currentOwner.setGroupRole(GroupRole.ADMIN);
+        userUserGroupRepository.save(currentOwner);
+
+        // Promote new owner
+        UserUserGroup newOwner = userUserGroupRepository.findByUserIdAndUserGroupId(newOwnerUserId, userGroupId)
+                .orElseThrow(() -> new EntityNotFoundException("User is not a member of this group"));
+        newOwner.setGroupRole(GroupRole.OWNER);
+        userUserGroupRepository.save(newOwner);
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────────
