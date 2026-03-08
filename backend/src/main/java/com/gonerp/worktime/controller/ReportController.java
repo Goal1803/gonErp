@@ -86,6 +86,15 @@ public class ReportController {
         return ResponseEntity.ok(ApiResponse.ok(reportService.getDailyReport(userId, date)));
     }
 
+    @PutMapping("/member/{userId}/daily")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<DailyReportDTO>> editMemberDailyEntry(
+            @PathVariable Long userId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestBody AdminTimeEditRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(reportService.editTimeEntry(userId, date, request)));
+    }
+
     @DeleteMapping("/member/{userId}/daily")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<Void>> resetMemberDailyEntry(

@@ -211,6 +211,66 @@ public class TimeClockService {
         return TimeEntryResponse.from(entry);
     }
 
+    // ── Force Checkout at Midnight ─────────────────────────────────────────────
+
+    public void forceCheckoutAtMidnight(TimeEntry entry, ZoneId zoneId) {
+        if (entry.getStatus() == TimeEntryStatus.CHECKED_OUT) return;
+
+        // Midnight = start of next day in org timezone
+        OffsetDateTime midnight = entry.getWorkDate().plusDays(1)
+                .atStartOfDay(zoneId)
+                .toOffsetDateTime();
+
+        // Close any open break at midnight
+        if (entry.getStatus() == TimeEntryStatus.ON_BREAK) {
+            BreakEntry openBreak = entry.getBreaks().stream()
+                    .filter(b -> b.getEndTime() == null)
+                    .findFirst()
+                    .orElse(null);
+            if (openBreak != null) {
+                openBreak.setEndTime(midnight);
+                int breakDuration = (int) Duration.between(openBreak.getStartTime(), midnight).toMinutes();
+                openBreak.setDurationMinutes(breakDuration);
+                entry.setTotalBreakMinutes(entry.getTotalBreakMinutes() + breakDuration);
+            }
+        }
+
+        // Compute total work minutes
+        long totalMinutes = Duration.between(entry.getCheckInTime(), midnight).toMinutes();
+        int breakMins = entry.getTotalBreakMinutes();
+
+        WorkTimeSettings settings = getSettingsForUser(entry.getUser());
+        boolean breakCountsAsWork = settings != null && settings.isBreakCountsAsWork();
+        int workMinutes = (int) totalMinutes - (breakCountsAsWork ? 0 : breakMins);
+        if (workMinutes < 0) workMinutes = 0;
+
+        entry.setCheckOutTime(midnight);
+        entry.setTotalWorkMinutes(workMinutes);
+        entry.setStatus(TimeEntryStatus.CHECKED_OUT);
+
+        // Detect early departure
+        if (settings != null && settings.isLateEarlyTrackingEnabled()) {
+            LocalTime expectedEnd = settings.getWorkEndTime();
+            if (midnight.atZoneSameInstant(zoneId).toLocalTime().isBefore(expectedEnd)) {
+                entry.setEarlyDeparture(true);
+            }
+        }
+
+        // Compute overtime
+        if (settings != null && settings.isOvertimeTrackingEnabled()) {
+            int dailyExpectedMinutes = (int) (settings.getDailyWorkingHours() * 60);
+            if (workMinutes > dailyExpectedMinutes) {
+                entry.setOvertimeMinutes(workMinutes - dailyExpectedMinutes);
+            }
+        }
+
+        // Append note
+        String note = entry.getDailyNotes() != null ? entry.getDailyNotes() + "\n" : "";
+        entry.setDailyNotes(note + "[Auto-checked out at midnight]");
+
+        timeEntryRepository.save(entry);
+    }
+
     // ── Get Status ──────────────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)

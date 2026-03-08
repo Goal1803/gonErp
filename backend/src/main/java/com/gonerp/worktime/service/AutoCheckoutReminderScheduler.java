@@ -29,6 +29,7 @@ public class AutoCheckoutReminderScheduler {
     private final TimeEntryRepository timeEntryRepository;
     private final WorkTimeSettingsRepository settingsRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final TimeClockService timeClockService;
 
     // Track which entries already got a reminder today (reset daily)
     private final Set<Long> remindedToday = ConcurrentHashMap.newKeySet();
@@ -70,6 +71,37 @@ public class AutoCheckoutReminderScheduler {
                     ));
                     log.info("Sent auto-checkout reminder to user {} (entry {})",
                             entry.getUser().getUserName(), entry.getId());
+                }
+            }
+        }
+    }
+
+    @Scheduled(fixedRate = 60000) // every minute
+    public void checkForMidnightForceCheckout() {
+        List<WorkTimeSettings> allSettings = settingsRepository.findAll();
+        for (WorkTimeSettings settings : allSettings) {
+            ZoneId zoneId = settings.getZoneId();
+            LocalDate today = LocalDate.now(zoneId);
+            LocalDate yesterday = today.minusDays(1);
+            Long orgId = settings.getOrganization().getId();
+
+            // Find entries from yesterday that are still active (CHECKED_IN or ON_BREAK)
+            List<TimeEntry> activeEntries = timeEntryRepository.findByOrganizationIdAndWorkDateAndStatusIn(
+                    orgId, yesterday, List.of(TimeEntryStatus.CHECKED_IN, TimeEntryStatus.ON_BREAK));
+
+            for (TimeEntry entry : activeEntries) {
+                try {
+                    timeClockService.forceCheckoutAtMidnight(entry, zoneId);
+                    eventPublisher.publishEvent(new WorkTimeNotificationEvent(
+                            entry.getUser().getId(),
+                            Set.of(entry.getUser().getId()),
+                            "FORCE_CHECKOUT_MIDNIGHT",
+                            "You were automatically checked out at midnight. Time entries cannot span two days."
+                    ));
+                    log.info("Force checkout at midnight for user {} (entry {})",
+                            entry.getUser().getUserName(), entry.getId());
+                } catch (Exception e) {
+                    log.error("Failed to force checkout user {} at midnight", entry.getUser().getUserName(), e);
                 }
             }
         }

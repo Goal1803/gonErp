@@ -59,6 +59,7 @@ export const worktimeReportApi = {
   getTeamDailyReport: (date) => api.get('/worktime/reports/team/daily', { params: { date } }),
   getTeamMonthlyReport: (year, month) => api.get('/worktime/reports/team/monthly', { params: { year, month } }),
   getMemberDailyReport: (userId, date) => api.get(`/worktime/reports/member/${userId}/daily`, { params: { date } }),
+  editMemberDailyEntry: (userId, date, data) => api.put(`/worktime/reports/member/${userId}/daily`, data, { params: { date } }),
   resetMemberDailyEntry: (userId, date) => api.delete(`/worktime/reports/member/${userId}/daily`, { params: { date } }),
   getMemberWeeklyReport: (userId, weekStart) => api.get(`/worktime/reports/member/${userId}/weekly`, { params: { weekStart } }),
   getMemberMonthlyReport: (userId, year, month) => api.get(`/worktime/reports/member/${userId}/monthly`, { params: { year, month } }),

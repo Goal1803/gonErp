@@ -4,6 +4,8 @@ import com.gonerp.worktime.model.TimeEntry;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import com.gonerp.worktime.model.enums.TimeEntryStatus;
+
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -17,4 +19,6 @@ public interface TimeEntryRepository extends JpaRepository<TimeEntry, Long> {
     List<TimeEntry> findByOrganizationIdAndWorkDate(Long organizationId, LocalDate workDate);
 
     List<TimeEntry> findByOrganizationIdAndWorkDateBetween(Long organizationId, LocalDate start, LocalDate end);
+
+    List<TimeEntry> findByOrganizationIdAndWorkDateAndStatusIn(Long organizationId, LocalDate workDate, List<TimeEntryStatus> statuses);
 }

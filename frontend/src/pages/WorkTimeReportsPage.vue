@@ -645,6 +645,16 @@
                       flat
                       dense
                       no-caps
+                      color="blue-4"
+                      icon="edit"
+                      label="Edit"
+                      class="q-mr-sm"
+                      @click="openEditDialog"
+                    />
+                    <q-btn
+                      flat
+                      dense
+                      no-caps
                       color="red-5"
                       icon="restart_alt"
                       label="Reset Day"
@@ -994,6 +1004,114 @@
       </q-card>
     </q-dialog>
 
+    <!-- Edit Time Entry Dialog -->
+    <q-dialog v-model="showEditDialog" persistent>
+      <q-card style="min-width: 500px; background: var(--erp-bg-elevated); border: 1px solid var(--erp-border);">
+        <q-card-section>
+          <div class="text-h6 text-adaptive">
+            <q-icon name="edit" color="blue-4" class="q-mr-sm" />
+            Edit Time Entry
+          </div>
+          <div class="text-caption text-adaptive-caption q-mt-xs">
+            {{ buildName(selectedMember) }} - {{ formatDisplayDate(memberDailyDate) }}
+          </div>
+        </q-card-section>
+
+        <q-card-section>
+          <!-- Check In / Out Times -->
+          <div class="row q-gutter-md q-mb-md">
+            <div class="col">
+              <q-input
+                v-model="editForm.checkInTime"
+                label="Check In Time"
+                outlined
+                dense
+                color="green-5"
+                type="datetime-local"
+                step="60"
+              />
+            </div>
+            <div class="col">
+              <q-input
+                v-model="editForm.checkOutTime"
+                label="Check Out Time"
+                outlined
+                dense
+                color="green-5"
+                type="datetime-local"
+                step="60"
+              />
+            </div>
+          </div>
+
+          <!-- Daily Notes -->
+          <q-input
+            v-model="editForm.dailyNotes"
+            label="Checkout Note"
+            outlined
+            dense
+            color="green-5"
+            type="textarea"
+            autogrow
+            class="q-mb-md"
+          />
+
+          <!-- Break Entries -->
+          <div class="text-subtitle2 text-adaptive text-weight-bold q-mb-sm">
+            <q-icon name="coffee" color="amber-5" class="q-mr-xs" />
+            Breaks
+            <q-btn flat dense round icon="add" color="green-5" size="sm" class="q-ml-sm" @click="addEditBreak" />
+          </div>
+
+          <div v-for="(brk, idx) in editForm.breaks" :key="idx" class="row items-center q-gutter-sm q-mb-sm">
+            <template v-if="!brk.deleted">
+              <div class="col">
+                <q-input
+                  v-model="brk.startTime"
+                  label="Start"
+                  outlined
+                  dense
+                  color="amber-5"
+                  type="datetime-local"
+                  step="60"
+                />
+              </div>
+              <div class="col">
+                <q-input
+                  v-model="brk.endTime"
+                  label="End"
+                  outlined
+                  dense
+                  color="amber-5"
+                  type="datetime-local"
+                  step="60"
+                />
+              </div>
+              <div>
+                <q-btn flat dense round icon="delete" color="red-5" size="sm" @click="brk.deleted = true" />
+              </div>
+            </template>
+          </div>
+
+          <div v-if="!editForm.breaks.filter(b => !b.deleted).length" class="text-caption text-grey-6 q-pa-sm text-center">
+            No breaks
+          </div>
+        </q-card-section>
+
+        <q-card-actions align="right">
+          <q-btn flat label="Cancel" color="grey-5" no-caps v-close-popup />
+          <q-btn
+            unelevated
+            label="Save"
+            color="green-7"
+            no-caps
+            :loading="savingEdit"
+            @click="saveEditEntry"
+          />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
+
     <!-- Export Dialog -->
     <WorkTimeExportDialog v-model="showExportDialog" />
   </q-page>
@@ -1256,6 +1374,77 @@ async function loadMemberMonthlyReport() {
     memberMonthlyReport.value = null
   } finally {
     loadingMemberMonthly.value = false
+  }
+}
+
+// ── Edit Time Entry ──────────────────────────────────────────────────────────
+
+const showEditDialog = ref(false)
+const savingEdit = ref(false)
+const editForm = ref({ checkInTime: '', checkOutTime: '', dailyNotes: '', breaks: [] })
+
+function toLocalDatetimeStr(isoStr) {
+  if (!isoStr) return ''
+  try {
+    const d = new Date(isoStr)
+    const offset = d.getTimezoneOffset()
+    const local = new Date(d.getTime() - offset * 60000)
+    return local.toISOString().slice(0, 16)
+  } catch { return '' }
+}
+
+function fromLocalDatetimeStr(localStr) {
+  if (!localStr) return null
+  try {
+    const d = new Date(localStr)
+    return d.toISOString()
+  } catch { return null }
+}
+
+function openEditDialog() {
+  const r = memberDailyReport.value
+  if (!r) return
+  editForm.value = {
+    checkInTime: toLocalDatetimeStr(r.checkInTime),
+    checkOutTime: toLocalDatetimeStr(r.checkOutTime),
+    dailyNotes: r.dailyNotes || '',
+    breaks: (r.breaks || []).map(b => ({
+      id: b.id,
+      startTime: toLocalDatetimeStr(b.startTime),
+      endTime: toLocalDatetimeStr(b.endTime),
+      deleted: false
+    }))
+  }
+  showEditDialog.value = true
+}
+
+function addEditBreak() {
+  editForm.value.breaks.push({ id: null, startTime: '', endTime: '', deleted: false })
+}
+
+async function saveEditEntry() {
+  savingEdit.value = true
+  try {
+    const payload = {
+      checkInTime: fromLocalDatetimeStr(editForm.value.checkInTime),
+      checkOutTime: fromLocalDatetimeStr(editForm.value.checkOutTime),
+      dailyNotes: editForm.value.dailyNotes,
+      breaks: editForm.value.breaks.map(b => ({
+        id: b.id,
+        startTime: fromLocalDatetimeStr(b.startTime),
+        endTime: fromLocalDatetimeStr(b.endTime),
+        deleted: b.deleted
+      }))
+    }
+    const res = await worktimeReportApi.editMemberDailyEntry(selectedMember.value.userId, memberDailyDate.value, payload)
+    memberDailyReport.value = res.data.data
+    showEditDialog.value = false
+    $q.notify({ type: 'positive', message: 'Time entry updated successfully' })
+  } catch (e) {
+    console.error('Failed to save edit', e)
+    $q.notify({ type: 'negative', message: e.response?.data?.message || 'Failed to save changes' })
+  } finally {
+    savingEdit.value = false
   }
 }
 

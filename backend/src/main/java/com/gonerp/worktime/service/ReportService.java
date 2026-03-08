@@ -3,22 +3,30 @@ package com.gonerp.worktime.service;
 import com.gonerp.usermanager.model.User;
 import com.gonerp.usermanager.repository.UserRepository;
 import com.gonerp.worktime.dto.*;
+import com.gonerp.worktime.model.BreakEntry;
 import com.gonerp.worktime.model.DayOffRequest;
 import com.gonerp.worktime.model.TimeEntry;
+import com.gonerp.worktime.model.WorkTimeSettings;
 import com.gonerp.worktime.model.enums.DayOffRequestStatus;
+import com.gonerp.worktime.model.enums.TimeEntryStatus;
 import com.gonerp.worktime.repository.DayOffRequestRepository;
 import com.gonerp.worktime.repository.TimeEntryRepository;
+import com.gonerp.worktime.repository.WorkTimeSettingsRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.DayOfWeek;
+import java.time.Duration;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.YearMonth;
+import java.time.ZoneId;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -29,6 +37,7 @@ public class ReportService {
     private final TimeEntryRepository timeEntryRepository;
     private final DayOffRequestRepository dayOffRequestRepository;
     private final UserRepository userRepository;
+    private final WorkTimeSettingsRepository settingsRepository;
 
     // ── My Daily Report ─────────────────────────────────────────────────────────
 
@@ -204,6 +213,116 @@ public class ReportService {
     public void resetDailyEntry(Long userId, LocalDate date) {
         timeEntryRepository.findByUserIdAndWorkDate(userId, date)
                 .ifPresent(timeEntryRepository::delete);
+    }
+
+    @Transactional
+    public DailyReportDTO editTimeEntry(Long userId, LocalDate date, AdminTimeEditRequest request) {
+        TimeEntry entry = timeEntryRepository.findByUserIdAndWorkDate(userId, date)
+                .orElseThrow(() -> new IllegalStateException("No time entry found for this date"));
+
+        // Update check-in/out times
+        if (request.getCheckInTime() != null) {
+            entry.setCheckInTime(request.getCheckInTime());
+        }
+        if (request.getCheckOutTime() != null) {
+            entry.setCheckOutTime(request.getCheckOutTime());
+            entry.setStatus(TimeEntryStatus.CHECKED_OUT);
+        }
+
+        // Update daily notes
+        if (request.getDailyNotes() != null) {
+            entry.setDailyNotes(request.getDailyNotes());
+        }
+
+        // Process break edits
+        if (request.getBreaks() != null) {
+            // Collect IDs of breaks to delete
+            Set<Long> toDelete = request.getBreaks().stream()
+                    .filter(b -> b.isDeleted() && b.getId() != null)
+                    .map(AdminTimeEditRequest.BreakEditDTO::getId)
+                    .collect(Collectors.toSet());
+
+            // Remove deleted breaks
+            entry.getBreaks().removeIf(b -> toDelete.contains(b.getId()));
+
+            for (AdminTimeEditRequest.BreakEditDTO dto : request.getBreaks()) {
+                if (dto.isDeleted()) continue;
+
+                if (dto.getId() != null) {
+                    // Update existing break
+                    entry.getBreaks().stream()
+                            .filter(b -> b.getId().equals(dto.getId()))
+                            .findFirst()
+                            .ifPresent(b -> {
+                                b.setStartTime(dto.getStartTime());
+                                b.setEndTime(dto.getEndTime());
+                                b.setDurationMinutes(dto.getEndTime() != null
+                                        ? (int) Duration.between(dto.getStartTime(), dto.getEndTime()).toMinutes()
+                                        : 0);
+                            });
+                } else {
+                    // Add new break
+                    int duration = dto.getEndTime() != null
+                            ? (int) Duration.between(dto.getStartTime(), dto.getEndTime()).toMinutes()
+                            : 0;
+                    BreakEntry newBreak = BreakEntry.builder()
+                            .timeEntry(entry)
+                            .startTime(dto.getStartTime())
+                            .endTime(dto.getEndTime())
+                            .durationMinutes(duration)
+                            .build();
+                    entry.getBreaks().add(newBreak);
+                }
+            }
+        }
+
+        // Recalculate totals
+        recalculateEntry(entry);
+
+        entry = timeEntryRepository.save(entry);
+        return toDailyReportDTO(entry);
+    }
+
+    private void recalculateEntry(TimeEntry entry) {
+        // Recalculate total break minutes
+        int totalBreakMinutes = entry.getBreaks().stream()
+                .mapToInt(BreakEntry::getDurationMinutes)
+                .sum();
+        entry.setTotalBreakMinutes(totalBreakMinutes);
+
+        // Recalculate total work minutes
+        if (entry.getCheckInTime() != null && entry.getCheckOutTime() != null) {
+            long totalMinutes = Duration.between(entry.getCheckInTime(), entry.getCheckOutTime()).toMinutes();
+
+            WorkTimeSettings settings = getSettingsForUser(entry);
+            boolean breakCountsAsWork = settings != null && settings.isBreakCountsAsWork();
+            int workMinutes = (int) totalMinutes - (breakCountsAsWork ? 0 : totalBreakMinutes);
+            if (workMinutes < 0) workMinutes = 0;
+            entry.setTotalWorkMinutes(workMinutes);
+
+            // Recalculate late arrival / early departure
+            if (settings != null && settings.isLateEarlyTrackingEnabled()) {
+                ZoneId zoneId = settings.getZoneId();
+                LocalTime checkInLocal = entry.getCheckInTime().atZoneSameInstant(zoneId).toLocalTime();
+                LocalTime checkOutLocal = entry.getCheckOutTime().atZoneSameInstant(zoneId).toLocalTime();
+                entry.setLateArrival(checkInLocal.isAfter(settings.getWorkStartTime()));
+                entry.setEarlyDeparture(checkOutLocal.isBefore(settings.getWorkEndTime()));
+            }
+
+            // Recalculate overtime
+            entry.setOvertimeMinutes(0);
+            if (settings != null && settings.isOvertimeTrackingEnabled()) {
+                int dailyExpectedMinutes = (int) (settings.getDailyWorkingHours() * 60);
+                if (workMinutes > dailyExpectedMinutes) {
+                    entry.setOvertimeMinutes(workMinutes - dailyExpectedMinutes);
+                }
+            }
+        }
+    }
+
+    private WorkTimeSettings getSettingsForUser(TimeEntry entry) {
+        if (entry.getOrganization() == null) return null;
+        return settingsRepository.findByOrganizationId(entry.getOrganization().getId()).orElse(null);
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────────
