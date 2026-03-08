@@ -161,6 +161,76 @@
               </q-input>
             </div>
           </div>
+
+          <!-- Work Time Config -->
+          <div class="q-mt-lg">
+            <q-separator class="q-mb-md" />
+            <div class="text-subtitle2 text-adaptive q-mb-sm flex items-center">
+              <q-icon name="schedule" color="amber-5" class="q-mr-sm" />
+              Work Time Configuration
+            </div>
+            <div v-if="isEdit && loadingWtConfig" class="text-center q-pa-sm">
+              <q-spinner color="green-5" size="24px" />
+            </div>
+            <div v-else class="row q-col-gutter-md">
+              <div class="col-12">
+                <q-select
+                  v-model="wtConfig.timezoneId"
+                  :options="filteredTimezones"
+                  label="Timezone"
+                  outlined
+                  color="green-5"
+                  use-input
+                  input-debounce="200"
+                  @filter="filterTimezones"
+                  emit-value
+                  map-options
+                />
+              </div>
+              <div class="col-6">
+                <q-input
+                  v-model="wtConfig.workStartTime"
+                  label="Work Start Time"
+                  outlined
+                  color="green-5"
+                  type="time"
+                />
+              </div>
+              <div class="col-6">
+                <q-input
+                  v-model="wtConfig.workEndTime"
+                  label="Work End Time"
+                  outlined
+                  color="green-5"
+                  type="time"
+                />
+              </div>
+              <div class="col-6">
+                <q-input
+                  v-model.number="wtConfig.dailyWorkingHours"
+                  label="Daily Work Hours"
+                  outlined
+                  color="green-5"
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  max="24"
+                />
+              </div>
+              <div class="col-6">
+                <q-input
+                  v-model.number="wtConfig.weeklyWorkingHours"
+                  label="Weekly Work Hours"
+                  outlined
+                  color="green-5"
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  max="168"
+                />
+              </div>
+            </div>
+          </div>
         </q-form>
       </q-card-section>
 
@@ -183,6 +253,7 @@ import { ref, computed, watch } from 'vue'
 import { useQuasar } from 'quasar'
 import { userApi } from 'src/api/users'
 import { orgStructureApi } from 'src/api/organizations'
+import { worktimeUserConfigApi } from 'src/api/worktime'
 import UserAvatar from 'src/components/UserAvatar.vue'
 
 const props = defineProps({
@@ -226,6 +297,55 @@ const form = ref({ ...defaultForm })
 
 const currentAvatarUrl = ref(null)
 const uploadingAvatar = ref(false)
+
+// Work Time Config
+const loadingWtConfig = ref(false)
+const defaultWtConfig = {
+  timezoneId: 'Asia/Ho_Chi_Minh',
+  workStartTime: '09:00',
+  workEndTime: '18:00',
+  dailyWorkingHours: 8,
+  weeklyWorkingHours: 40
+}
+const wtConfig = ref({ ...defaultWtConfig })
+
+const allTimezones = Intl.supportedValuesOf('timeZone').map(tz => ({ label: tz, value: tz }))
+const filteredTimezones = ref(allTimezones)
+function filterTimezones(val, update) {
+  update(() => {
+    const needle = val.toLowerCase()
+    filteredTimezones.value = needle
+      ? allTimezones.filter(t => t.label.toLowerCase().includes(needle))
+      : allTimezones
+  })
+}
+
+async function loadWtConfig(userId) {
+  loadingWtConfig.value = true
+  try {
+    const res = await worktimeUserConfigApi.getUserConfig(userId)
+    const c = res.data.data
+    wtConfig.value = {
+      timezoneId: c.timezoneId || defaultWtConfig.timezoneId,
+      workStartTime: c.workStartTime ? c.workStartTime.substring(0, 5) : defaultWtConfig.workStartTime,
+      workEndTime: c.workEndTime ? c.workEndTime.substring(0, 5) : defaultWtConfig.workEndTime,
+      dailyWorkingHours: c.dailyWorkingHours ?? defaultWtConfig.dailyWorkingHours,
+      weeklyWorkingHours: c.weeklyWorkingHours ?? defaultWtConfig.weeklyWorkingHours
+    }
+  } catch {
+    wtConfig.value = { ...defaultWtConfig }
+  } finally {
+    loadingWtConfig.value = false
+  }
+}
+
+async function saveWtConfig(userId) {
+  try {
+    await worktimeUserConfigApi.updateUserConfig(userId, wtConfig.value)
+  } catch {
+    $q.notify({ type: 'negative', message: 'Failed to save work time config' })
+  }
+}
 
 const avatarUser = computed(() => ({
   firstName: form.value.firstName,
@@ -312,9 +432,11 @@ watch(() => props.user, (u) => {
       userGroupIds: findIdsByNames(u.userGroups, props.userGroupsOptions)
     }
     currentAvatarUrl.value = u.avatarUrl || null
+    loadWtConfig(u.id)
   } else {
     form.value = { ...defaultForm, staffRoleIds: [], departmentIds: [], userGroupIds: [] }
     currentAvatarUrl.value = null
+    wtConfig.value = { ...defaultWtConfig }
   }
 }, { immediate: true })
 
@@ -378,6 +500,9 @@ const handleSubmit = async () => {
 
     // Sync structure assignments
     await syncAssignments(userId)
+
+    // Save work time config
+    await saveWtConfig(userId)
 
     emit('saved')
   } catch (err) {

@@ -131,7 +131,9 @@ public class ReportService {
         List<TimeEntry> entries = timeEntryRepository.findByOrganizationIdAndWorkDate(orgId, date);
 
         List<TeamMemberDailyDTO> memberEntries = entries.stream()
-                .map(e -> TeamMemberDailyDTO.builder()
+                .map(e -> {
+                    UserWorkTimeConfig cfg = userConfigService.getOrCreateConfig(e.getUser());
+                    return TeamMemberDailyDTO.builder()
                         .userId(e.getUser().getId())
                         .userName(e.getUser().getUserName())
                         .firstName(e.getUser().getFirstName())
@@ -143,7 +145,9 @@ public class ReportService {
                         .status(e.getStatus() != null ? e.getStatus().name() : null)
                         .workLocation(e.getWorkLocation() != null ? e.getWorkLocation().name() : null)
                         .isLateArrival(e.isLateArrival())
-                        .build())
+                        .timezoneId(cfg.getTimezoneId())
+                        .build();
+                })
                 .toList();
 
         return TeamDailyReportDTO.builder()

@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDate;
@@ -37,6 +38,7 @@ public class AutoCheckoutReminderScheduler {
     private final Set<Long> remindedToday = ConcurrentHashMap.newKeySet();
     private LocalDate lastResetDate = LocalDate.now();
 
+    @Transactional
     @Scheduled(fixedRate = 300000) // every 5 minutes
     public void checkForAutoCheckoutReminders() {
         // Reset reminder tracking daily (using system default zone for the reset check)
@@ -50,18 +52,22 @@ public class AutoCheckoutReminderScheduler {
         for (WorkTimeSettings settings : allSettings) {
             if (settings.getAutoCheckoutReminderMinutes() <= 0) continue;
 
-            ZoneId zoneId = settings.getZoneId();
-            LocalDate today = LocalDate.now(zoneId);
             Long orgId = settings.getOrganization().getId();
-            List<TimeEntry> activeEntries = timeEntryRepository.findByOrganizationIdAndWorkDate(orgId, today);
 
-            OffsetDateTime now = ZonedDateTime.now(zoneId).toOffsetDateTime();
+            // Check entries for today in system timezone (broad sweep)
+            List<TimeEntry> activeEntries = timeEntryRepository.findByOrganizationIdAndWorkDate(orgId, sysToday);
+
             for (TimeEntry entry : activeEntries) {
                 if (entry.getStatus() == TimeEntryStatus.CHECKED_OUT) continue;
                 if (remindedToday.contains(entry.getId())) continue;
 
+                // Use per-user config for timezone and daily hours
+                UserWorkTimeConfig userConfig = userConfigService.getOrCreateConfig(entry.getUser());
+                ZoneId userZoneId = userConfig.getZoneId();
+                OffsetDateTime now = ZonedDateTime.now(userZoneId).toOffsetDateTime();
+
                 long minutesSinceCheckIn = Duration.between(entry.getCheckInTime(), now).toMinutes();
-                long expectedMinutes = (long) (settings.getDailyWorkingHours() * 60);
+                long expectedMinutes = (long) (userConfig.getDailyWorkingHours() * 60);
 
                 if (minutesSinceCheckIn >= expectedMinutes + settings.getAutoCheckoutReminderMinutes()) {
                     remindedToday.add(entry.getId());
@@ -78,6 +84,7 @@ public class AutoCheckoutReminderScheduler {
         }
     }
 
+    @Transactional
     @Scheduled(fixedRate = 60000) // every minute
     public void checkForMidnightForceCheckout() {
         // Find all active entries (not yet checked out) across all orgs

@@ -23,4 +23,5 @@ public class TeamMemberDailyDTO {
     private String status;
     private String workLocation;
     private boolean isLateArrival;
+    private String timezoneId;
 }

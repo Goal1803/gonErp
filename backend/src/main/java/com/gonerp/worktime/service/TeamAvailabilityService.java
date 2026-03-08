@@ -6,11 +6,11 @@ import com.gonerp.worktime.dto.MemberAvailabilityDTO;
 import com.gonerp.worktime.dto.TeamAvailabilityDTO;
 import com.gonerp.worktime.model.DayOffRequest;
 import com.gonerp.worktime.model.TimeEntry;
+import com.gonerp.worktime.model.UserWorkTimeConfig;
 import com.gonerp.worktime.model.enums.DayOffRequestStatus;
 import com.gonerp.worktime.model.enums.TimeEntryStatus;
 import com.gonerp.worktime.repository.DayOffRequestRepository;
 import com.gonerp.worktime.repository.TimeEntryRepository;
-import com.gonerp.worktime.repository.WorkTimeSettingsRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,42 +32,35 @@ public class TeamAvailabilityService {
     private final TimeEntryRepository timeEntryRepository;
     private final DayOffRequestRepository dayOffRequestRepository;
     private final UserRepository userRepository;
-    private final WorkTimeSettingsRepository settingsRepository;
+    private final UserWorkTimeConfigService userConfigService;
 
     public TeamAvailabilityDTO getTeamAvailability(Long orgId) {
-        ZoneId zoneId = settingsRepository.findByOrganizationId(orgId)
-                .map(s -> s.getZoneId())
-                .orElse(ZoneId.of("Asia/Ho_Chi_Minh"));
-        LocalDate today = LocalDate.now(zoneId);
-
         List<User> orgUsers = userRepository.findByOrganizationId(orgId);
-        List<TimeEntry> todayEntries = timeEntryRepository.findByOrganizationIdAndWorkDate(orgId, today);
 
-        // Map entries by userId for quick lookup
-        Map<Long, TimeEntry> entryByUser = todayEntries.stream()
-                .collect(Collectors.toMap(e -> e.getUser().getId(), e -> e, (a, b) -> a));
-
-        // Find approved day-off requests covering today
-        List<DayOffRequest> dayOffRequests = dayOffRequestRepository
-                .findByOrganizationIdAndStartDateBetweenAndStatus(orgId, today, today, DayOffRequestStatus.APPROVED);
-
-        // Also check requests where today falls between startDate and endDate
-        // The repository query checks startDate between range, but we also need to check
-        // requests that started before today but haven't ended
-        Set<Long> usersOnDayOff = dayOffRequests.stream()
-                .filter(r -> !today.isBefore(r.getStartDate()) && !today.isAfter(r.getEndDate()))
-                .map(r -> r.getUser().getId())
-                .collect(Collectors.toSet());
-
+        // Collect all possible "today" dates across user timezones to query entries
+        // Use a broad approach: query entries for today in each user's timezone
         List<MemberAvailabilityDTO> members = new ArrayList<>();
 
         for (User user : orgUsers) {
-            TimeEntry entry = entryByUser.get(user.getId());
+            UserWorkTimeConfig userConfig = userConfigService.getOrCreateConfig(user);
+            ZoneId userZoneId = userConfig.getZoneId();
+            LocalDate userToday = LocalDate.now(userZoneId);
+
+            // Find this user's entry for their "today"
+            TimeEntry entry = timeEntryRepository.findByUserIdAndWorkDate(user.getId(), userToday).orElse(null);
+
+            // Check day-off for user's today
+            boolean onDayOff = dayOffRequestRepository
+                    .findByUserIdAndStartDateBetween(user.getId(), userToday, userToday)
+                    .stream()
+                    .filter(r -> r.getStatus() == DayOffRequestStatus.APPROVED)
+                    .anyMatch(r -> !userToday.isBefore(r.getStartDate()) && !userToday.isAfter(r.getEndDate()));
+
             String status;
             OffsetDateTime checkInTime = null;
             String workLocation = null;
 
-            if (usersOnDayOff.contains(user.getId())) {
+            if (onDayOff) {
                 status = "DAY_OFF";
             } else if (entry != null) {
                 if (entry.getStatus() == TimeEntryStatus.CHECKED_IN) {
@@ -95,8 +88,9 @@ public class TeamAvailabilityService {
                     .build());
         }
 
+        // Use system date for the response (admin's perspective)
         return TeamAvailabilityDTO.builder()
-                .date(today)
+                .date(LocalDate.now())
                 .members(members)
                 .build();
     }

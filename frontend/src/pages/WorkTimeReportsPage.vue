@@ -506,12 +506,12 @@
                 </template>
                 <template #body-cell-checkInTime="props">
                   <q-td :props="props">
-                    <span class="text-adaptive">{{ formatTime(props.row.checkInTime) }}</span>
+                    <span class="text-adaptive">{{ formatTime(props.row.checkInTime, props.row.timezoneId) }}</span>
                   </q-td>
                 </template>
                 <template #body-cell-checkOutTime="props">
                   <q-td :props="props">
-                    <span class="text-adaptive">{{ formatTime(props.row.checkOutTime) }}</span>
+                    <span class="text-adaptive">{{ formatTime(props.row.checkOutTime, props.row.timezoneId) }}</span>
                   </q-td>
                 </template>
                 <template #body-cell-totalWorkMinutes="props">
@@ -593,6 +593,10 @@
         <q-bar class="bg-grey-9">
           <q-icon name="person" />
           <div class="text-weight-bold">{{ memberDialogTitle }}</div>
+          <q-badge v-if="memberConfig" color="blue-grey-7" class="q-ml-sm">
+            <q-icon name="schedule" size="12px" class="q-mr-xs" />
+            {{ memberTimezone }}
+          </q-badge>
           <q-space />
           <q-btn dense flat icon="close" @click="showMemberDialog = false" />
         </q-bar>
@@ -667,14 +671,14 @@
                       <div class="stat-box">
                         <q-icon name="login" color="green-5" size="24px" />
                         <div class="stat-label text-adaptive-caption">Check In</div>
-                        <div class="stat-value text-adaptive">{{ formatTime(memberDailyReport.checkInTime) }}</div>
+                        <div class="stat-value text-adaptive">{{ formatMemberTime(memberDailyReport.checkInTime) }}</div>
                       </div>
                     </div>
                     <div class="col-12 col-sm-6 col-md-4">
                       <div class="stat-box">
                         <q-icon name="logout" color="red-4" size="24px" />
                         <div class="stat-label text-adaptive-caption">Check Out</div>
-                        <div class="stat-value text-adaptive">{{ formatTime(memberDailyReport.checkOutTime) }}</div>
+                        <div class="stat-value text-adaptive">{{ formatMemberTime(memberDailyReport.checkOutTime) }}</div>
                       </div>
                     </div>
                     <div class="col-12 col-sm-6 col-md-4">
@@ -725,7 +729,7 @@
                         </q-item-section>
                         <q-item-section>
                           <q-item-label class="text-adaptive">
-                            {{ formatTime(brk.startTime) }} - {{ brk.endTime ? formatTime(brk.endTime) : 'ongoing' }}
+                            {{ formatMemberTime(brk.startTime) }} - {{ brk.endTime ? formatMemberTime(brk.endTime) : 'ongoing' }}
                           </q-item-label>
                         </q-item-section>
                         <q-item-section side>
@@ -829,12 +833,12 @@
                       </template>
                       <template #body-cell-checkInTime="props">
                         <q-td :props="props">
-                          <span class="text-adaptive">{{ formatTime(props.row.checkInTime) }}</span>
+                          <span class="text-adaptive">{{ formatMemberTime(props.row.checkInTime) }}</span>
                         </q-td>
                       </template>
                       <template #body-cell-checkOutTime="props">
                         <q-td :props="props">
-                          <span class="text-adaptive">{{ formatTime(props.row.checkOutTime) }}</span>
+                          <span class="text-adaptive">{{ formatMemberTime(props.row.checkOutTime) }}</span>
                         </q-td>
                       </template>
                       <template #body-cell-totalWorkMinutes="props">
@@ -1169,6 +1173,8 @@ const loadingTeamMonthly = ref(false)
 // Member Detail Dialog
 const showMemberDialog = ref(false)
 const selectedMember = ref(null)
+const memberConfig = ref(null)
+const memberTimezone = computed(() => memberConfig.value?.timezoneId || orgTimezone.value)
 const memberTab = ref('daily')
 const memberDailyDate = ref(todayStr())
 const memberDailyReport = ref(null)
@@ -1332,7 +1338,12 @@ function openMemberDialog(row) {
   memberDailyReport.value = null
   memberWeeklyReport.value = null
   memberMonthlyReport.value = null
+  memberConfig.value = null
   showMemberDialog.value = true
+  // Fetch the member's work time config for their timezone
+  worktimeUserConfigApi.getUserConfig(row.userId).then(res => {
+    memberConfig.value = res.data.data
+  }).catch(() => {})
   loadMemberDailyReport()
 }
 
@@ -1520,17 +1531,21 @@ function getMonday(d) {
   return toDateStr(date)
 }
 
-function formatTime(timeStr) {
+function formatTime(timeStr, timezone) {
   if (!timeStr) return '--:--'
   try {
     const date = new Date(timeStr)
     if (!isNaN(date.getTime())) {
-      return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: orgTimezone.value })
+      return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: timezone || orgTimezone.value })
     }
   } catch {
     // fallback
   }
   return timeStr
+}
+
+function formatMemberTime(timeStr) {
+  return formatTime(timeStr, memberTimezone.value)
 }
 
 function formatDuration(minutes) {
