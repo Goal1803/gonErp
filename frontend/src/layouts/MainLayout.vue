@@ -313,6 +313,22 @@
         </q-card-actions>
       </q-card>
     </q-dialog>
+
+    <!-- Global Force Checkout Dialog -->
+    <q-dialog v-model="showForceCheckout" persistent>
+      <q-card style="min-width: 400px; background: var(--erp-bg-elevated); border: 1px solid var(--erp-border);">
+        <q-card-section class="text-center q-pa-lg">
+          <q-icon name="logout" color="red-4" size="48px" />
+          <div class="text-h6 text-white q-mt-md">Automatically Checked Out</div>
+          <div class="text-body2 text-grey-4 q-mt-sm">
+            You were automatically checked out at {{ forceCheckoutLabel }}. If you need to continue working, please check in again.
+          </div>
+        </q-card-section>
+        <q-card-actions align="center" class="q-pb-lg">
+          <q-btn unelevated label="OK" color="green-7" no-caps v-close-popup />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
   </q-layout>
 </template>
 
@@ -335,6 +351,7 @@ const notificationStore = useNotificationStore()
 const { isDark, toggle: toggleTheme } = useTheme()
 const {
   showBreakReminder, breakReminderLabel,
+  showForceCheckout, forceCheckoutLabel,
   dismissBreakReminder, takeBreakFromReminder,
   startChecking, stopChecking
 } = useBreakReminder()
