@@ -34,6 +34,7 @@ public class TeamAvailabilityService {
     private final UserRepository userRepository;
     private final UserWorkTimeConfigService userConfigService;
 
+    @Transactional
     public TeamAvailabilityDTO getTeamAvailability(Long orgId) {
         List<User> orgUsers = userRepository.findByOrganizationId(orgId);
 
