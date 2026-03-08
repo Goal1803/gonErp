@@ -216,32 +216,54 @@ public class TimeClockService {
     // ── Force Checkout at Midnight ─────────────────────────────────────────────
 
     public void forceCheckoutAtMidnight(TimeEntry entry) {
+        forceCheckoutAt(entry, LocalTime.of(0, 0));
+    }
+
+    public void forceCheckoutAt(TimeEntry entry, LocalTime forceTime) {
         if (entry.getStatus() == TimeEntryStatus.CHECKED_OUT) return;
 
         UserWorkTimeConfig userConfig = userConfigService.getOrCreateConfig(entry.getUser());
         ZoneId zoneId = userConfig.getZoneId();
 
-        // Midnight = start of next day in user's timezone
-        OffsetDateTime midnight = entry.getWorkDate().plusDays(1)
-                .atStartOfDay(zoneId)
-                .toOffsetDateTime();
+        // Determine the checkout timestamp in the user's timezone
+        OffsetDateTime checkoutTime;
+        String noteLabel;
+        if (forceTime.equals(LocalTime.of(0, 0))) {
+            // Midnight = start of next day in user's timezone
+            checkoutTime = entry.getWorkDate().plusDays(1)
+                    .atStartOfDay(zoneId)
+                    .toOffsetDateTime();
+            noteLabel = "[Auto-checked out at midnight]";
+        } else {
+            // Configured time on the same work date in user's timezone
+            checkoutTime = entry.getWorkDate()
+                    .atTime(forceTime)
+                    .atZone(zoneId)
+                    .toOffsetDateTime();
+            noteLabel = "[Auto-checked out at " + forceTime + "]";
+        }
 
-        // Close any open break at midnight
+        // Don't set checkout before check-in
+        if (checkoutTime.isBefore(entry.getCheckInTime())) {
+            checkoutTime = entry.getCheckInTime().plusMinutes(1);
+        }
+
+        // Close any open break at the checkout time
         if (entry.getStatus() == TimeEntryStatus.ON_BREAK) {
             BreakEntry openBreak = entry.getBreaks().stream()
                     .filter(b -> b.getEndTime() == null)
                     .findFirst()
                     .orElse(null);
             if (openBreak != null) {
-                openBreak.setEndTime(midnight);
-                int breakDuration = (int) Duration.between(openBreak.getStartTime(), midnight).toMinutes();
-                openBreak.setDurationMinutes(breakDuration);
-                entry.setTotalBreakMinutes(entry.getTotalBreakMinutes() + breakDuration);
+                openBreak.setEndTime(checkoutTime);
+                int breakDuration = (int) Duration.between(openBreak.getStartTime(), checkoutTime).toMinutes();
+                openBreak.setDurationMinutes(Math.max(0, breakDuration));
+                entry.setTotalBreakMinutes(entry.getTotalBreakMinutes() + Math.max(0, breakDuration));
             }
         }
 
         // Compute total work minutes
-        long totalMinutes = Duration.between(entry.getCheckInTime(), midnight).toMinutes();
+        long totalMinutes = Duration.between(entry.getCheckInTime(), checkoutTime).toMinutes();
         int breakMins = entry.getTotalBreakMinutes();
 
         WorkTimeSettings settings = getSettingsForUser(entry.getUser());
@@ -249,13 +271,13 @@ public class TimeClockService {
         int workMinutes = (int) totalMinutes - (breakCountsAsWork ? 0 : breakMins);
         if (workMinutes < 0) workMinutes = 0;
 
-        entry.setCheckOutTime(midnight);
+        entry.setCheckOutTime(checkoutTime);
         entry.setTotalWorkMinutes(workMinutes);
         entry.setStatus(TimeEntryStatus.CHECKED_OUT);
 
         // Detect early departure using user config
         if (settings != null && settings.isLateEarlyTrackingEnabled()) {
-            if (midnight.atZoneSameInstant(zoneId).toLocalTime().isBefore(userConfig.getWorkEndTime())) {
+            if (checkoutTime.atZoneSameInstant(zoneId).toLocalTime().isBefore(userConfig.getWorkEndTime())) {
                 entry.setEarlyDeparture(true);
             }
         }
@@ -270,7 +292,7 @@ public class TimeClockService {
 
         // Append note
         String note = entry.getDailyNotes() != null ? entry.getDailyNotes() + "\n" : "";
-        entry.setDailyNotes(note + "[Auto-checked out at midnight]");
+        entry.setDailyNotes(note + noteLabel);
 
         timeEntryRepository.save(entry);
     }

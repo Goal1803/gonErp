@@ -113,24 +113,28 @@ public class AutoCheckoutReminderScheduler {
                         LocalDate userToday = nowInUserTz.toLocalDate();
                         LocalTime userNow = nowInUserTz.toLocalTime();
 
-                        // Force checkout when the configured time has passed on a day after the entry's workDate
                         boolean shouldForceCheckout;
                         if (forceCheckoutTime.equals(LocalTime.of(0, 0))) {
-                            // Midnight: force checkout when the date has changed
+                            // Midnight: force checkout when the date has changed in user's timezone
                             shouldForceCheckout = userToday.isAfter(entry.getWorkDate());
                         } else {
-                            // Custom time: force checkout when past that time on a later day
-                            shouldForceCheckout = userToday.isAfter(entry.getWorkDate())
+                            // Custom time (e.g. 18:00): force checkout on the SAME day
+                            // when the user's current time has passed the configured time
+                            shouldForceCheckout = userToday.equals(entry.getWorkDate())
                                     && !userNow.isBefore(forceCheckoutTime);
+                            // Also force checkout if it's already the next day (missed the window)
+                            if (!shouldForceCheckout) {
+                                shouldForceCheckout = userToday.isAfter(entry.getWorkDate());
+                            }
                         }
 
                         if (shouldForceCheckout) {
-                            timeClockService.forceCheckoutAtMidnight(entry);
+                            timeClockService.forceCheckoutAt(entry, forceCheckoutTime);
                             eventPublisher.publishEvent(new WorkTimeNotificationEvent(
                                     entry.getUser().getId(),
                                     Set.of(entry.getUser().getId()),
-                                    "FORCE_CHECKOUT_MIDNIGHT",
-                                    "You were automatically checked out. Time entries cannot span two days."
+                                    "FORCE_CHECKOUT",
+                                    "You were automatically checked out at " + forceCheckoutTime + "."
                             ));
                             log.info("Force checkout for user {} (entry {}, tz={}, forceTime={})",
                                     entry.getUser().getUserName(), entry.getId(), userConfig.getTimezoneId(), forceCheckoutTime);

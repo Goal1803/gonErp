@@ -434,33 +434,42 @@ function tick() {
   liveTime.value = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone: tz })
   currentDate.value = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: tz })
   computeTimers()
-  checkMidnightForceCheckout(tz)
+  checkForceCheckout(tz)
 }
 
-function checkMidnightForceCheckout(tz) {
+function checkForceCheckout(tz) {
   const status = clockStatus.value?.status
   if (status !== 'CHECKED_IN' && status !== 'ON_BREAK') return
 
   const entry = todayEntry.value
   if (!entry || !entry.workDate) return
 
-  // Get current date/time in user timezone
   const now = new Date()
   const todayInTz = now.toLocaleDateString('en-CA', { timeZone: tz }) // YYYY-MM-DD format
+  const currentTime = now.toLocaleTimeString('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false })
 
-  if (todayInTz === entry.workDate) return // still same day
-
-  // Date has changed — check if force checkout time has been reached
   const forceTime = worktimeStore.settings?.forceCheckoutTime || '00:00'
-  if (forceTime !== '00:00') {
-    const currentTime = now.toLocaleTimeString('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false })
-    if (currentTime < forceTime) return // not yet reached
+
+  let shouldForceCheckout = false
+  if (forceTime === '00:00') {
+    // Midnight: force checkout when the date has changed
+    shouldForceCheckout = todayInTz !== entry.workDate
+  } else {
+    // Custom time (e.g. 18:00): force checkout on the same day when time is reached
+    if (todayInTz === entry.workDate && currentTime >= forceTime) {
+      shouldForceCheckout = true
+    }
+    // Also if it's already the next day (missed the window)
+    if (todayInTz > entry.workDate) {
+      shouldForceCheckout = true
+    }
   }
 
-  // Force checkout time reached
-  showForceCheckoutWarning.value = true
-  worktimeStore.fetchClockStatus()
-  worktimeStore.fetchTodayEntry()
+  if (shouldForceCheckout) {
+    showForceCheckoutWarning.value = true
+    worktimeStore.fetchClockStatus()
+    worktimeStore.fetchTodayEntry()
+  }
 }
 
 function formatTime(timeStr) {
