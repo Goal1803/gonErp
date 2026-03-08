@@ -76,6 +76,42 @@ public class ReportController {
         return ResponseEntity.ok(ApiResponse.ok(reportService.getTeamMonthlyReport(orgId, year, month)));
     }
 
+    // ── Member Reports (Admin Only) ─────────────────────────────────────────────
+
+    @GetMapping("/member/{userId}/daily")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<DailyReportDTO>> getMemberDailyReport(
+            @PathVariable Long userId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        return ResponseEntity.ok(ApiResponse.ok(reportService.getDailyReport(userId, date)));
+    }
+
+    @DeleteMapping("/member/{userId}/daily")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> resetMemberDailyEntry(
+            @PathVariable Long userId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        reportService.resetDailyEntry(userId, date);
+        return ResponseEntity.ok(ApiResponse.ok(null));
+    }
+
+    @GetMapping("/member/{userId}/weekly")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<WeeklyReportDTO>> getMemberWeeklyReport(
+            @PathVariable Long userId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate weekStart) {
+        return ResponseEntity.ok(ApiResponse.ok(reportService.getWeeklyReport(userId, weekStart)));
+    }
+
+    @GetMapping("/member/{userId}/monthly")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<MonthlyReportDTO>> getMemberMonthlyReport(
+            @PathVariable Long userId,
+            @RequestParam int year,
+            @RequestParam int month) {
+        return ResponseEntity.ok(ApiResponse.ok(reportService.getMonthlyReport(userId, year, month)));
+    }
+
     @GetMapping("/export")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<byte[]> exportReport(

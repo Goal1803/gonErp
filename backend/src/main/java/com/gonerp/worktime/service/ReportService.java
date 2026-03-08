@@ -198,9 +198,21 @@ public class ReportService {
                 .build();
     }
 
+    // ── Admin Actions ─────────────────────────────────────────────────────────────
+
+    @Transactional
+    public void resetDailyEntry(Long userId, LocalDate date) {
+        timeEntryRepository.findByUserIdAndWorkDate(userId, date)
+                .ifPresent(timeEntryRepository::delete);
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────────────
 
     private DailyReportDTO toDailyReportDTO(TimeEntry e) {
+        List<BreakEntryResponse> breakResponses = e.getBreaks() != null
+                ? e.getBreaks().stream().map(BreakEntryResponse::from).toList()
+                : List.of();
+
         return DailyReportDTO.builder()
                 .date(e.getWorkDate())
                 .checkInTime(e.getCheckInTime())
@@ -211,6 +223,8 @@ public class ReportService {
                 .workLocation(e.getWorkLocation() != null ? e.getWorkLocation().name() : null)
                 .isLateArrival(e.isLateArrival())
                 .isEarlyDeparture(e.isEarlyDeparture())
+                .dailyNotes(e.getDailyNotes())
+                .breaks(breakResponses)
                 .build();
     }
 

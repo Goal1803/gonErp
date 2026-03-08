@@ -118,6 +118,40 @@
               <q-badge v-if="dailyReport.lateArrival" color="red-7" label="Late Arrival" />
               <q-badge v-if="dailyReport.earlyDeparture" color="orange-8" label="Early Departure" />
             </div>
+
+            <!-- Break History -->
+            <div v-if="dailyReport.breaks && dailyReport.breaks.length" class="q-mt-md">
+              <div class="text-caption text-adaptive-caption q-mb-xs">
+                <q-icon name="coffee" color="amber-5" size="16px" class="q-mr-xs" />
+                Break History
+              </div>
+              <q-list dense class="break-history-list">
+                <q-item v-for="(brk, idx) in dailyReport.breaks" :key="idx" class="q-px-sm">
+                  <q-item-section avatar style="min-width: 28px">
+                    <q-icon name="pause_circle_outline" color="amber-5" size="20px" />
+                  </q-item-section>
+                  <q-item-section>
+                    <q-item-label class="text-adaptive">
+                      {{ formatTime(brk.startTime) }} - {{ brk.endTime ? formatTime(brk.endTime) : 'ongoing' }}
+                    </q-item-label>
+                  </q-item-section>
+                  <q-item-section side>
+                    <q-item-label class="text-adaptive-caption">{{ formatDuration(brk.durationMinutes) }}</q-item-label>
+                  </q-item-section>
+                </q-item>
+              </q-list>
+            </div>
+
+            <!-- Checkout Note -->
+            <div v-if="dailyReport.dailyNotes" class="q-mt-md">
+              <div class="text-caption text-adaptive-caption q-mb-xs">
+                <q-icon name="sticky_note_2" color="amber-5" size="16px" class="q-mr-xs" />
+                Checkout Note
+              </div>
+              <div class="text-adaptive" style="white-space: pre-wrap; background: var(--erp-bg-tertiary, rgba(255,255,255,0.03)); border: 1px solid var(--erp-border-subtle); border-radius: 8px; padding: 10px 12px;">
+                {{ dailyReport.dailyNotes }}
+              </div>
+            </div>
           </q-card-section>
         </q-card>
 
@@ -459,13 +493,15 @@
                 row-key="userId"
                 flat
                 :rows-per-page-options="[15, 30, 50]"
-                class="report-table"
+                class="report-table clickable-table"
+                @row-click="(evt, row) => openMemberDialog(row)"
               >
                 <template #body-cell-name="props">
                   <q-td :props="props">
                     <span class="text-adaptive text-weight-medium">
                       {{ buildName(props.row) }}
                     </span>
+                    <q-icon name="chevron_right" color="grey-6" size="16px" class="q-ml-xs" />
                   </q-td>
                 </template>
                 <template #body-cell-checkInTime="props">
@@ -517,13 +553,15 @@
                 row-key="userId"
                 flat
                 :rows-per-page-options="[15, 30, 50]"
-                class="report-table"
+                class="report-table clickable-table"
+                @row-click="(evt, row) => openMemberDialog(row)"
               >
                 <template #body-cell-name="props">
                   <q-td :props="props">
                     <span class="text-adaptive text-weight-medium">
                       {{ buildName(props.row) }}
                     </span>
+                    <q-icon name="chevron_right" color="grey-6" size="16px" class="q-ml-xs" />
                   </q-td>
                 </template>
                 <template #body-cell-totalWorkMinutes="props">
@@ -548,6 +586,413 @@
       </q-tab-panel>
 
     </q-tab-panels>
+
+    <!-- Member Detail Dialog -->
+    <q-dialog v-model="showMemberDialog" maximized transition-show="slide-up" transition-hide="slide-down">
+      <q-card class="bg-dark">
+        <q-bar class="bg-grey-9">
+          <q-icon name="person" />
+          <div class="text-weight-bold">{{ memberDialogTitle }}</div>
+          <q-space />
+          <q-btn dense flat icon="close" @click="showMemberDialog = false" />
+        </q-bar>
+
+        <q-card-section class="q-pt-md">
+          <!-- Sub-tabs for member report views -->
+          <q-tabs
+            v-model="memberTab"
+            dense
+            class="text-adaptive-secondary q-mb-lg"
+            active-color="green-5"
+            indicator-color="green-5"
+            align="left"
+            no-caps
+          >
+            <q-tab name="daily" icon="today" label="Daily" />
+            <q-tab name="weekly" icon="date_range" label="Weekly" />
+            <q-tab name="monthly" icon="calendar_month" label="Monthly" />
+          </q-tabs>
+
+          <q-tab-panels v-model="memberTab" animated class="bg-transparent">
+
+            <!-- Member Daily -->
+            <q-tab-panel name="daily" class="q-pa-none">
+              <div class="row items-center q-mb-md">
+                <q-input
+                  v-model="memberDailyDate"
+                  type="date"
+                  outlined
+                  dense
+                  color="green-5"
+                  style="min-width: 180px"
+                  @update:model-value="loadMemberDailyReport"
+                />
+              </div>
+
+              <div v-if="loadingMemberDaily" class="text-center q-pa-xl">
+                <q-spinner color="green-5" size="32px" />
+              </div>
+
+              <q-card v-else-if="memberDailyReport" class="premium-card" flat>
+                <q-card-section>
+                  <div class="flex items-center q-mb-md">
+                    <div class="text-subtitle1 text-adaptive text-weight-bold">
+                      <q-icon name="summarize" color="green-5" class="q-mr-sm" />
+                      Daily Summary - {{ formatDisplayDate(memberDailyDate) }}
+                    </div>
+                    <q-space />
+                    <q-btn
+                      flat
+                      dense
+                      no-caps
+                      color="red-5"
+                      icon="restart_alt"
+                      label="Reset Day"
+                      @click="confirmResetDailyEntry"
+                    />
+                  </div>
+
+                  <div class="row q-col-gutter-md">
+                    <div class="col-12 col-sm-6 col-md-4">
+                      <div class="stat-box">
+                        <q-icon name="login" color="green-5" size="24px" />
+                        <div class="stat-label text-adaptive-caption">Check In</div>
+                        <div class="stat-value text-adaptive">{{ formatTime(memberDailyReport.checkInTime) }}</div>
+                      </div>
+                    </div>
+                    <div class="col-12 col-sm-6 col-md-4">
+                      <div class="stat-box">
+                        <q-icon name="logout" color="red-4" size="24px" />
+                        <div class="stat-label text-adaptive-caption">Check Out</div>
+                        <div class="stat-value text-adaptive">{{ formatTime(memberDailyReport.checkOutTime) }}</div>
+                      </div>
+                    </div>
+                    <div class="col-12 col-sm-6 col-md-4">
+                      <div class="stat-box">
+                        <q-icon name="work_history" color="blue-4" size="24px" />
+                        <div class="stat-label text-adaptive-caption">Work Duration</div>
+                        <div class="stat-value text-adaptive">{{ formatDuration(memberDailyReport.totalWorkMinutes) }}</div>
+                      </div>
+                    </div>
+                    <div class="col-12 col-sm-6 col-md-4">
+                      <div class="stat-box">
+                        <q-icon name="coffee" color="amber-5" size="24px" />
+                        <div class="stat-label text-adaptive-caption">Break Duration</div>
+                        <div class="stat-value text-adaptive">{{ formatDuration(memberDailyReport.totalBreakMinutes) }}</div>
+                      </div>
+                    </div>
+                    <div class="col-12 col-sm-6 col-md-4">
+                      <div class="stat-box">
+                        <q-icon name="more_time" color="purple-4" size="24px" />
+                        <div class="stat-label text-adaptive-caption">Overtime</div>
+                        <div class="stat-value text-adaptive">{{ formatDuration(memberDailyReport.overtimeMinutes) }}</div>
+                      </div>
+                    </div>
+                    <div class="col-12 col-sm-6 col-md-4">
+                      <div class="stat-box">
+                        <q-icon name="location_on" color="teal-4" size="24px" />
+                        <div class="stat-label text-adaptive-caption">Location</div>
+                        <div class="stat-value text-adaptive">{{ memberDailyReport.workLocation || '-' }}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div v-if="memberDailyReport.lateArrival || memberDailyReport.earlyDeparture" class="q-mt-md flex q-gutter-sm">
+                    <q-badge v-if="memberDailyReport.lateArrival" color="red-7" label="Late Arrival" />
+                    <q-badge v-if="memberDailyReport.earlyDeparture" color="orange-8" label="Early Departure" />
+                  </div>
+
+                  <!-- Break History -->
+                  <div v-if="memberDailyReport.breaks && memberDailyReport.breaks.length" class="q-mt-md">
+                    <div class="text-caption text-adaptive-caption q-mb-xs">
+                      <q-icon name="coffee" color="amber-5" size="16px" class="q-mr-xs" />
+                      Break History
+                    </div>
+                    <q-list dense class="break-history-list">
+                      <q-item v-for="(brk, idx) in memberDailyReport.breaks" :key="idx" class="q-px-sm">
+                        <q-item-section avatar style="min-width: 28px">
+                          <q-icon name="pause_circle_outline" color="amber-5" size="20px" />
+                        </q-item-section>
+                        <q-item-section>
+                          <q-item-label class="text-adaptive">
+                            {{ formatTime(brk.startTime) }} - {{ brk.endTime ? formatTime(brk.endTime) : 'ongoing' }}
+                          </q-item-label>
+                        </q-item-section>
+                        <q-item-section side>
+                          <q-item-label class="text-adaptive-caption">{{ formatDuration(brk.durationMinutes) }}</q-item-label>
+                        </q-item-section>
+                      </q-item>
+                    </q-list>
+                  </div>
+
+                  <div v-if="memberDailyReport.dailyNotes" class="q-mt-md">
+                    <div class="text-caption text-adaptive-caption q-mb-xs">
+                      <q-icon name="sticky_note_2" color="amber-5" size="16px" class="q-mr-xs" />
+                      Checkout Note
+                    </div>
+                    <div class="text-adaptive" style="white-space: pre-wrap; background: var(--erp-bg-tertiary, rgba(255,255,255,0.03)); border: 1px solid var(--erp-border-subtle); border-radius: 8px; padding: 10px 12px;">
+                      {{ memberDailyReport.dailyNotes }}
+                    </div>
+                  </div>
+                </q-card-section>
+              </q-card>
+
+              <div v-else class="text-center q-pa-xl">
+                <q-icon name="event_busy" color="grey-6" size="48px" />
+                <div class="text-subtitle1 text-adaptive q-mt-md">No data for this date</div>
+              </div>
+            </q-tab-panel>
+
+            <!-- Member Weekly -->
+            <q-tab-panel name="weekly" class="q-pa-none">
+              <div class="row items-center q-mb-md q-gutter-sm">
+                <q-input
+                  v-model="memberWeekStart"
+                  type="date"
+                  outlined
+                  dense
+                  color="green-5"
+                  label="Week starting"
+                  style="min-width: 180px"
+                  @update:model-value="loadMemberWeeklyReport"
+                />
+                <q-btn flat dense icon="chevron_left" color="green-5" @click="memberPrevWeek" />
+                <q-btn flat dense icon="chevron_right" color="green-5" @click="memberNextWeek" />
+              </div>
+
+              <div v-if="loadingMemberWeekly" class="text-center q-pa-xl">
+                <q-spinner color="green-5" size="32px" />
+              </div>
+
+              <template v-else-if="memberWeeklyReport">
+                <q-card class="premium-card q-mb-md" flat>
+                  <q-card-section>
+                    <div class="text-subtitle1 text-adaptive text-weight-bold q-mb-md">
+                      <q-icon name="date_range" color="blue-4" class="q-mr-sm" />
+                      Week {{ formatDisplayDate(memberWeeklyReport.weekStart) }} - {{ formatDisplayDate(memberWeeklyReport.weekEnd) }}
+                    </div>
+
+                    <div class="row q-col-gutter-md">
+                      <div class="col-6 col-sm-3">
+                        <div class="stat-box">
+                          <div class="stat-label text-adaptive-caption">Total Hours</div>
+                          <div class="stat-value text-adaptive text-h6">{{ formatDuration(memberWeeklyReport.totalWorkMinutes) }}</div>
+                        </div>
+                      </div>
+                      <div class="col-6 col-sm-3">
+                        <div class="stat-box">
+                          <div class="stat-label text-adaptive-caption">Days Worked</div>
+                          <div class="stat-value text-adaptive text-h6">{{ memberWeeklyReport.daysWorked }}</div>
+                        </div>
+                      </div>
+                      <div class="col-6 col-sm-3">
+                        <div class="stat-box">
+                          <div class="stat-label text-adaptive-caption">Overtime</div>
+                          <div class="stat-value text-adaptive text-h6">{{ formatDuration(memberWeeklyReport.totalOvertimeMinutes) }}</div>
+                        </div>
+                      </div>
+                      <div class="col-6 col-sm-3">
+                        <div class="stat-box">
+                          <div class="stat-label text-adaptive-caption">Avg/Day</div>
+                          <div class="stat-value text-adaptive text-h6">{{ formatDuration(memberWeeklyReport.averageWorkMinutesPerDay) }}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </q-card-section>
+                </q-card>
+
+                <q-card class="premium-card" flat>
+                  <q-card-section class="q-pa-none">
+                    <q-table
+                      :rows="memberWeeklyReport.dailyEntries || []"
+                      :columns="dailyColumns"
+                      row-key="date"
+                      flat
+                      hide-pagination
+                      :rows-per-page-options="[0]"
+                      class="report-table"
+                    >
+                      <template #body-cell-date="props">
+                        <q-td :props="props">
+                          <span class="text-adaptive text-weight-medium">{{ formatDisplayDate(props.row.date) }}</span>
+                        </q-td>
+                      </template>
+                      <template #body-cell-checkInTime="props">
+                        <q-td :props="props">
+                          <span class="text-adaptive">{{ formatTime(props.row.checkInTime) }}</span>
+                        </q-td>
+                      </template>
+                      <template #body-cell-checkOutTime="props">
+                        <q-td :props="props">
+                          <span class="text-adaptive">{{ formatTime(props.row.checkOutTime) }}</span>
+                        </q-td>
+                      </template>
+                      <template #body-cell-totalWorkMinutes="props">
+                        <q-td :props="props">
+                          <span class="text-adaptive text-weight-medium">{{ formatDuration(props.row.totalWorkMinutes) }}</span>
+                        </q-td>
+                      </template>
+                      <template #body-cell-flags="props">
+                        <q-td :props="props" class="q-gutter-xs">
+                          <q-badge v-if="props.row.lateArrival" color="red-7" label="Late" />
+                          <q-badge v-if="props.row.earlyDeparture" color="orange-8" label="Early" />
+                        </q-td>
+                      </template>
+                    </q-table>
+                  </q-card-section>
+                </q-card>
+              </template>
+
+              <div v-else class="text-center q-pa-xl">
+                <q-icon name="event_busy" color="grey-6" size="48px" />
+                <div class="text-subtitle1 text-adaptive q-mt-md">No data for this week</div>
+              </div>
+            </q-tab-panel>
+
+            <!-- Member Monthly -->
+            <q-tab-panel name="monthly" class="q-pa-none">
+              <div class="row items-center q-mb-md q-gutter-sm">
+                <q-select
+                  v-model="memberMonthlyYear"
+                  :options="yearOptions"
+                  label="Year"
+                  outlined
+                  dense
+                  color="green-5"
+                  style="min-width: 100px"
+                  @update:model-value="loadMemberMonthlyReport"
+                />
+                <q-select
+                  v-model="memberMonthlyMonth"
+                  :options="monthOptions"
+                  label="Month"
+                  outlined
+                  dense
+                  color="green-5"
+                  emit-value
+                  map-options
+                  style="min-width: 140px"
+                  @update:model-value="loadMemberMonthlyReport"
+                />
+              </div>
+
+              <div v-if="loadingMemberMonthly" class="text-center q-pa-xl">
+                <q-spinner color="green-5" size="32px" />
+              </div>
+
+              <template v-else-if="memberMonthlyReport">
+                <q-card class="premium-card q-mb-md" flat>
+                  <q-card-section>
+                    <div class="text-subtitle1 text-adaptive text-weight-bold q-mb-md">
+                      <q-icon name="calendar_month" color="purple-4" class="q-mr-sm" />
+                      Monthly Summary - {{ monthLabel(memberMonthlyReport.month) }} {{ memberMonthlyReport.year }}
+                    </div>
+
+                    <div class="row q-col-gutter-md">
+                      <div class="col-6 col-sm-4 col-md-3">
+                        <div class="stat-box">
+                          <q-icon name="work_history" color="green-5" size="20px" />
+                          <div class="stat-label text-adaptive-caption">Total Hours</div>
+                          <div class="stat-value text-adaptive text-weight-bold">{{ formatDuration(memberMonthlyReport.totalWorkMinutes) }}</div>
+                        </div>
+                      </div>
+                      <div class="col-6 col-sm-4 col-md-3">
+                        <div class="stat-box">
+                          <q-icon name="event_available" color="blue-4" size="20px" />
+                          <div class="stat-label text-adaptive-caption">Days Worked</div>
+                          <div class="stat-value text-adaptive text-weight-bold">{{ memberMonthlyReport.daysWorked }}</div>
+                        </div>
+                      </div>
+                      <div class="col-6 col-sm-4 col-md-3">
+                        <div class="stat-box">
+                          <q-icon name="more_time" color="purple-4" size="20px" />
+                          <div class="stat-label text-adaptive-caption">Overtime</div>
+                          <div class="stat-value text-adaptive text-weight-bold">{{ formatDuration(memberMonthlyReport.totalOvertimeMinutes) }}</div>
+                        </div>
+                      </div>
+                      <div class="col-6 col-sm-4 col-md-3">
+                        <div class="stat-box">
+                          <q-icon name="event_busy" color="amber-5" size="20px" />
+                          <div class="stat-label text-adaptive-caption">Days Off</div>
+                          <div class="stat-value text-adaptive text-weight-bold">{{ memberMonthlyReport.daysOff }}</div>
+                        </div>
+                      </div>
+                      <div class="col-6 col-sm-4 col-md-3">
+                        <div class="stat-box">
+                          <q-icon name="schedule" color="red-4" size="20px" />
+                          <div class="stat-label text-adaptive-caption">Late Arrivals</div>
+                          <div class="stat-value text-adaptive text-weight-bold">{{ memberMonthlyReport.lateArrivals }}</div>
+                        </div>
+                      </div>
+                      <div class="col-6 col-sm-4 col-md-3">
+                        <div class="stat-box">
+                          <q-icon name="directions_run" color="orange-5" size="20px" />
+                          <div class="stat-label text-adaptive-caption">Early Departures</div>
+                          <div class="stat-value text-adaptive text-weight-bold">{{ memberMonthlyReport.earlyDepartures }}</div>
+                        </div>
+                      </div>
+                      <div class="col-6 col-sm-4 col-md-3">
+                        <div class="stat-box">
+                          <q-icon name="coffee" color="amber-5" size="20px" />
+                          <div class="stat-label text-adaptive-caption">Break Time</div>
+                          <div class="stat-value text-adaptive text-weight-bold">{{ formatDuration(memberMonthlyReport.totalBreakMinutes) }}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </q-card-section>
+                </q-card>
+
+                <q-card v-if="memberMonthlyReport.weeklyBreakdown && memberMonthlyReport.weeklyBreakdown.length" class="premium-card" flat>
+                  <q-card-section class="q-pa-none">
+                    <div class="q-pa-md">
+                      <div class="text-subtitle2 text-adaptive text-weight-bold">Weekly Breakdown</div>
+                    </div>
+                    <q-table
+                      :rows="memberMonthlyReport.weeklyBreakdown"
+                      :columns="weeklyColumns"
+                      row-key="weekStart"
+                      flat
+                      hide-pagination
+                      :rows-per-page-options="[0]"
+                      class="report-table"
+                    >
+                      <template #body-cell-week="props">
+                        <q-td :props="props">
+                          <span class="text-adaptive text-weight-medium">
+                            {{ formatDisplayDate(props.row.weekStart) }} - {{ formatDisplayDate(props.row.weekEnd) }}
+                          </span>
+                        </q-td>
+                      </template>
+                      <template #body-cell-totalWorkMinutes="props">
+                        <q-td :props="props">
+                          <span class="text-adaptive">{{ formatDuration(props.row.totalWorkMinutes) }}</span>
+                        </q-td>
+                      </template>
+                      <template #body-cell-totalOvertimeMinutes="props">
+                        <q-td :props="props">
+                          <span class="text-adaptive">{{ formatDuration(props.row.totalOvertimeMinutes) }}</span>
+                        </q-td>
+                      </template>
+                      <template #body-cell-averageWorkMinutesPerDay="props">
+                        <q-td :props="props">
+                          <span class="text-adaptive">{{ formatDuration(props.row.averageWorkMinutesPerDay) }}</span>
+                        </q-td>
+                      </template>
+                    </q-table>
+                  </q-card-section>
+                </q-card>
+              </template>
+
+              <div v-else class="text-center q-pa-xl">
+                <q-icon name="event_busy" color="grey-6" size="48px" />
+                <div class="text-subtitle1 text-adaptive q-mt-md">No data for this month</div>
+              </div>
+            </q-tab-panel>
+
+          </q-tab-panels>
+        </q-card-section>
+      </q-card>
+    </q-dialog>
 
     <!-- Export Dialog -->
     <WorkTimeExportDialog v-model="showExportDialog" />
@@ -601,6 +1046,26 @@ const teamMonthlyYear = ref(currentYear)
 const teamMonthlyMonth = ref(now.getMonth() + 1)
 const teamMonthlyReport = ref(null)
 const loadingTeamMonthly = ref(false)
+
+// Member Detail Dialog
+const showMemberDialog = ref(false)
+const selectedMember = ref(null)
+const memberTab = ref('daily')
+const memberDailyDate = ref(todayStr())
+const memberDailyReport = ref(null)
+const loadingMemberDaily = ref(false)
+const memberWeekStart = ref(getMonday(new Date()))
+const memberWeeklyReport = ref(null)
+const loadingMemberWeekly = ref(false)
+const memberMonthlyYear = ref(currentYear)
+const memberMonthlyMonth = ref(now.getMonth() + 1)
+const memberMonthlyReport = ref(null)
+const loadingMemberMonthly = ref(false)
+
+const memberDialogTitle = computed(() => {
+  if (!selectedMember.value) return ''
+  return `${buildName(selectedMember.value)}'s Reports`
+})
 
 const yearOptions = [currentYear - 1, currentYear, currentYear + 1]
 const monthOptions = [
@@ -736,6 +1201,101 @@ async function loadTeamMonthlyReport() {
   }
 }
 
+// ── Member Detail ────────────────────────────────────────────────────────────
+
+function openMemberDialog(row) {
+  selectedMember.value = row
+  memberTab.value = 'daily'
+  memberDailyDate.value = teamView.value === 'daily' ? teamDailyDate.value : todayStr()
+  memberWeekStart.value = getMonday(new Date(memberDailyDate.value))
+  memberMonthlyYear.value = teamMonthlyYear.value
+  memberMonthlyMonth.value = teamMonthlyMonth.value
+  memberDailyReport.value = null
+  memberWeeklyReport.value = null
+  memberMonthlyReport.value = null
+  showMemberDialog.value = true
+  loadMemberDailyReport()
+}
+
+async function loadMemberDailyReport() {
+  if (!selectedMember.value || !memberDailyDate.value) return
+  loadingMemberDaily.value = true
+  try {
+    const res = await worktimeReportApi.getMemberDailyReport(selectedMember.value.userId, memberDailyDate.value)
+    memberDailyReport.value = res.data.data
+  } catch (e) {
+    console.error('Failed to load member daily report', e)
+    memberDailyReport.value = null
+  } finally {
+    loadingMemberDaily.value = false
+  }
+}
+
+async function loadMemberWeeklyReport() {
+  if (!selectedMember.value || !memberWeekStart.value) return
+  loadingMemberWeekly.value = true
+  try {
+    const res = await worktimeReportApi.getMemberWeeklyReport(selectedMember.value.userId, memberWeekStart.value)
+    memberWeeklyReport.value = res.data.data
+  } catch (e) {
+    console.error('Failed to load member weekly report', e)
+    memberWeeklyReport.value = null
+  } finally {
+    loadingMemberWeekly.value = false
+  }
+}
+
+async function loadMemberMonthlyReport() {
+  if (!selectedMember.value) return
+  loadingMemberMonthly.value = true
+  try {
+    const res = await worktimeReportApi.getMemberMonthlyReport(selectedMember.value.userId, memberMonthlyYear.value, memberMonthlyMonth.value)
+    memberMonthlyReport.value = res.data.data
+  } catch (e) {
+    console.error('Failed to load member monthly report', e)
+    memberMonthlyReport.value = null
+  } finally {
+    loadingMemberMonthly.value = false
+  }
+}
+
+function confirmResetDailyEntry() {
+  const memberName = buildName(selectedMember.value)
+  const dateLabel = formatDisplayDate(memberDailyDate.value)
+  $q.dialog({
+    title: 'Reset Daily Entry',
+    message: `Are you sure you want to reset all time tracking data for <strong>${memberName}</strong> on <strong>${dateLabel}</strong>?<br><br>This will permanently delete the check-in, check-out, all breaks, and checkout note for this day. This action cannot be undone.<br><br>If the date is today, the user will be able to check in again.`,
+    html: true,
+    cancel: { flat: true, color: 'grey-5', label: 'Cancel', noCaps: true },
+    ok: { unelevated: true, color: 'red-7', label: 'Reset', noCaps: true },
+    persistent: true
+  }).onOk(async () => {
+    try {
+      await worktimeReportApi.resetMemberDailyEntry(selectedMember.value.userId, memberDailyDate.value)
+      $q.notify({ type: 'positive', message: `Daily entry for ${memberName} on ${dateLabel} has been reset` })
+      memberDailyReport.value = null
+      loadMemberDailyReport()
+    } catch (e) {
+      console.error('Failed to reset daily entry', e)
+      $q.notify({ type: 'negative', message: 'Failed to reset daily entry' })
+    }
+  })
+}
+
+function memberPrevWeek() {
+  const d = new Date(memberWeekStart.value)
+  d.setDate(d.getDate() - 7)
+  memberWeekStart.value = toDateStr(d)
+  loadMemberWeeklyReport()
+}
+
+function memberNextWeek() {
+  const d = new Date(memberWeekStart.value)
+  d.setDate(d.getDate() + 7)
+  memberWeekStart.value = toDateStr(d)
+  loadMemberWeeklyReport()
+}
+
 // ── Week Navigation ─────────────────────────────────────────────────────────
 
 function prevWeek() {
@@ -853,6 +1413,13 @@ watch(activeTab, (tab) => {
   }
 })
 
+watch(memberTab, (tab) => {
+  if (!selectedMember.value) return
+  if (tab === 'daily' && !memberDailyReport.value) loadMemberDailyReport()
+  if (tab === 'weekly' && !memberWeeklyReport.value) loadMemberWeeklyReport()
+  if (tab === 'monthly' && !memberMonthlyReport.value) loadMemberMonthlyReport()
+})
+
 watch(teamView, (view) => {
   if (view === 'daily' && !teamDailyReport.value) loadTeamDailyReport()
   if (view === 'monthly' && !teamMonthlyReport.value) loadTeamMonthlyReport()
@@ -900,5 +1467,20 @@ onMounted(() => {
 
 .report-table :deep(.q-table__bottom) {
   color: var(--erp-text-secondary);
+}
+
+.break-history-list {
+  background: var(--erp-bg-tertiary, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--erp-border-subtle);
+  border-radius: 8px;
+}
+
+.clickable-table :deep(tbody tr) {
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.clickable-table :deep(tbody tr:hover) {
+  background: rgba(102, 187, 106, 0.08) !important;
 }
 </style>

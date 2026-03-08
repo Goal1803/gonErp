@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.List;
 
 @Data
 @Builder
@@ -22,4 +23,6 @@ public class DailyReportDTO {
     private String workLocation;
     private boolean isLateArrival;
     private boolean isEarlyDeparture;
+    private String dailyNotes;
+    private List<BreakEntryResponse> breaks;
 }
