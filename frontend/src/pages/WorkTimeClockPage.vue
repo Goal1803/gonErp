@@ -297,7 +297,7 @@ import { useBreakReminder } from 'src/composables/useBreakReminder'
 
 const $q = useQuasar()
 const worktimeStore = useWorktimeStore()
-const { resetBreakReminder } = useBreakReminder()
+const { resetBreakReminder, broadcastClockChange } = useBreakReminder()
 const userConfig = ref(null)
 
 const liveTime = ref('')
@@ -488,6 +488,7 @@ async function handleCheckIn() {
   try {
     await worktimeStore.checkIn({ workLocation: workLocation.value })
     resetBreakReminder()
+    broadcastClockChange()
     $q.notify({ type: 'positive', message: 'Checked in successfully' })
   } catch (e) {
     $q.notify({ type: 'negative', message: e.response?.data?.message || 'Failed to check in' })
@@ -497,6 +498,7 @@ async function handleCheckIn() {
 async function handlePause() {
   try {
     await worktimeStore.pause()
+    broadcastClockChange()
     $q.notify({ type: 'positive', message: 'Break started' })
   } catch (e) {
     $q.notify({ type: 'negative', message: e.response?.data?.message || 'Failed to start break' })
@@ -507,6 +509,7 @@ async function handleResume() {
   try {
     await worktimeStore.resume()
     resetBreakReminder()
+    broadcastClockChange()
     $q.notify({ type: 'positive', message: 'Work resumed' })
   } catch (e) {
     $q.notify({ type: 'negative', message: e.response?.data?.message || 'Failed to resume' })
@@ -518,6 +521,7 @@ async function handleCheckOut() {
     await worktimeStore.checkOut({ dailyNotes: checkOutNotes.value || null })
     showCheckOutDialog.value = false
     checkOutNotes.value = ''
+    broadcastClockChange()
     $q.notify({ type: 'positive', message: 'Checked out successfully' })
   } catch (e) {
     $q.notify({ type: 'negative', message: e.response?.data?.message || 'Failed to check out' })

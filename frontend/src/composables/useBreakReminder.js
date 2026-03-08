@@ -75,8 +75,9 @@ export function useBreakReminder() {
   async function takeBreakFromReminder() {
     showBreakReminder.value = false
     breakReminderDismissedAt = Date.now()
-    if (breakChannel) breakChannel.postMessage({ type: 'BREAK_STARTED' })
     await worktimeStore.pause()
+    // Broadcast after pause succeeds so other tabs fetch the updated state
+    if (breakChannel) breakChannel.postMessage({ type: 'BREAK_STARTED' })
   }
 
   function resetBreakReminder() {
@@ -97,11 +98,7 @@ export function useBreakReminder() {
           showBreakReminder.value = false
           if (event.data.type === 'BREAK_DISMISSED') breakReminderDismissedAt = Date.now()
         }
-        if (event.data?.type === 'BREAK_STARTED') {
-          worktimeStore.fetchClockStatus()
-          worktimeStore.fetchTodayEntry()
-        }
-        if (event.data?.type === 'FORCE_CHECKOUT') {
+        if (event.data?.type === 'BREAK_STARTED' || event.data?.type === 'CLOCK_CHANGED' || event.data?.type === 'FORCE_CHECKOUT') {
           worktimeStore.fetchClockStatus()
           worktimeStore.fetchTodayEntry()
         }
@@ -126,6 +123,11 @@ export function useBreakReminder() {
     }
   }
 
+  // Notify other tabs to refresh clock status
+  function broadcastClockChange(type = 'CLOCK_CHANGED') {
+    if (breakChannel) breakChannel.postMessage({ type })
+  }
+
   return {
     showBreakReminder,
     breakReminderLabel,
@@ -133,6 +135,7 @@ export function useBreakReminder() {
     dismissBreakReminder,
     takeBreakFromReminder,
     resetBreakReminder,
+    broadcastClockChange,
     startChecking,
     stopChecking
   }
