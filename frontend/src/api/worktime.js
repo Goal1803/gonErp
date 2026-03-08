@@ -63,6 +63,8 @@ export const worktimeReportApi = {
   resetMemberDailyEntry: (userId, date) => api.delete(`/worktime/reports/member/${userId}/daily`, { params: { date } }),
   getMemberWeeklyReport: (userId, weekStart) => api.get(`/worktime/reports/member/${userId}/weekly`, { params: { weekStart } }),
   getMemberMonthlyReport: (userId, year, month) => api.get(`/worktime/reports/member/${userId}/monthly`, { params: { year, month } }),
+  getTeamCheckoutNotes: (date) => api.get('/worktime/reports/team/checkout-notes', { params: { date } }),
+  getUserCheckoutNotesHistory: (userId, startDate, endDate) => api.get(`/worktime/reports/member/${userId}/checkout-notes`, { params: { startDate, endDate } }),
   exportCSV: (year, month) => api.get('/worktime/reports/export', { params: { year, month, type: 'csv' }, responseType: 'blob' })
 }
 

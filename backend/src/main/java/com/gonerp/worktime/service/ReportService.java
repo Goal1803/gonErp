@@ -127,26 +127,46 @@ public class ReportService {
 
     // ── Team Daily Report ───────────────────────────────────────────────────────
 
+    @Transactional
     public TeamDailyReportDTO getTeamDailyReport(Long orgId, LocalDate date) {
         List<TimeEntry> entries = timeEntryRepository.findByOrganizationIdAndWorkDate(orgId, date);
+        Map<Long, TimeEntry> entryByUserId = entries.stream()
+                .collect(Collectors.toMap(e -> e.getUser().getId(), e -> e));
 
-        List<TeamMemberDailyDTO> memberEntries = entries.stream()
-                .map(e -> {
-                    UserWorkTimeConfig cfg = userConfigService.getOrCreateConfig(e.getUser());
-                    return TeamMemberDailyDTO.builder()
-                        .userId(e.getUser().getId())
-                        .userName(e.getUser().getUserName())
-                        .firstName(e.getUser().getFirstName())
-                        .lastName(e.getUser().getLastName())
-                        .avatarUrl(e.getUser().getAvatarUrl())
-                        .checkInTime(e.getCheckInTime())
-                        .checkOutTime(e.getCheckOutTime())
-                        .totalWorkMinutes(e.getTotalWorkMinutes())
-                        .status(e.getStatus() != null ? e.getStatus().name() : null)
-                        .workLocation(e.getWorkLocation() != null ? e.getWorkLocation().name() : null)
-                        .isLateArrival(e.isLateArrival())
-                        .timezoneId(cfg.getTimezoneId())
-                        .build();
+        // Include ALL org users, not just those who checked in
+        List<User> orgUsers = userRepository.findByOrganizationId(orgId);
+
+        List<TeamMemberDailyDTO> memberEntries = orgUsers.stream()
+                .map(user -> {
+                    UserWorkTimeConfig cfg = userConfigService.getOrCreateConfig(user);
+                    TimeEntry e = entryByUserId.get(user.getId());
+                    if (e != null) {
+                        return TeamMemberDailyDTO.builder()
+                            .userId(user.getId())
+                            .userName(user.getUserName())
+                            .firstName(user.getFirstName())
+                            .lastName(user.getLastName())
+                            .avatarUrl(user.getAvatarUrl())
+                            .checkInTime(e.getCheckInTime())
+                            .checkOutTime(e.getCheckOutTime())
+                            .totalWorkMinutes(e.getTotalWorkMinutes())
+                            .status(e.getStatus() != null ? e.getStatus().name() : null)
+                            .workLocation(e.getWorkLocation() != null ? e.getWorkLocation().name() : null)
+                            .isLateArrival(e.isLateArrival())
+                            .timezoneId(cfg.getTimezoneId())
+                            .build();
+                    } else {
+                        return TeamMemberDailyDTO.builder()
+                            .userId(user.getId())
+                            .userName(user.getUserName())
+                            .firstName(user.getFirstName())
+                            .lastName(user.getLastName())
+                            .avatarUrl(user.getAvatarUrl())
+                            .totalWorkMinutes(0)
+                            .status("NOT_CHECKED_IN")
+                            .timezoneId(cfg.getTimezoneId())
+                            .build();
+                    }
                 })
                 .toList();
 
@@ -210,6 +230,64 @@ public class ReportService {
                 .year(year)
                 .month(month)
                 .members(members)
+                .build();
+    }
+
+    // ── Team Checkout Notes ────────────────────────────────────────────────────────
+
+    public TeamCheckoutNotesDTO getTeamCheckoutNotes(Long orgId, LocalDate date) {
+        List<TimeEntry> entries = timeEntryRepository
+                .findByOrganizationIdAndWorkDateAndDailyNotesIsNotNullOrderByUserUserNameAsc(orgId, date);
+
+        List<MemberCheckoutNoteDTO> noteEntries = entries.stream()
+                .filter(e -> e.getDailyNotes() != null && !e.getDailyNotes().isBlank())
+                .map(e -> MemberCheckoutNoteDTO.builder()
+                        .userId(e.getUser().getId())
+                        .userName(e.getUser().getUserName())
+                        .firstName(e.getUser().getFirstName())
+                        .lastName(e.getUser().getLastName())
+                        .avatarUrl(e.getUser().getAvatarUrl())
+                        .dailyNotes(e.getDailyNotes())
+                        .workDate(e.getWorkDate())
+                        .checkOutTime(e.getCheckOutTime())
+                        .totalWorkMinutes(e.getTotalWorkMinutes())
+                        .build())
+                .toList();
+
+        return TeamCheckoutNotesDTO.builder()
+                .date(date)
+                .entries(noteEntries)
+                .build();
+    }
+
+    public UserCheckoutNotesHistoryDTO getUserCheckoutNotesHistory(Long userId, LocalDate startDate, LocalDate endDate) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalStateException("User not found"));
+
+        List<TimeEntry> entries = timeEntryRepository
+                .findByUserIdAndDailyNotesIsNotNullAndWorkDateBetweenOrderByWorkDateDesc(userId, startDate, endDate);
+
+        List<MemberCheckoutNoteDTO> noteEntries = entries.stream()
+                .filter(e -> e.getDailyNotes() != null && !e.getDailyNotes().isBlank())
+                .map(e -> MemberCheckoutNoteDTO.builder()
+                        .userId(e.getUser().getId())
+                        .userName(e.getUser().getUserName())
+                        .firstName(e.getUser().getFirstName())
+                        .lastName(e.getUser().getLastName())
+                        .avatarUrl(e.getUser().getAvatarUrl())
+                        .dailyNotes(e.getDailyNotes())
+                        .workDate(e.getWorkDate())
+                        .checkOutTime(e.getCheckOutTime())
+                        .totalWorkMinutes(e.getTotalWorkMinutes())
+                        .build())
+                .toList();
+
+        return UserCheckoutNotesHistoryDTO.builder()
+                .userId(user.getId())
+                .userName(user.getUserName())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .entries(noteEntries)
                 .build();
     }
 

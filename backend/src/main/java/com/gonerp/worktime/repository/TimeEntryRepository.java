@@ -21,4 +21,8 @@ public interface TimeEntryRepository extends JpaRepository<TimeEntry, Long> {
     List<TimeEntry> findByOrganizationIdAndWorkDateBetween(Long organizationId, LocalDate start, LocalDate end);
 
     List<TimeEntry> findByOrganizationIdAndWorkDateAndStatusIn(Long organizationId, LocalDate workDate, List<TimeEntryStatus> statuses);
+
+    List<TimeEntry> findByOrganizationIdAndWorkDateAndDailyNotesIsNotNullOrderByUserUserNameAsc(Long organizationId, LocalDate workDate);
+
+    List<TimeEntry> findByUserIdAndDailyNotesIsNotNullAndWorkDateBetweenOrderByWorkDateDesc(Long userId, LocalDate start, LocalDate end);
 }

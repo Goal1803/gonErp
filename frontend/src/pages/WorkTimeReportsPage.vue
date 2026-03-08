@@ -436,7 +436,8 @@
             text-color="white"
             :options="[
               { label: 'Daily', value: 'daily' },
-              { label: 'Monthly', value: 'monthly' }
+              { label: 'Monthly', value: 'monthly' },
+              { label: 'Notes', value: 'notes' }
             ]"
           />
           <q-space />
@@ -455,7 +456,7 @@
           </template>
 
           <!-- Monthly Controls -->
-          <template v-else>
+          <template v-if="teamView === 'monthly'">
             <q-select
               v-model="teamMonthlyYear"
               :options="yearOptions"
@@ -475,6 +476,19 @@
               map-options
               style="min-width: 140px"
               @update:model-value="loadTeamMonthlyReport"
+            />
+          </template>
+
+          <!-- Notes Controls -->
+          <template v-if="teamView === 'notes'">
+            <q-input
+              v-model="teamNotesDate"
+              type="date"
+              outlined
+              dense
+              color="green-5"
+              style="min-width: 180px"
+              @update:model-value="loadTeamCheckoutNotes"
             />
           </template>
         </div>
@@ -540,7 +554,7 @@
         </template>
 
         <!-- Team Monthly View -->
-        <template v-else>
+        <template v-if="teamView === 'monthly'">
           <div v-if="loadingTeamMonthly" class="text-center q-pa-xl">
             <q-spinner color="green-5" size="32px" />
           </div>
@@ -581,6 +595,58 @@
           <div v-else class="text-center q-pa-xl">
             <q-icon name="groups" color="grey-6" size="48px" />
             <div class="text-subtitle1 text-adaptive q-mt-md">No team data for this month</div>
+          </div>
+        </template>
+
+        <!-- Team Checkout Notes View -->
+        <template v-if="teamView === 'notes'">
+          <div v-if="loadingTeamNotes" class="text-center q-pa-xl">
+            <q-spinner color="green-5" size="32px" />
+          </div>
+
+          <template v-else-if="teamCheckoutNotes && teamCheckoutNotes.entries && teamCheckoutNotes.entries.length">
+            <div class="row q-col-gutter-md">
+              <div
+                v-for="entry in teamCheckoutNotes.entries"
+                :key="entry.userId + '-' + entry.workDate"
+                class="col-12 col-md-6"
+              >
+                <q-card
+                  class="premium-card cursor-pointer note-card"
+                  flat
+                  @click="openUserNotesHistory(entry)"
+                >
+                  <q-card-section>
+                    <div class="flex items-center q-mb-sm">
+                      <q-avatar size="36px" color="green-9" text-color="white" class="q-mr-sm">
+                        <img v-if="entry.avatarUrl" :src="entry.avatarUrl" />
+                        <span v-else style="font-size: 0.75rem">{{ (entry.firstName || entry.userName || '?').charAt(0).toUpperCase() }}</span>
+                      </q-avatar>
+                      <div class="col">
+                        <div class="text-subtitle2 text-adaptive text-weight-bold">
+                          {{ buildName(entry) }}
+                        </div>
+                        <div class="text-caption text-adaptive-caption">
+                          {{ formatDuration(entry.totalWorkMinutes) }} worked
+                          <span v-if="entry.checkOutTime"> &middot; out at {{ formatTime(entry.checkOutTime) }}</span>
+                        </div>
+                      </div>
+                      <q-icon name="chevron_right" color="grey-6" size="20px" />
+                    </div>
+                    <div
+                      class="text-adaptive note-content"
+                      style="white-space: pre-wrap; background: var(--erp-bg-tertiary, rgba(255,255,255,0.03)); border: 1px solid var(--erp-border-subtle); border-radius: 8px; padding: 10px 12px; font-size: 0.85rem; line-height: 1.5;"
+                    >{{ entry.dailyNotes }}</div>
+                  </q-card-section>
+                </q-card>
+              </div>
+            </div>
+          </template>
+
+          <div v-else class="text-center q-pa-xl">
+            <q-icon name="sticky_note_2" color="grey-6" size="48px" />
+            <div class="text-subtitle1 text-adaptive q-mt-md">No checkout notes for this date</div>
+            <div class="text-caption text-adaptive-caption q-mt-xs">Notes are written by users when they check out</div>
           </div>
         </template>
       </q-tab-panel>
@@ -1116,6 +1182,82 @@
       </q-card>
     </q-dialog>
 
+    <!-- User Checkout Notes History Dialog -->
+    <q-dialog v-model="showUserNotesDialog" maximized transition-show="slide-up" transition-hide="slide-down">
+      <q-card class="bg-dark">
+        <q-bar class="bg-grey-9">
+          <q-icon name="sticky_note_2" />
+          <div class="text-weight-bold">{{ userNotesDialogTitle }}</div>
+          <q-space />
+          <q-btn dense flat icon="close" @click="showUserNotesDialog = false" />
+        </q-bar>
+
+        <q-card-section class="q-pt-md">
+          <!-- Date range controls -->
+          <div class="row items-center q-mb-lg q-gutter-sm">
+            <q-select
+              v-model="userNotesMonthlyYear"
+              :options="yearOptions"
+              label="Year"
+              outlined
+              dense
+              color="green-5"
+              style="min-width: 100px"
+              @update:model-value="loadUserNotesHistory"
+            />
+            <q-select
+              v-model="userNotesMonthlyMonth"
+              :options="monthOptions"
+              label="Month"
+              outlined
+              dense
+              color="green-5"
+              emit-value
+              map-options
+              style="min-width: 140px"
+              @update:model-value="loadUserNotesHistory"
+            />
+          </div>
+
+          <div v-if="loadingUserNotes" class="text-center q-pa-xl">
+            <q-spinner color="green-5" size="32px" />
+          </div>
+
+          <template v-else-if="userNotesHistory && userNotesHistory.entries && userNotesHistory.entries.length">
+            <q-timeline color="green-7" layout="comfortable">
+              <q-timeline-entry
+                v-for="note in userNotesHistory.entries"
+                :key="note.workDate"
+                :subtitle="formatDisplayDate(note.workDate)"
+                icon="sticky_note_2"
+                color="green-7"
+              >
+                <template #title>
+                  <div class="flex items-center q-gutter-sm">
+                    <span class="text-adaptive text-weight-medium" style="font-size: 0.9rem">
+                      {{ formatDuration(note.totalWorkMinutes) }} worked
+                    </span>
+                    <span v-if="note.checkOutTime" class="text-adaptive-caption" style="font-size: 0.8rem">
+                      &middot; checked out {{ formatTime(note.checkOutTime) }}
+                    </span>
+                  </div>
+                </template>
+                <div
+                  class="text-adaptive"
+                  style="white-space: pre-wrap; background: var(--erp-bg-tertiary, rgba(255,255,255,0.03)); border: 1px solid var(--erp-border-subtle); border-radius: 8px; padding: 10px 12px; font-size: 0.85rem; line-height: 1.5;"
+                >{{ note.dailyNotes }}</div>
+              </q-timeline-entry>
+            </q-timeline>
+          </template>
+
+          <div v-else class="text-center q-pa-xl">
+            <q-icon name="sticky_note_2" color="grey-6" size="48px" />
+            <div class="text-subtitle1 text-adaptive q-mt-md">No checkout notes for this period</div>
+          </div>
+        </q-card-section>
+      </q-card>
+    </q-dialog>
+
     <!-- Export Dialog -->
     <WorkTimeExportDialog v-model="showExportDialog" />
   </q-page>
@@ -1169,6 +1311,23 @@ const teamMonthlyYear = ref(currentYear)
 const teamMonthlyMonth = ref(now.getMonth() + 1)
 const teamMonthlyReport = ref(null)
 const loadingTeamMonthly = ref(false)
+
+// Team Checkout Notes
+const teamNotesDate = ref(todayStr())
+const teamCheckoutNotes = ref(null)
+const loadingTeamNotes = ref(false)
+
+// User Notes History Dialog
+const showUserNotesDialog = ref(false)
+const selectedNotesUser = ref(null)
+const userNotesHistory = ref(null)
+const loadingUserNotes = ref(false)
+const userNotesMonthlyYear = ref(currentYear)
+const userNotesMonthlyMonth = ref(now.getMonth() + 1)
+const userNotesDialogTitle = computed(() => {
+  if (!selectedNotesUser.value) return ''
+  return `${buildName(selectedNotesUser.value)}'s Checkout Notes`
+})
 
 // Member Detail Dialog
 const showMemberDialog = ref(false)
@@ -1323,6 +1482,49 @@ async function loadTeamMonthlyReport() {
     teamMonthlyReport.value = null
   } finally {
     loadingTeamMonthly.value = false
+  }
+}
+
+// ── Team Checkout Notes ──────────────────────────────────────────────────────
+
+async function loadTeamCheckoutNotes() {
+  if (!teamNotesDate.value) return
+  loadingTeamNotes.value = true
+  try {
+    const res = await worktimeReportApi.getTeamCheckoutNotes(teamNotesDate.value)
+    teamCheckoutNotes.value = res.data.data
+  } catch (e) {
+    console.error('Failed to load team checkout notes', e)
+    teamCheckoutNotes.value = null
+  } finally {
+    loadingTeamNotes.value = false
+  }
+}
+
+function openUserNotesHistory(entry) {
+  selectedNotesUser.value = entry
+  userNotesMonthlyYear.value = currentYear
+  userNotesMonthlyMonth.value = now.getMonth() + 1
+  userNotesHistory.value = null
+  showUserNotesDialog.value = true
+  loadUserNotesHistory()
+}
+
+async function loadUserNotesHistory() {
+  if (!selectedNotesUser.value) return
+  loadingUserNotes.value = true
+  try {
+    const ym = `${userNotesMonthlyYear.value}-${String(userNotesMonthlyMonth.value).padStart(2, '0')}`
+    const startDate = `${ym}-01`
+    const lastDay = new Date(userNotesMonthlyYear.value, userNotesMonthlyMonth.value, 0).getDate()
+    const endDate = `${ym}-${String(lastDay).padStart(2, '0')}`
+    const res = await worktimeReportApi.getUserCheckoutNotesHistory(selectedNotesUser.value.userId, startDate, endDate)
+    userNotesHistory.value = res.data.data
+  } catch (e) {
+    console.error('Failed to load user notes history', e)
+    userNotesHistory.value = null
+  } finally {
+    loadingUserNotes.value = false
   }
 }
 
@@ -1593,6 +1795,7 @@ function teamStatusColor(status) {
     case 'CHECKED_IN': return 'green-7'
     case 'ON_BREAK': return 'amber-8'
     case 'CHECKED_OUT': return 'grey-7'
+    case 'NOT_CHECKED_IN': return 'blue-grey-7'
     default: return 'grey-6'
   }
 }
@@ -1602,6 +1805,7 @@ function teamStatusLabel(status) {
     case 'CHECKED_IN': return 'Working'
     case 'ON_BREAK': return 'On Break'
     case 'CHECKED_OUT': return 'Done'
+    case 'NOT_CHECKED_IN': return 'Not Checked In'
     default: return status || '-'
   }
 }
@@ -1615,6 +1819,7 @@ watch(activeTab, (tab) => {
   if (tab === 'team') {
     if (teamView.value === 'daily' && !teamDailyReport.value) loadTeamDailyReport()
     if (teamView.value === 'monthly' && !teamMonthlyReport.value) loadTeamMonthlyReport()
+    if (teamView.value === 'notes' && !teamCheckoutNotes.value) loadTeamCheckoutNotes()
   }
 })
 
@@ -1628,6 +1833,7 @@ watch(memberTab, (tab) => {
 watch(teamView, (view) => {
   if (view === 'daily' && !teamDailyReport.value) loadTeamDailyReport()
   if (view === 'monthly' && !teamMonthlyReport.value) loadTeamMonthlyReport()
+  if (view === 'notes' && !teamCheckoutNotes.value) loadTeamCheckoutNotes()
 })
 
 // ── Init ────────────────────────────────────────────────────────────────────
@@ -1688,5 +1894,31 @@ onMounted(() => {
 
 .clickable-table :deep(tbody tr:hover) {
   background: rgba(102, 187, 106, 0.08) !important;
+}
+
+.note-card {
+  transition: border-color 0.2s, transform 0.1s;
+}
+
+.note-card:hover {
+  border-color: rgba(102, 187, 106, 0.3) !important;
+  transform: translateY(-1px);
+}
+
+.note-content {
+  max-height: 120px;
+  overflow: hidden;
+  position: relative;
+}
+
+.note-content::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 24px;
+  background: linear-gradient(transparent, var(--erp-bg-tertiary, rgba(30, 30, 30, 0.9)));
+  pointer-events: none;
 }
 </style>

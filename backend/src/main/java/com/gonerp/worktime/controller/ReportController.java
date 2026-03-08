@@ -76,6 +76,25 @@ public class ReportController {
         return ResponseEntity.ok(ApiResponse.ok(reportService.getTeamMonthlyReport(orgId, year, month)));
     }
 
+    @GetMapping("/team/checkout-notes")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<TeamCheckoutNotesDTO>> getTeamCheckoutNotes(
+            Authentication auth,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        User user = userRepository.findByUserName(auth.getName()).orElseThrow();
+        Long orgId = getOrgIdOrThrow(user);
+        return ResponseEntity.ok(ApiResponse.ok(reportService.getTeamCheckoutNotes(orgId, date)));
+    }
+
+    @GetMapping("/member/{userId}/checkout-notes")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<UserCheckoutNotesHistoryDTO>> getUserCheckoutNotesHistory(
+            @PathVariable Long userId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        return ResponseEntity.ok(ApiResponse.ok(reportService.getUserCheckoutNotesHistory(userId, startDate, endDate)));
+    }
+
     // ── Member Reports (Admin Only) ─────────────────────────────────────────────
 
     @GetMapping("/member/{userId}/daily")
