@@ -406,6 +406,10 @@ async function loadSettings() {
           form[key] = data[key]
         }
       })
+      // Normalize time fields from HH:mm:ss to HH:mm for time inputs
+      if (form.forceCheckoutTime && form.forceCheckoutTime.length > 5) {
+        form.forceCheckoutTime = form.forceCheckoutTime.substring(0, 5)
+      }
     }
   } catch {
     // defaults already set

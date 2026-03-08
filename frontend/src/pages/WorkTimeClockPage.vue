@@ -243,10 +243,10 @@
     <q-dialog v-model="showForceCheckoutWarning" persistent>
       <q-card style="min-width: 400px; background: var(--erp-bg-elevated); border: 1px solid var(--erp-border);">
         <q-card-section class="text-center q-pa-lg">
-          <q-icon name="midnight" color="red-4" size="48px" />
+          <q-icon name="logout" color="red-4" size="48px" />
           <div class="text-h6 text-white q-mt-md">Automatically Checked Out</div>
           <div class="text-body2 text-grey-4 q-mt-sm">
-            You were automatically checked out at midnight. Time entries cannot span two days. If you need to continue working, please check in again for the new day.
+            You were automatically checked out at {{ forceCheckoutLabel }}. If you need to continue working, please check in again.
           </div>
         </q-card-section>
         <q-card-actions align="center" class="q-pb-lg">
@@ -323,6 +323,12 @@ const orgTimezone = computed(() => userConfig.value?.timezoneId || worktimeStore
 
 const breakEntries = computed(() => {
   return todayEntry.value?.breaks || []
+})
+
+const forceCheckoutLabel = computed(() => {
+  const raw = worktimeStore.settings?.forceCheckoutTime || '00:00'
+  const t = raw.substring(0, 5)
+  return t === '00:00' ? 'midnight' : t
 })
 
 const statusLabel = computed(() => {
@@ -437,9 +443,16 @@ function tick() {
   checkForceCheckout(tz)
 }
 
+let forceCheckoutTriggered = false
+
 function checkForceCheckout(tz) {
+  if (forceCheckoutTriggered) return
+
   const status = clockStatus.value?.status
-  if (status !== 'CHECKED_IN' && status !== 'ON_BREAK') return
+  if (status !== 'CHECKED_IN' && status !== 'ON_BREAK') {
+    forceCheckoutTriggered = false // reset when not active
+    return
+  }
 
   const entry = todayEntry.value
   if (!entry || !entry.workDate) return
@@ -448,7 +461,9 @@ function checkForceCheckout(tz) {
   const todayInTz = now.toLocaleDateString('en-CA', { timeZone: tz }) // YYYY-MM-DD format
   const currentTime = now.toLocaleTimeString('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false })
 
-  const forceTime = worktimeStore.settings?.forceCheckoutTime || '00:00'
+  // Normalize forceTime to HH:mm (backend sends HH:mm:ss)
+  const rawForceTime = worktimeStore.settings?.forceCheckoutTime || '00:00'
+  const forceTime = rawForceTime.substring(0, 5) // "18:00:00" → "18:00"
 
   let shouldForceCheckout = false
   if (forceTime === '00:00') {
@@ -466,9 +481,15 @@ function checkForceCheckout(tz) {
   }
 
   if (shouldForceCheckout) {
+    forceCheckoutTriggered = true
     showForceCheckoutWarning.value = true
-    worktimeStore.fetchClockStatus()
-    worktimeStore.fetchTodayEntry()
+    // Actually check out the user immediately
+    worktimeStore.checkOut({ dailyNotes: '[Auto-checked out at ' + forceTime + ']' }).catch(() => {
+      // If checkout fails (e.g. already checked out by backend scheduler), just refresh
+      worktimeStore.fetchClockStatus()
+      worktimeStore.fetchTodayEntry()
+    })
+    broadcastClockChange()
   }
 }
 
@@ -497,6 +518,7 @@ async function handleCheckIn() {
   try {
     await worktimeStore.checkIn({ workLocation: workLocation.value })
     resetBreakReminder()
+    forceCheckoutTriggered = false
     broadcastClockChange()
     $q.notify({ type: 'positive', message: 'Checked in successfully' })
   } catch (e) {
