@@ -6,6 +6,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalTime;
+import java.time.ZoneId;
 
 @Entity
 @Table(name = "wt_settings", uniqueConstraints = {
@@ -81,4 +82,13 @@ public class WorkTimeSettings extends BaseModel {
     @Column(name = "auto_checkout_reminder_minutes", nullable = false)
     @Builder.Default
     private int autoCheckoutReminderMinutes = 0;
+
+    @Column(name = "timezone_id", nullable = false, length = 50)
+    @Builder.Default
+    private String timezoneId = "Asia/Ho_Chi_Minh";
+
+    public ZoneId getZoneId() {
+        try { return ZoneId.of(timezoneId); }
+        catch (Exception e) { return ZoneId.of("Asia/Ho_Chi_Minh"); }
+    }
 }

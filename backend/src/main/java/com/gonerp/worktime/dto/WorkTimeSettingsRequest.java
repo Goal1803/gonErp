@@ -20,4 +20,5 @@ public class WorkTimeSettingsRequest {
     private Boolean dailyNotesEnabled;
     private Boolean workLocationEnabled;
     private Integer autoCheckoutReminderMinutes;
+    private String timezoneId;
 }

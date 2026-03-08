@@ -29,6 +29,7 @@ public class WorkTimeSettingsResponse {
     private Boolean dailyNotesEnabled;
     private Boolean workLocationEnabled;
     private Integer autoCheckoutReminderMinutes;
+    private String timezoneId;
 
     public static WorkTimeSettingsResponse from(WorkTimeSettings s) {
         return WorkTimeSettingsResponse.builder()
@@ -48,6 +49,7 @@ public class WorkTimeSettingsResponse {
                 .dailyNotesEnabled(s.isDailyNotesEnabled())
                 .workLocationEnabled(s.isWorkLocationEnabled())
                 .autoCheckoutReminderMinutes(s.getAutoCheckoutReminderMinutes())
+                .timezoneId(s.getTimezoneId())
                 .build();
     }
 }

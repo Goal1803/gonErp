@@ -6,7 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 @Data
 @Builder
@@ -22,7 +22,7 @@ public class ClockStatusResponse {
     private boolean isOnBreak;
 
     private Long currentEntryId;
-    private LocalDateTime checkInTime;
+    private OffsetDateTime checkInTime;
     private String workLocation;
     private int elapsedWorkMinutes;
     private int elapsedBreakMinutes;

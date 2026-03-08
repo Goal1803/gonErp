@@ -11,6 +11,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.ZoneId;
+
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -44,6 +46,10 @@ public class WorkTimeSettingsService {
         if (request.getDailyNotesEnabled() != null) settings.setDailyNotesEnabled(request.getDailyNotesEnabled());
         if (request.getWorkLocationEnabled() != null) settings.setWorkLocationEnabled(request.getWorkLocationEnabled());
         if (request.getAutoCheckoutReminderMinutes() != null) settings.setAutoCheckoutReminderMinutes(request.getAutoCheckoutReminderMinutes());
+        if (request.getTimezoneId() != null) {
+            ZoneId.of(request.getTimezoneId()); // validate — throws DateTimeException if invalid
+            settings.setTimezoneId(request.getTimezoneId());
+        }
 
         return WorkTimeSettingsResponse.from(settingsRepository.save(settings));
     }

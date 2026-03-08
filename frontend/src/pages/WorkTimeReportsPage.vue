@@ -558,12 +558,16 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useQuasar } from 'quasar'
 import { useAuthStore } from 'src/stores/authStore'
+import { useWorktimeStore } from 'src/stores/worktimeStore'
 import { worktimeReportApi } from 'src/api/worktime'
 import WorkTimeReportChart from 'src/components/WorkTimeReportChart.vue'
 import WorkTimeExportDialog from 'src/components/WorkTimeExportDialog.vue'
 
 const $q = useQuasar()
 const authStore = useAuthStore()
+const worktimeStore = useWorktimeStore()
+
+const orgTimezone = computed(() => worktimeStore.settings?.timezoneId || 'Asia/Ho_Chi_Minh')
 
 // ── State ───────────────────────────────────────────────────────────────────
 
@@ -771,7 +775,7 @@ function formatTime(timeStr) {
   try {
     const date = new Date(timeStr)
     if (!isNaN(date.getTime())) {
-      return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
+      return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: orgTimezone.value })
     }
   } catch {
     // fallback
@@ -857,6 +861,7 @@ watch(teamView, (view) => {
 // ── Init ────────────────────────────────────────────────────────────────────
 
 onMounted(() => {
+  worktimeStore.fetchSettings()
   loadDailyReport()
 })
 </script>

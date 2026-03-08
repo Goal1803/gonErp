@@ -9,7 +9,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -39,11 +39,11 @@ public class TimeEntry extends BaseModel {
     @Column(name = "work_date", nullable = false)
     private LocalDate workDate;
 
-    @Column(name = "check_in_time")
-    private LocalDateTime checkInTime;
+    @Column(name = "check_in_time", columnDefinition = "TIMESTAMP WITH TIME ZONE")
+    private OffsetDateTime checkInTime;
 
-    @Column(name = "check_out_time")
-    private LocalDateTime checkOutTime;
+    @Column(name = "check_out_time", columnDefinition = "TIMESTAMP WITH TIME ZONE")
+    private OffsetDateTime checkOutTime;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)

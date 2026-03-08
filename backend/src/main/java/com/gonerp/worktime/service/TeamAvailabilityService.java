@@ -10,11 +10,14 @@ import com.gonerp.worktime.model.enums.DayOffRequestStatus;
 import com.gonerp.worktime.model.enums.TimeEntryStatus;
 import com.gonerp.worktime.repository.DayOffRequestRepository;
 import com.gonerp.worktime.repository.TimeEntryRepository;
+import com.gonerp.worktime.repository.WorkTimeSettingsRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -29,9 +32,13 @@ public class TeamAvailabilityService {
     private final TimeEntryRepository timeEntryRepository;
     private final DayOffRequestRepository dayOffRequestRepository;
     private final UserRepository userRepository;
+    private final WorkTimeSettingsRepository settingsRepository;
 
     public TeamAvailabilityDTO getTeamAvailability(Long orgId) {
-        LocalDate today = LocalDate.now();
+        ZoneId zoneId = settingsRepository.findByOrganizationId(orgId)
+                .map(s -> s.getZoneId())
+                .orElse(ZoneId.of("Asia/Ho_Chi_Minh"));
+        LocalDate today = LocalDate.now(zoneId);
 
         List<User> orgUsers = userRepository.findByOrganizationId(orgId);
         List<TimeEntry> todayEntries = timeEntryRepository.findByOrganizationIdAndWorkDate(orgId, today);
@@ -57,7 +64,7 @@ public class TeamAvailabilityService {
         for (User user : orgUsers) {
             TimeEntry entry = entryByUser.get(user.getId());
             String status;
-            java.time.LocalDateTime checkInTime = null;
+            OffsetDateTime checkInTime = null;
             String workLocation = null;
 
             if (usersOnDayOff.contains(user.getId())) {

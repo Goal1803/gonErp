@@ -18,8 +18,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.Optional;
 
 @Service
@@ -36,7 +38,8 @@ public class TimeClockService {
 
     public TimeEntryResponse checkIn(CheckInRequest request) {
         User user = getCurrentUser();
-        LocalDate today = LocalDate.now();
+        ZoneId zoneId = getOrgZoneId(user);
+        LocalDate today = LocalDate.now(zoneId);
 
         // Ensure no existing active entry for today
         Optional<TimeEntry> existing = timeEntryRepository.findByUserIdAndWorkDate(user.getId(), today);
@@ -50,7 +53,7 @@ public class TimeClockService {
             }
         }
 
-        LocalDateTime now = LocalDateTime.now();
+        OffsetDateTime now = ZonedDateTime.now(zoneId).toOffsetDateTime();
 
         // Parse work location from request
         WorkLocation workLocation = null;
@@ -67,7 +70,7 @@ public class TimeClockService {
         WorkTimeSettings settings = getSettingsForUser(user);
         if (settings != null && settings.isLateEarlyTrackingEnabled()) {
             LocalTime expectedStart = settings.getWorkStartTime();
-            if (now.toLocalTime().isAfter(expectedStart)) {
+            if (now.atZoneSameInstant(zoneId).toLocalTime().isAfter(expectedStart)) {
                 lateArrival = true;
             }
         }
@@ -96,7 +99,8 @@ public class TimeClockService {
             throw new IllegalStateException("Cannot start break: current status is " + entry.getStatus());
         }
 
-        LocalDateTime now = LocalDateTime.now();
+        ZoneId zoneId = getOrgZoneId(user);
+        OffsetDateTime now = ZonedDateTime.now(zoneId).toOffsetDateTime();
 
         // Create a new break entry
         BreakEntry breakEntry = BreakEntry.builder()
@@ -120,7 +124,8 @@ public class TimeClockService {
             throw new IllegalStateException("Cannot resume: current status is " + entry.getStatus());
         }
 
-        LocalDateTime now = LocalDateTime.now();
+        ZoneId zoneId = getOrgZoneId(user);
+        OffsetDateTime now = ZonedDateTime.now(zoneId).toOffsetDateTime();
 
         // Find the open break (endTime is null) and close it
         BreakEntry openBreak = entry.getBreaks().stream()
@@ -150,7 +155,8 @@ public class TimeClockService {
             throw new IllegalStateException("Already checked out for today");
         }
 
-        LocalDateTime now = LocalDateTime.now();
+        ZoneId zoneId = getOrgZoneId(user);
+        OffsetDateTime now = ZonedDateTime.now(zoneId).toOffsetDateTime();
 
         // If currently on break, close the open break first
         if (entry.getStatus() == TimeEntryStatus.ON_BREAK) {
@@ -188,7 +194,7 @@ public class TimeClockService {
         // Detect early departure
         if (settings != null && settings.isLateEarlyTrackingEnabled()) {
             LocalTime expectedEnd = settings.getWorkEndTime();
-            if (now.toLocalTime().isBefore(expectedEnd)) {
+            if (now.atZoneSameInstant(zoneId).toLocalTime().isBefore(expectedEnd)) {
                 entry.setEarlyDeparture(true);
             }
         }
@@ -210,7 +216,8 @@ public class TimeClockService {
     @Transactional(readOnly = true)
     public ClockStatusResponse getStatus() {
         User user = getCurrentUser();
-        LocalDate today = LocalDate.now();
+        ZoneId zoneId = getOrgZoneId(user);
+        LocalDate today = LocalDate.now(zoneId);
         Optional<TimeEntry> optEntry = timeEntryRepository.findByUserIdAndWorkDate(user.getId(), today);
 
         if (optEntry.isEmpty()) {
@@ -222,7 +229,7 @@ public class TimeClockService {
         }
 
         TimeEntry entry = optEntry.get();
-        LocalDateTime now = LocalDateTime.now();
+        OffsetDateTime now = ZonedDateTime.now(zoneId).toOffsetDateTime();
 
         boolean isClockedIn = entry.getStatus() == TimeEntryStatus.CHECKED_IN
                 || entry.getStatus() == TimeEntryStatus.ON_BREAK;
@@ -270,7 +277,8 @@ public class TimeClockService {
     @Transactional(readOnly = true)
     public TimeEntryResponse getToday() {
         User user = getCurrentUser();
-        LocalDate today = LocalDate.now();
+        ZoneId zoneId = getOrgZoneId(user);
+        LocalDate today = LocalDate.now(zoneId);
         return timeEntryRepository.findByUserIdAndWorkDate(user.getId(), today)
                 .map(TimeEntryResponse::from)
                 .orElse(null);
@@ -289,9 +297,15 @@ public class TimeClockService {
     }
 
     private TimeEntry getTodayEntryOrThrow(User user) {
-        LocalDate today = LocalDate.now();
+        ZoneId zoneId = getOrgZoneId(user);
+        LocalDate today = LocalDate.now(zoneId);
         return timeEntryRepository.findByUserIdAndWorkDate(user.getId(), today)
                 .orElseThrow(() -> new IllegalStateException("No time entry found for today. Please check in first."));
+    }
+
+    private ZoneId getOrgZoneId(User user) {
+        WorkTimeSettings settings = getSettingsForUser(user);
+        return (settings != null) ? settings.getZoneId() : ZoneId.of("Asia/Ho_Chi_Minh");
     }
 
     private WorkTimeSettings getSettingsForUser(User user) {

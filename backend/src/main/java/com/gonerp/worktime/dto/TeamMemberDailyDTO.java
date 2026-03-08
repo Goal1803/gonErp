@@ -5,7 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 @Data
 @Builder
@@ -17,8 +17,8 @@ public class TeamMemberDailyDTO {
     private String firstName;
     private String lastName;
     private String avatarUrl;
-    private LocalDateTime checkInTime;
-    private LocalDateTime checkOutTime;
+    private OffsetDateTime checkInTime;
+    private OffsetDateTime checkOutTime;
     private int totalWorkMinutes;
     private String status;
     private String workLocation;

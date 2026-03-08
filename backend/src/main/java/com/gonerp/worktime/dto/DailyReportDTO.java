@@ -6,7 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 @Data
 @Builder
@@ -14,8 +14,8 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class DailyReportDTO {
     private LocalDate date;
-    private LocalDateTime checkInTime;
-    private LocalDateTime checkOutTime;
+    private OffsetDateTime checkInTime;
+    private OffsetDateTime checkOutTime;
     private int totalWorkMinutes;
     private int totalBreakMinutes;
     private int overtimeMinutes;

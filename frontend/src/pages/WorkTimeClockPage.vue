@@ -13,13 +13,26 @@
     <div class="row q-col-gutter-lg">
       <!-- LEFT: Clock & Actions -->
       <div class="col-12 col-md-6">
-        <!-- Work Timer -->
+        <!-- Real-time Clock + Work Timer -->
         <q-card class="premium-card q-mb-md" flat>
           <q-card-section class="text-center q-pa-lg">
-            <div class="digital-clock text-h2 text-weight-bold" :style="{ color: timerColor, letterSpacing: '4px' }">
+            <!-- Real-time clock in org timezone -->
+            <div class="realtime-clock text-h2 text-weight-bold text-white" style="letter-spacing: 6px;">
+              {{ liveTime }}
+            </div>
+            <div class="text-body2 text-grey-4 q-mt-xs">{{ currentDate }}</div>
+            <div class="text-caption text-grey-6 q-mt-xs">{{ orgTimezone }}</div>
+
+            <!-- Divider -->
+            <q-separator class="q-my-lg" style="opacity: 0.15;" />
+
+            <!-- Work Duration Timer -->
+            <div class="text-caption text-grey-5 text-uppercase" style="letter-spacing: 2px;">
+              {{ timerLabel }}
+            </div>
+            <div class="work-timer text-h3 q-mt-sm" :style="{ color: timerColor }">
               {{ workTimerDisplay }}
             </div>
-            <div class="text-caption text-grey-5 q-mt-sm">{{ currentDate }}</div>
 
             <!-- Status Badge -->
             <div class="q-mt-md">
@@ -27,7 +40,7 @@
                 :color="statusColor"
                 :label="statusLabel"
                 class="text-weight-medium q-pa-sm"
-                style="font-size: 0.85rem;"
+                style="font-size: 0.85rem; border-radius: 12px;"
               />
             </div>
           </q-card-section>
@@ -162,7 +175,7 @@
                 <q-item-section>
                   <q-item-label class="text-white">Work Duration</q-item-label>
                   <q-item-label caption class="text-grey-5">
-                    {{ todayEntry?.totalWorkMinutes != null ? formatDuration(todayEntry.totalWorkMinutes) : '--' }}
+                    {{ workDurationDisplay }}
                   </q-item-label>
                 </q-item-section>
               </q-item>
@@ -174,7 +187,7 @@
                 <q-item-section>
                   <q-item-label class="text-white">Break Duration</q-item-label>
                   <q-item-label caption class="text-grey-5">
-                    {{ todayEntry?.totalBreakMinutes != null ? formatDuration(todayEntry.totalBreakMinutes) : '--' }}
+                    {{ breakDurationDisplay }}
                   </q-item-label>
                 </q-item-section>
               </q-item>
@@ -267,8 +280,10 @@ import { useWorktimeStore } from 'src/stores/worktimeStore'
 const $q = useQuasar()
 const worktimeStore = useWorktimeStore()
 
+const liveTime = ref('')
 const currentDate = ref('')
 const workSeconds = ref(0)
+const breakSeconds = ref(0)
 const workLocation = ref('OFFICE')
 const checkOutNotes = ref('')
 const showCheckOutDialog = ref(false)
@@ -282,92 +297,129 @@ const locationOptions = [
 
 const { clockStatus, todayEntry } = storeToRefs(worktimeStore)
 
+const orgTimezone = computed(() => worktimeStore.settings?.timezoneId || 'Asia/Ho_Chi_Minh')
+
 const breakEntries = computed(() => {
   return todayEntry.value?.breaks || []
 })
 
-const isClockedIn = computed(() => {
-  const s = clockStatus.value?.status
-  return s === 'CHECKED_IN' || s === 'ON_BREAK'
-})
-
 const statusLabel = computed(() => {
-  if (!clockStatus.value || clockStatus.value.status === 'CHECKED_OUT') return 'Not Checked In'
+  if (!clockStatus.value || !clockStatus.value.status) return 'Not Checked In'
+  if (clockStatus.value.status === 'CHECKED_OUT') return 'Checked Out'
   if (clockStatus.value.status === 'CHECKED_IN') return 'Working'
   if (clockStatus.value.status === 'ON_BREAK') return 'On Break'
   return clockStatus.value.status
 })
 
 const statusColor = computed(() => {
-  if (!clockStatus.value || clockStatus.value.status === 'CHECKED_OUT') return 'grey-7'
+  if (!clockStatus.value || !clockStatus.value.status) return 'grey-7'
+  if (clockStatus.value.status === 'CHECKED_OUT') return 'grey-7'
   if (clockStatus.value.status === 'CHECKED_IN') return 'green-7'
   if (clockStatus.value.status === 'ON_BREAK') return 'amber-8'
   return 'grey-7'
 })
 
-const workTimerDisplay = computed(() => {
-  const s = workSeconds.value
-  const hrs = Math.floor(s / 3600)
-  const mins = Math.floor((s % 3600) / 60)
-  const secs = s % 60
-  return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
+const timerLabel = computed(() => {
+  const s = clockStatus.value?.status
+  if (s === 'ON_BREAK') return 'Working Time (paused)'
+  if (s === 'CHECKED_IN') return 'Working Time'
+  if (s === 'CHECKED_OUT') return 'Total Worked Today'
+  return 'Working Time'
 })
 
 const timerColor = computed(() => {
   const s = clockStatus.value?.status
-  if (s === 'CHECKED_IN') return 'var(--q-green-5, #4caf50)'
-  if (s === 'ON_BREAK') return 'var(--q-amber-5, #ffc107)'
-  return 'var(--erp-text)'
+  if (s === 'CHECKED_IN') return '#4caf50'
+  if (s === 'ON_BREAK') return '#ffc107'
+  return 'rgba(255,255,255,0.5)'
 })
 
-function computeWorkSeconds() {
+function pad2(n) {
+  return String(n).padStart(2, '0')
+}
+
+const workTimerDisplay = computed(() => {
+  const s = workSeconds.value
+  return `${pad2(Math.floor(s / 3600))}:${pad2(Math.floor((s % 3600) / 60))}:${pad2(s % 60)}`
+})
+
+const workDurationDisplay = computed(() => {
+  const s = workSeconds.value
+  if (s === 0 && (!clockStatus.value?.status || clockStatus.value.status === 'CHECKED_OUT')) {
+    const mins = todayEntry.value?.totalWorkMinutes
+    return mins != null ? formatDuration(mins) : '--'
+  }
+  const hrs = Math.floor(s / 3600)
+  const mins = Math.floor((s % 3600) / 60)
+  if (hrs > 0) return `${hrs}h ${mins}m`
+  return `${mins}m`
+})
+
+const breakDurationDisplay = computed(() => {
+  const s = breakSeconds.value
+  if (s === 0) {
+    const mins = todayEntry.value?.totalBreakMinutes
+    return mins != null ? formatDuration(mins) : '--'
+  }
+  const hrs = Math.floor(s / 3600)
+  const mins = Math.floor((s % 3600) / 60)
+  if (hrs > 0) return `${hrs}h ${mins}m`
+  return `${mins}m`
+})
+
+function computeTimers() {
   const entry = todayEntry.value
   const status = clockStatus.value?.status
 
   // Not checked in yet
   if (!entry || !entry.checkInTime || !status) {
     workSeconds.value = 0
+    breakSeconds.value = 0
     return
   }
 
-  // Already checked out — show final total
+  // Already checked out — show final totals
   if (status === 'CHECKED_OUT') {
     workSeconds.value = (entry.totalWorkMinutes || 0) * 60
+    breakSeconds.value = (entry.totalBreakMinutes || 0) * 60
     return
   }
 
-  // Currently working or on break — compute live
+  // Currently working or on break — compute live elapsed
   const checkIn = new Date(entry.checkInTime)
   const now = new Date()
   const totalElapsed = Math.max(0, Math.floor((now - checkIn) / 1000))
 
-  // Sum all completed break durations in seconds
-  let breakSecs = (entry.totalBreakMinutes || 0) * 60
+  // Total completed break seconds
+  let totalBreakSecs = (entry.totalBreakMinutes || 0) * 60
 
-  // If on break, add the ongoing break duration
+  // If on break, add the ongoing open break duration
   if (status === 'ON_BREAK') {
     const openBreak = (entry.breaks || []).find(b => !b.endTime)
     if (openBreak) {
       const breakStart = new Date(openBreak.startTime)
-      breakSecs += Math.max(0, Math.floor((now - breakStart) / 1000))
+      totalBreakSecs += Math.max(0, Math.floor((now - breakStart) / 1000))
     }
   }
 
-  workSeconds.value = Math.max(0, totalElapsed - breakSecs)
+  breakSeconds.value = totalBreakSecs
+  workSeconds.value = Math.max(0, totalElapsed - totalBreakSecs)
 }
 
 function tick() {
-  currentDate.value = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
-  computeWorkSeconds()
+  const now = new Date()
+  const tz = orgTimezone.value
+  liveTime.value = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone: tz })
+  currentDate.value = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: tz })
+  computeTimers()
 }
 
 function formatTime(timeStr) {
   if (!timeStr) return '--:--'
-  // Handle ISO datetime or time-only strings
   try {
     const date = new Date(timeStr)
     if (!isNaN(date.getTime())) {
-      return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
+      return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: orgTimezone.value })
     }
   } catch {
     // fallback
@@ -423,8 +475,8 @@ async function handleCheckOut() {
 
 onMounted(async () => {
   tick()
-  await Promise.all([worktimeStore.fetchClockStatus(), worktimeStore.fetchTodayEntry()])
-  computeWorkSeconds()
+  await Promise.all([worktimeStore.fetchClockStatus(), worktimeStore.fetchTodayEntry(), worktimeStore.fetchSettings()])
+  computeTimers()
   clockTimer = setInterval(tick, 1000)
 })
 
@@ -434,7 +486,15 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.digital-clock {
+.realtime-clock {
   font-family: 'Roboto Mono', monospace;
+  letter-spacing: 6px;
+  text-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+}
+
+.work-timer {
+  font-family: 'Roboto Mono', monospace;
+  letter-spacing: 4px;
+  font-weight: 700;
 }
 </style>

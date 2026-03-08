@@ -4,7 +4,7 @@ import com.gonerp.common.BaseModel;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 @Entity
 @Table(name = "wt_breaks")
@@ -23,11 +23,11 @@ public class BreakEntry extends BaseModel {
     @JoinColumn(name = "time_entry_id", nullable = false)
     private TimeEntry timeEntry;
 
-    @Column(name = "start_time", nullable = false)
-    private LocalDateTime startTime;
+    @Column(name = "start_time", nullable = false, columnDefinition = "TIMESTAMP WITH TIME ZONE")
+    private OffsetDateTime startTime;
 
-    @Column(name = "end_time")
-    private LocalDateTime endTime;
+    @Column(name = "end_time", columnDefinition = "TIMESTAMP WITH TIME ZONE")
+    private OffsetDateTime endTime;
 
     @Column(name = "duration_minutes", nullable = false)
     @Builder.Default

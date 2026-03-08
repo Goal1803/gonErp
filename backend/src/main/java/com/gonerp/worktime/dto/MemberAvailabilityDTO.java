@@ -5,7 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 @Data
 @Builder
@@ -18,6 +18,6 @@ public class MemberAvailabilityDTO {
     private String lastName;
     private String avatarUrl;
     private String status; // WORKING, ON_BREAK, OFF, DAY_OFF, NOT_CHECKED_IN
-    private LocalDateTime checkInTime;
+    private OffsetDateTime checkInTime;
     private String workLocation;
 }

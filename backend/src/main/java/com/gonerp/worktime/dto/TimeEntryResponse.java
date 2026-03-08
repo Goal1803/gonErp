@@ -7,7 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 
 @Data
@@ -21,8 +21,8 @@ public class TimeEntryResponse {
     private String userFirstName;
     private String userLastName;
     private LocalDate workDate;
-    private LocalDateTime checkInTime;
-    private LocalDateTime checkOutTime;
+    private OffsetDateTime checkInTime;
+    private OffsetDateTime checkOutTime;
     private String status;
     private String workLocation;
     private int totalWorkMinutes;

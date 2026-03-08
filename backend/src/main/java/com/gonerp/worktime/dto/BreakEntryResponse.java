@@ -6,7 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 @Data
 @Builder
@@ -14,8 +14,8 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class BreakEntryResponse {
     private Long id;
-    private LocalDateTime startTime;
-    private LocalDateTime endTime;
+    private OffsetDateTime startTime;
+    private OffsetDateTime endTime;
     private int durationMinutes;
 
     public static BreakEntryResponse from(BreakEntry b) {

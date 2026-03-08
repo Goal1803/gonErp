@@ -14,7 +14,9 @@ import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -34,24 +36,28 @@ public class AutoCheckoutReminderScheduler {
 
     @Scheduled(fixedRate = 300000) // every 5 minutes
     public void checkForAutoCheckoutReminders() {
-        LocalDate today = LocalDate.now();
-        if (!today.equals(lastResetDate)) {
+        // Reset reminder tracking daily (using system default zone for the reset check)
+        LocalDate sysToday = LocalDate.now();
+        if (!sysToday.equals(lastResetDate)) {
             remindedToday.clear();
-            lastResetDate = today;
+            lastResetDate = sysToday;
         }
 
         List<WorkTimeSettings> allSettings = settingsRepository.findAll();
         for (WorkTimeSettings settings : allSettings) {
             if (settings.getAutoCheckoutReminderMinutes() <= 0) continue;
 
+            ZoneId zoneId = settings.getZoneId();
+            LocalDate today = LocalDate.now(zoneId);
             Long orgId = settings.getOrganization().getId();
             List<TimeEntry> activeEntries = timeEntryRepository.findByOrganizationIdAndWorkDate(orgId, today);
 
+            OffsetDateTime now = ZonedDateTime.now(zoneId).toOffsetDateTime();
             for (TimeEntry entry : activeEntries) {
                 if (entry.getStatus() == TimeEntryStatus.CHECKED_OUT) continue;
                 if (remindedToday.contains(entry.getId())) continue;
 
-                long minutesSinceCheckIn = Duration.between(entry.getCheckInTime(), LocalDateTime.now()).toMinutes();
+                long minutesSinceCheckIn = Duration.between(entry.getCheckInTime(), now).toMinutes();
                 long expectedMinutes = (long) (settings.getDailyWorkingHours() * 60);
 
                 if (minutesSinceCheckIn >= expectedMinutes + settings.getAutoCheckoutReminderMinutes()) {
