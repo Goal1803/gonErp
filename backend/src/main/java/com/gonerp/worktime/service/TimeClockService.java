@@ -5,6 +5,7 @@ import com.gonerp.usermanager.repository.UserRepository;
 import com.gonerp.worktime.dto.*;
 import com.gonerp.worktime.model.BreakEntry;
 import com.gonerp.worktime.model.TimeEntry;
+import com.gonerp.worktime.model.UserWorkTimeConfig;
 import com.gonerp.worktime.model.WorkTimeSettings;
 import com.gonerp.worktime.model.enums.TimeEntryStatus;
 import com.gonerp.worktime.model.enums.WorkLocation;
@@ -33,12 +34,14 @@ public class TimeClockService {
     private final BreakEntryRepository breakEntryRepository;
     private final WorkTimeSettingsRepository settingsRepository;
     private final UserRepository userRepository;
+    private final UserWorkTimeConfigService userConfigService;
 
     // ── Check In ────────────────────────────────────────────────────────────────
 
     public TimeEntryResponse checkIn(CheckInRequest request) {
         User user = getCurrentUser();
-        ZoneId zoneId = getOrgZoneId(user);
+        UserWorkTimeConfig userConfig = userConfigService.getOrCreateConfig(user);
+        ZoneId zoneId = userConfig.getZoneId();
         LocalDate today = LocalDate.now(zoneId);
 
         // Ensure no existing active entry for today
@@ -65,12 +68,11 @@ public class TimeClockService {
             }
         }
 
-        // Detect late arrival based on org settings
+        // Detect late arrival based on user config
         boolean lateArrival = false;
         WorkTimeSettings settings = getSettingsForUser(user);
         if (settings != null && settings.isLateEarlyTrackingEnabled()) {
-            LocalTime expectedStart = settings.getWorkStartTime();
-            if (now.atZoneSameInstant(zoneId).toLocalTime().isAfter(expectedStart)) {
+            if (now.atZoneSameInstant(zoneId).toLocalTime().isAfter(userConfig.getWorkStartTime())) {
                 lateArrival = true;
             }
         }
@@ -99,7 +101,7 @@ public class TimeClockService {
             throw new IllegalStateException("Cannot start break: current status is " + entry.getStatus());
         }
 
-        ZoneId zoneId = getOrgZoneId(user);
+        ZoneId zoneId = getUserZoneId(user);
         OffsetDateTime now = ZonedDateTime.now(zoneId).toOffsetDateTime();
 
         // Create a new break entry
@@ -124,7 +126,7 @@ public class TimeClockService {
             throw new IllegalStateException("Cannot resume: current status is " + entry.getStatus());
         }
 
-        ZoneId zoneId = getOrgZoneId(user);
+        ZoneId zoneId = getUserZoneId(user);
         OffsetDateTime now = ZonedDateTime.now(zoneId).toOffsetDateTime();
 
         // Find the open break (endTime is null) and close it
@@ -155,7 +157,8 @@ public class TimeClockService {
             throw new IllegalStateException("Already checked out for today");
         }
 
-        ZoneId zoneId = getOrgZoneId(user);
+        UserWorkTimeConfig userConfig = userConfigService.getOrCreateConfig(user);
+        ZoneId zoneId = userConfig.getZoneId();
         OffsetDateTime now = ZonedDateTime.now(zoneId).toOffsetDateTime();
 
         // If currently on break, close the open break first
@@ -191,17 +194,16 @@ public class TimeClockService {
             entry.setDailyNotes(request.getDailyNotes());
         }
 
-        // Detect early departure
+        // Detect early departure using user config
         if (settings != null && settings.isLateEarlyTrackingEnabled()) {
-            LocalTime expectedEnd = settings.getWorkEndTime();
-            if (now.atZoneSameInstant(zoneId).toLocalTime().isBefore(expectedEnd)) {
+            if (now.atZoneSameInstant(zoneId).toLocalTime().isBefore(userConfig.getWorkEndTime())) {
                 entry.setEarlyDeparture(true);
             }
         }
 
-        // Compute overtime
+        // Compute overtime using user config
         if (settings != null && settings.isOvertimeTrackingEnabled()) {
-            int dailyExpectedMinutes = (int) (settings.getDailyWorkingHours() * 60);
+            int dailyExpectedMinutes = (int) (userConfig.getDailyWorkingHours() * 60);
             if (workMinutes > dailyExpectedMinutes) {
                 entry.setOvertimeMinutes(workMinutes - dailyExpectedMinutes);
             }
@@ -213,10 +215,13 @@ public class TimeClockService {
 
     // ── Force Checkout at Midnight ─────────────────────────────────────────────
 
-    public void forceCheckoutAtMidnight(TimeEntry entry, ZoneId zoneId) {
+    public void forceCheckoutAtMidnight(TimeEntry entry) {
         if (entry.getStatus() == TimeEntryStatus.CHECKED_OUT) return;
 
-        // Midnight = start of next day in org timezone
+        UserWorkTimeConfig userConfig = userConfigService.getOrCreateConfig(entry.getUser());
+        ZoneId zoneId = userConfig.getZoneId();
+
+        // Midnight = start of next day in user's timezone
         OffsetDateTime midnight = entry.getWorkDate().plusDays(1)
                 .atStartOfDay(zoneId)
                 .toOffsetDateTime();
@@ -248,17 +253,16 @@ public class TimeClockService {
         entry.setTotalWorkMinutes(workMinutes);
         entry.setStatus(TimeEntryStatus.CHECKED_OUT);
 
-        // Detect early departure
+        // Detect early departure using user config
         if (settings != null && settings.isLateEarlyTrackingEnabled()) {
-            LocalTime expectedEnd = settings.getWorkEndTime();
-            if (midnight.atZoneSameInstant(zoneId).toLocalTime().isBefore(expectedEnd)) {
+            if (midnight.atZoneSameInstant(zoneId).toLocalTime().isBefore(userConfig.getWorkEndTime())) {
                 entry.setEarlyDeparture(true);
             }
         }
 
-        // Compute overtime
+        // Compute overtime using user config
         if (settings != null && settings.isOvertimeTrackingEnabled()) {
-            int dailyExpectedMinutes = (int) (settings.getDailyWorkingHours() * 60);
+            int dailyExpectedMinutes = (int) (userConfig.getDailyWorkingHours() * 60);
             if (workMinutes > dailyExpectedMinutes) {
                 entry.setOvertimeMinutes(workMinutes - dailyExpectedMinutes);
             }
@@ -276,7 +280,7 @@ public class TimeClockService {
     @Transactional(readOnly = true)
     public ClockStatusResponse getStatus() {
         User user = getCurrentUser();
-        ZoneId zoneId = getOrgZoneId(user);
+        ZoneId zoneId = getUserZoneId(user);
         LocalDate today = LocalDate.now(zoneId);
         Optional<TimeEntry> optEntry = timeEntryRepository.findByUserIdAndWorkDate(user.getId(), today);
 
@@ -337,7 +341,7 @@ public class TimeClockService {
     @Transactional(readOnly = true)
     public TimeEntryResponse getToday() {
         User user = getCurrentUser();
-        ZoneId zoneId = getOrgZoneId(user);
+        ZoneId zoneId = getUserZoneId(user);
         LocalDate today = LocalDate.now(zoneId);
         return timeEntryRepository.findByUserIdAndWorkDate(user.getId(), today)
                 .map(TimeEntryResponse::from)
@@ -357,15 +361,15 @@ public class TimeClockService {
     }
 
     private TimeEntry getTodayEntryOrThrow(User user) {
-        ZoneId zoneId = getOrgZoneId(user);
+        ZoneId zoneId = getUserZoneId(user);
         LocalDate today = LocalDate.now(zoneId);
         return timeEntryRepository.findByUserIdAndWorkDate(user.getId(), today)
                 .orElseThrow(() -> new IllegalStateException("No time entry found for today. Please check in first."));
     }
 
-    private ZoneId getOrgZoneId(User user) {
-        WorkTimeSettings settings = getSettingsForUser(user);
-        return (settings != null) ? settings.getZoneId() : ZoneId.of("Asia/Ho_Chi_Minh");
+    private ZoneId getUserZoneId(User user) {
+        UserWorkTimeConfig config = userConfigService.getOrCreateConfig(user);
+        return config.getZoneId();
     }
 
     private WorkTimeSettings getSettingsForUser(User user) {

@@ -2,6 +2,7 @@ package com.gonerp.worktime.service;
 
 import com.gonerp.worktime.event.WorkTimeNotificationEvent;
 import com.gonerp.worktime.model.TimeEntry;
+import com.gonerp.worktime.model.UserWorkTimeConfig;
 import com.gonerp.worktime.model.WorkTimeSettings;
 import com.gonerp.worktime.model.enums.TimeEntryStatus;
 import com.gonerp.worktime.repository.TimeEntryRepository;
@@ -30,6 +31,7 @@ public class AutoCheckoutReminderScheduler {
     private final WorkTimeSettingsRepository settingsRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final TimeClockService timeClockService;
+    private final UserWorkTimeConfigService userConfigService;
 
     // Track which entries already got a reminder today (reset daily)
     private final Set<Long> remindedToday = ConcurrentHashMap.newKeySet();
@@ -78,30 +80,42 @@ public class AutoCheckoutReminderScheduler {
 
     @Scheduled(fixedRate = 60000) // every minute
     public void checkForMidnightForceCheckout() {
+        // Find all active entries (not yet checked out) across all orgs
+        List<TimeEntryStatus> activeStatuses = List.of(TimeEntryStatus.CHECKED_IN, TimeEntryStatus.ON_BREAK);
+
         List<WorkTimeSettings> allSettings = settingsRepository.findAll();
         for (WorkTimeSettings settings : allSettings) {
-            ZoneId zoneId = settings.getZoneId();
-            LocalDate today = LocalDate.now(zoneId);
-            LocalDate yesterday = today.minusDays(1);
             Long orgId = settings.getOrganization().getId();
 
-            // Find entries from yesterday that are still active (CHECKED_IN or ON_BREAK)
-            List<TimeEntry> activeEntries = timeEntryRepository.findByOrganizationIdAndWorkDateAndStatusIn(
-                    orgId, yesterday, List.of(TimeEntryStatus.CHECKED_IN, TimeEntryStatus.ON_BREAK));
+            // Check the last 2 days to cover all timezone scenarios
+            LocalDate sysToday = LocalDate.now();
+            for (int daysBack = 0; daysBack <= 1; daysBack++) {
+                LocalDate checkDate = sysToday.minusDays(daysBack);
+                List<TimeEntry> activeEntries = timeEntryRepository.findByOrganizationIdAndWorkDateAndStatusIn(
+                        orgId, checkDate, activeStatuses);
 
-            for (TimeEntry entry : activeEntries) {
-                try {
-                    timeClockService.forceCheckoutAtMidnight(entry, zoneId);
-                    eventPublisher.publishEvent(new WorkTimeNotificationEvent(
-                            entry.getUser().getId(),
-                            Set.of(entry.getUser().getId()),
-                            "FORCE_CHECKOUT_MIDNIGHT",
-                            "You were automatically checked out at midnight. Time entries cannot span two days."
-                    ));
-                    log.info("Force checkout at midnight for user {} (entry {})",
-                            entry.getUser().getUserName(), entry.getId());
-                } catch (Exception e) {
-                    log.error("Failed to force checkout user {} at midnight", entry.getUser().getUserName(), e);
+                for (TimeEntry entry : activeEntries) {
+                    try {
+                        // Get the user's own timezone to determine if midnight has passed
+                        UserWorkTimeConfig userConfig = userConfigService.getOrCreateConfig(entry.getUser());
+                        ZoneId userZoneId = userConfig.getZoneId();
+                        LocalDate userToday = LocalDate.now(userZoneId);
+
+                        // If the user's current date is past the entry's workDate, force checkout
+                        if (userToday.isAfter(entry.getWorkDate())) {
+                            timeClockService.forceCheckoutAtMidnight(entry);
+                            eventPublisher.publishEvent(new WorkTimeNotificationEvent(
+                                    entry.getUser().getId(),
+                                    Set.of(entry.getUser().getId()),
+                                    "FORCE_CHECKOUT_MIDNIGHT",
+                                    "You were automatically checked out at midnight. Time entries cannot span two days."
+                            ));
+                            log.info("Force checkout at midnight for user {} (entry {}, tz={})",
+                                    entry.getUser().getUserName(), entry.getId(), userConfig.getTimezoneId());
+                        }
+                    } catch (Exception e) {
+                        log.error("Failed to force checkout user {} at midnight", entry.getUser().getUserName(), e);
+                    }
                 }
             }
         }

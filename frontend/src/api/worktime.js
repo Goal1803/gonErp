@@ -69,3 +69,10 @@ export const worktimeReportApi = {
 export const worktimeTeamApi = {
   getAvailability: () => api.get('/worktime/team/availability')
 }
+
+export const worktimeUserConfigApi = {
+  getMyConfig: () => api.get('/worktime/user-config/me'),
+  getOrgConfigs: () => api.get('/worktime/user-config'),
+  getUserConfig: (userId) => api.get(`/worktime/user-config/${userId}`),
+  updateUserConfig: (userId, data) => api.put(`/worktime/user-config/${userId}`, data)
+}

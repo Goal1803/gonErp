@@ -309,9 +309,11 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useQuasar } from 'quasar'
 import { useWorktimeStore } from 'src/stores/worktimeStore'
+import { worktimeUserConfigApi } from 'src/api/worktime'
 
 const $q = useQuasar()
 const worktimeStore = useWorktimeStore()
+const userConfig = ref(null)
 
 const liveTime = ref('')
 const currentDate = ref('')
@@ -356,7 +358,7 @@ const locationOptions = [
 
 const { clockStatus, todayEntry } = storeToRefs(worktimeStore)
 
-const orgTimezone = computed(() => worktimeStore.settings?.timezoneId || 'Asia/Ho_Chi_Minh')
+const orgTimezone = computed(() => userConfig.value?.timezoneId || worktimeStore.settings?.timezoneId || 'Asia/Ho_Chi_Minh')
 
 const breakEntries = computed(() => {
   return todayEntry.value?.breaks || []
@@ -596,7 +598,12 @@ async function handleCheckOut() {
 
 onMounted(async () => {
   tick()
-  await Promise.all([worktimeStore.fetchClockStatus(), worktimeStore.fetchTodayEntry(), worktimeStore.fetchSettings()])
+  await Promise.all([
+    worktimeStore.fetchClockStatus(),
+    worktimeStore.fetchTodayEntry(),
+    worktimeStore.fetchSettings(),
+    worktimeUserConfigApi.getMyConfig().then(res => { userConfig.value = res.data.data }).catch(() => {})
+  ])
   computeTimers()
   clockTimer = setInterval(tick, 1000)
 })

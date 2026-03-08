@@ -6,6 +6,7 @@ import com.gonerp.worktime.dto.*;
 import com.gonerp.worktime.model.BreakEntry;
 import com.gonerp.worktime.model.DayOffRequest;
 import com.gonerp.worktime.model.TimeEntry;
+import com.gonerp.worktime.model.UserWorkTimeConfig;
 import com.gonerp.worktime.model.WorkTimeSettings;
 import com.gonerp.worktime.model.enums.DayOffRequestStatus;
 import com.gonerp.worktime.model.enums.TimeEntryStatus;
@@ -38,6 +39,7 @@ public class ReportService {
     private final DayOffRequestRepository dayOffRequestRepository;
     private final UserRepository userRepository;
     private final WorkTimeSettingsRepository settingsRepository;
+    private final UserWorkTimeConfigService userConfigService;
 
     // ── My Daily Report ─────────────────────────────────────────────────────────
 
@@ -294,25 +296,28 @@ public class ReportService {
         if (entry.getCheckInTime() != null && entry.getCheckOutTime() != null) {
             long totalMinutes = Duration.between(entry.getCheckInTime(), entry.getCheckOutTime()).toMinutes();
 
-            WorkTimeSettings settings = getSettingsForUser(entry);
-            boolean breakCountsAsWork = settings != null && settings.isBreakCountsAsWork();
+            WorkTimeSettings orgSettings = getOrgSettingsForEntry(entry);
+            boolean breakCountsAsWork = orgSettings != null && orgSettings.isBreakCountsAsWork();
             int workMinutes = (int) totalMinutes - (breakCountsAsWork ? 0 : totalBreakMinutes);
             if (workMinutes < 0) workMinutes = 0;
             entry.setTotalWorkMinutes(workMinutes);
 
+            // Use per-user config for late/early/overtime
+            UserWorkTimeConfig userConfig = userConfigService.getOrCreateConfig(entry.getUser());
+            ZoneId zoneId = userConfig.getZoneId();
+
             // Recalculate late arrival / early departure
-            if (settings != null && settings.isLateEarlyTrackingEnabled()) {
-                ZoneId zoneId = settings.getZoneId();
+            if (orgSettings != null && orgSettings.isLateEarlyTrackingEnabled()) {
                 LocalTime checkInLocal = entry.getCheckInTime().atZoneSameInstant(zoneId).toLocalTime();
                 LocalTime checkOutLocal = entry.getCheckOutTime().atZoneSameInstant(zoneId).toLocalTime();
-                entry.setLateArrival(checkInLocal.isAfter(settings.getWorkStartTime()));
-                entry.setEarlyDeparture(checkOutLocal.isBefore(settings.getWorkEndTime()));
+                entry.setLateArrival(checkInLocal.isAfter(userConfig.getWorkStartTime()));
+                entry.setEarlyDeparture(checkOutLocal.isBefore(userConfig.getWorkEndTime()));
             }
 
             // Recalculate overtime
             entry.setOvertimeMinutes(0);
-            if (settings != null && settings.isOvertimeTrackingEnabled()) {
-                int dailyExpectedMinutes = (int) (settings.getDailyWorkingHours() * 60);
+            if (orgSettings != null && orgSettings.isOvertimeTrackingEnabled()) {
+                int dailyExpectedMinutes = (int) (userConfig.getDailyWorkingHours() * 60);
                 if (workMinutes > dailyExpectedMinutes) {
                     entry.setOvertimeMinutes(workMinutes - dailyExpectedMinutes);
                 }
@@ -320,7 +325,7 @@ public class ReportService {
         }
     }
 
-    private WorkTimeSettings getSettingsForUser(TimeEntry entry) {
+    private WorkTimeSettings getOrgSettingsForEntry(TimeEntry entry) {
         if (entry.getOrganization() == null) return null;
         return settingsRepository.findByOrganizationId(entry.getOrganization().getId()).orElse(null);
     }

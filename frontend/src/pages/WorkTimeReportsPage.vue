@@ -1122,7 +1122,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useQuasar } from 'quasar'
 import { useAuthStore } from 'src/stores/authStore'
 import { useWorktimeStore } from 'src/stores/worktimeStore'
-import { worktimeReportApi } from 'src/api/worktime'
+import { worktimeReportApi, worktimeUserConfigApi } from 'src/api/worktime'
 import WorkTimeReportChart from 'src/components/WorkTimeReportChart.vue'
 import WorkTimeExportDialog from 'src/components/WorkTimeExportDialog.vue'
 
@@ -1130,7 +1130,8 @@ const $q = useQuasar()
 const authStore = useAuthStore()
 const worktimeStore = useWorktimeStore()
 
-const orgTimezone = computed(() => worktimeStore.settings?.timezoneId || 'Asia/Ho_Chi_Minh')
+const userConfig = ref(null)
+const orgTimezone = computed(() => userConfig.value?.timezoneId || worktimeStore.settings?.timezoneId || 'Asia/Ho_Chi_Minh')
 
 // ── State ───────────────────────────────────────────────────────────────────
 
@@ -1618,6 +1619,7 @@ watch(teamView, (view) => {
 
 onMounted(() => {
   worktimeStore.fetchSettings()
+  worktimeUserConfigApi.getMyConfig().then(res => { userConfig.value = res.data.data }).catch(() => {})
   loadDailyReport()
 })
 </script>
