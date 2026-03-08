@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -101,27 +102,41 @@ public class AutoCheckoutReminderScheduler {
                 List<TimeEntry> activeEntries = timeEntryRepository.findByOrganizationIdAndWorkDateAndStatusIn(
                         orgId, checkDate, activeStatuses);
 
+                LocalTime forceCheckoutTime = settings.getForceCheckoutTime() != null
+                        ? settings.getForceCheckoutTime() : LocalTime.of(0, 0);
+
                 for (TimeEntry entry : activeEntries) {
                     try {
-                        // Get the user's own timezone to determine if midnight has passed
                         UserWorkTimeConfig userConfig = userConfigService.getOrCreateConfig(entry.getUser());
                         ZoneId userZoneId = userConfig.getZoneId();
-                        LocalDate userToday = LocalDate.now(userZoneId);
+                        ZonedDateTime nowInUserTz = ZonedDateTime.now(userZoneId);
+                        LocalDate userToday = nowInUserTz.toLocalDate();
+                        LocalTime userNow = nowInUserTz.toLocalTime();
 
-                        // If the user's current date is past the entry's workDate, force checkout
-                        if (userToday.isAfter(entry.getWorkDate())) {
+                        // Force checkout when the configured time has passed on a day after the entry's workDate
+                        boolean shouldForceCheckout;
+                        if (forceCheckoutTime.equals(LocalTime.of(0, 0))) {
+                            // Midnight: force checkout when the date has changed
+                            shouldForceCheckout = userToday.isAfter(entry.getWorkDate());
+                        } else {
+                            // Custom time: force checkout when past that time on a later day
+                            shouldForceCheckout = userToday.isAfter(entry.getWorkDate())
+                                    && !userNow.isBefore(forceCheckoutTime);
+                        }
+
+                        if (shouldForceCheckout) {
                             timeClockService.forceCheckoutAtMidnight(entry);
                             eventPublisher.publishEvent(new WorkTimeNotificationEvent(
                                     entry.getUser().getId(),
                                     Set.of(entry.getUser().getId()),
                                     "FORCE_CHECKOUT_MIDNIGHT",
-                                    "You were automatically checked out at midnight. Time entries cannot span two days."
+                                    "You were automatically checked out. Time entries cannot span two days."
                             ));
-                            log.info("Force checkout at midnight for user {} (entry {}, tz={})",
-                                    entry.getUser().getUserName(), entry.getId(), userConfig.getTimezoneId());
+                            log.info("Force checkout for user {} (entry {}, tz={}, forceTime={})",
+                                    entry.getUser().getUserName(), entry.getId(), userConfig.getTimezoneId(), forceCheckoutTime);
                         }
                     } catch (Exception e) {
-                        log.error("Failed to force checkout user {} at midnight", entry.getUser().getUserName(), e);
+                        log.error("Failed to force checkout user {} at configured time", entry.getUser().getUserName(), e);
                     }
                 }
             }

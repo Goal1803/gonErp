@@ -279,20 +279,26 @@
                     hint="e.g. 1.5 for 1.5x pay"
                   />
                 </div>
-                <div class="col-12">
-                  <q-toggle
-                    v-model="form.autoCheckOutEnabled"
-                    label="Auto check-out at end of day"
-                    color="green-7"
+                <div class="col-12 col-sm-6">
+                  <q-input
+                    v-model.number="form.breakReminderMinutes"
+                    label="Break Reminder (minutes)"
+                    outlined
+                    dense
+                    type="number"
+                    min="0"
+                    max="720"
+                    hint="Warn user after continuous work. 0 = disabled"
                   />
                 </div>
-                <div class="col-12" v-if="form.autoCheckOutEnabled">
+                <div class="col-12 col-sm-6">
                   <q-input
-                    v-model="form.autoCheckOutTime"
-                    label="Auto Check-out Time"
+                    v-model="form.forceCheckoutTime"
+                    label="Force Checkout Time"
                     outlined
                     dense
                     type="time"
+                    hint="Auto checkout after this time (00:00 = midnight)"
                   />
                 </div>
               </div>
@@ -347,8 +353,8 @@ const form = reactive({
   allowCarryOver: true,
   overtimeEnabled: false,
   overtimeMultiplier: 1.5,
-  autoCheckOutEnabled: false,
-  autoCheckOutTime: '22:00'
+  breakReminderMinutes: 240,
+  forceCheckoutTime: '00:00'
 })
 
 const dayOptions = [

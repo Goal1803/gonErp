@@ -83,6 +83,14 @@ public class WorkTimeSettings extends BaseModel {
     @Builder.Default
     private int autoCheckoutReminderMinutes = 0;
 
+    @Column(name = "break_reminder_minutes", nullable = false)
+    @Builder.Default
+    private int breakReminderMinutes = 240;
+
+    @Column(name = "force_checkout_time")
+    @Builder.Default
+    private LocalTime forceCheckoutTime = LocalTime.of(0, 0);
+
     @Column(name = "timezone_id", nullable = false, length = 50)
     @Builder.Default
     private String timezoneId = "Asia/Ho_Chi_Minh";

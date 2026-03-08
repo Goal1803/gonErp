@@ -239,23 +239,6 @@
       </div>
     </div>
 
-    <!-- Break Reminder Dialog -->
-    <q-dialog v-model="showBreakReminder" persistent>
-      <q-card style="min-width: 400px; background: var(--erp-bg-elevated); border: 1px solid var(--erp-border);">
-        <q-card-section class="text-center q-pa-lg">
-          <q-icon name="coffee" color="amber-5" size="48px" />
-          <div class="text-h6 text-white q-mt-md">Time for a Break!</div>
-          <div class="text-body2 text-grey-4 q-mt-sm">
-            You've been working for over 4 hours without a break. Taking regular breaks helps maintain productivity and well-being.
-          </div>
-        </q-card-section>
-        <q-card-actions align="center" class="q-pb-lg q-gutter-md">
-          <q-btn flat label="Ignore" color="grey-5" no-caps @click="dismissBreakReminder" />
-          <q-btn unelevated label="Take a Break" color="amber-8" icon="pause" no-caps @click="takeBreakFromReminder" />
-        </q-card-actions>
-      </q-card>
-    </q-dialog>
-
     <!-- Force Checkout Dialog -->
     <q-dialog v-model="showForceCheckoutWarning" persistent>
       <q-card style="min-width: 400px; background: var(--erp-bg-elevated); border: 1px solid var(--erp-border);">
@@ -310,9 +293,11 @@ import { storeToRefs } from 'pinia'
 import { useQuasar } from 'quasar'
 import { useWorktimeStore } from 'src/stores/worktimeStore'
 import { worktimeUserConfigApi } from 'src/api/worktime'
+import { useBreakReminder } from 'src/composables/useBreakReminder'
 
 const $q = useQuasar()
 const worktimeStore = useWorktimeStore()
+const { resetBreakReminder } = useBreakReminder()
 const userConfig = ref(null)
 
 const liveTime = ref('')
@@ -322,33 +307,9 @@ const breakSeconds = ref(0)
 const workLocation = ref('OFFICE')
 const checkOutNotes = ref('')
 const showCheckOutDialog = ref(false)
-const showBreakReminder = ref(false)
 const showForceCheckoutWarning = ref(false)
 let clockTimer = null
-let breakReminderDismissed = false
 let lastCheckedDate = ''
-
-// BroadcastChannel for cross-tab break reminder sync
-let breakChannel = null
-if (typeof BroadcastChannel !== 'undefined') {
-  breakChannel = new BroadcastChannel('worktime-break-reminder')
-  breakChannel.onmessage = (event) => {
-    if (event.data?.type === 'BREAK_STARTED' || event.data?.type === 'BREAK_DISMISSED') {
-      showBreakReminder.value = false
-      if (event.data.type === 'BREAK_DISMISSED') breakReminderDismissed = true
-    }
-    if (event.data?.type === 'BREAK_STARTED') {
-      // Refresh status since break was started from another tab
-      worktimeStore.fetchClockStatus()
-      worktimeStore.fetchTodayEntry()
-    }
-    if (event.data?.type === 'FORCE_CHECKOUT') {
-      showForceCheckoutWarning.value = true
-      worktimeStore.fetchClockStatus()
-      worktimeStore.fetchTodayEntry()
-    }
-  }
-}
 
 const locationOptions = [
   { label: 'Office', value: 'OFFICE' },
@@ -473,35 +434,7 @@ function tick() {
   liveTime.value = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false, timeZone: tz })
   currentDate.value = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: tz })
   computeTimers()
-  checkBreakReminder()
   checkMidnightForceCheckout(tz)
-}
-
-function checkBreakReminder() {
-  if (breakReminderDismissed) return
-  const status = clockStatus.value?.status
-  if (status !== 'CHECKED_IN') return
-
-  const entry = todayEntry.value
-  if (!entry || !entry.checkInTime) return
-
-  // Compute continuous work time (since last break end or check-in)
-  const breaks = entry.breaks || []
-  const completedBreaks = breaks.filter(b => b.endTime)
-  let lastBreakEnd = null
-  if (completedBreaks.length > 0) {
-    lastBreakEnd = completedBreaks.reduce((latest, b) => {
-      const t = new Date(b.endTime).getTime()
-      return t > latest ? t : latest
-    }, 0)
-  }
-
-  const sinceTime = lastBreakEnd ? new Date(lastBreakEnd) : new Date(entry.checkInTime)
-  const continuousMinutes = (Date.now() - sinceTime.getTime()) / 60000
-
-  if (continuousMinutes >= 240) {
-    showBreakReminder.value = true
-  }
 }
 
 function checkMidnightForceCheckout(tz) {
@@ -511,18 +444,23 @@ function checkMidnightForceCheckout(tz) {
   const entry = todayEntry.value
   if (!entry || !entry.workDate) return
 
-  // Get current date in org timezone
+  // Get current date/time in user timezone
   const now = new Date()
   const todayInTz = now.toLocaleDateString('en-CA', { timeZone: tz }) // YYYY-MM-DD format
 
-  if (todayInTz !== entry.workDate) {
-    // Date has changed — force checkout happened (or needs to happen)
-    showForceCheckoutWarning.value = true
-    if (breakChannel) breakChannel.postMessage({ type: 'FORCE_CHECKOUT' })
-    // Refresh from backend (scheduler will have force-checked-out)
-    worktimeStore.fetchClockStatus()
-    worktimeStore.fetchTodayEntry()
+  if (todayInTz === entry.workDate) return // still same day
+
+  // Date has changed — check if force checkout time has been reached
+  const forceTime = worktimeStore.settings?.forceCheckoutTime || '00:00'
+  if (forceTime !== '00:00') {
+    const currentTime = now.toLocaleTimeString('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false })
+    if (currentTime < forceTime) return // not yet reached
   }
+
+  // Force checkout time reached
+  showForceCheckoutWarning.value = true
+  worktimeStore.fetchClockStatus()
+  worktimeStore.fetchTodayEntry()
 }
 
 function formatTime(timeStr) {
@@ -549,6 +487,7 @@ function formatDuration(minutes) {
 async function handleCheckIn() {
   try {
     await worktimeStore.checkIn({ workLocation: workLocation.value })
+    resetBreakReminder()
     $q.notify({ type: 'positive', message: 'Checked in successfully' })
   } catch (e) {
     $q.notify({ type: 'negative', message: e.response?.data?.message || 'Failed to check in' })
@@ -567,22 +506,11 @@ async function handlePause() {
 async function handleResume() {
   try {
     await worktimeStore.resume()
+    resetBreakReminder()
     $q.notify({ type: 'positive', message: 'Work resumed' })
   } catch (e) {
     $q.notify({ type: 'negative', message: e.response?.data?.message || 'Failed to resume' })
   }
-}
-
-async function takeBreakFromReminder() {
-  showBreakReminder.value = false
-  if (breakChannel) breakChannel.postMessage({ type: 'BREAK_STARTED' })
-  await handlePause()
-}
-
-function dismissBreakReminder() {
-  showBreakReminder.value = false
-  breakReminderDismissed = true
-  if (breakChannel) breakChannel.postMessage({ type: 'BREAK_DISMISSED' })
 }
 
 async function handleCheckOut() {
@@ -610,7 +538,6 @@ onMounted(async () => {
 
 onUnmounted(() => {
   if (clockTimer) clearInterval(clockTimer)
-  if (breakChannel) breakChannel.close()
 })
 </script>
 

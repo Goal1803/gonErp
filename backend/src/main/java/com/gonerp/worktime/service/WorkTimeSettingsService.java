@@ -46,6 +46,8 @@ public class WorkTimeSettingsService {
         if (request.getDailyNotesEnabled() != null) settings.setDailyNotesEnabled(request.getDailyNotesEnabled());
         if (request.getWorkLocationEnabled() != null) settings.setWorkLocationEnabled(request.getWorkLocationEnabled());
         if (request.getAutoCheckoutReminderMinutes() != null) settings.setAutoCheckoutReminderMinutes(request.getAutoCheckoutReminderMinutes());
+        if (request.getBreakReminderMinutes() != null) settings.setBreakReminderMinutes(request.getBreakReminderMinutes());
+        if (request.getForceCheckoutTime() != null) settings.setForceCheckoutTime(request.getForceCheckoutTime());
         if (request.getTimezoneId() != null) {
             ZoneId.of(request.getTimezoneId()); // validate — throws DateTimeException if invalid
             settings.setTimezoneId(request.getTimezoneId());

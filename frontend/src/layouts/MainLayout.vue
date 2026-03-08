@@ -296,15 +296,33 @@
         </transition>
       </router-view>
     </q-page-container>
+
+    <!-- Global Break Reminder Dialog -->
+    <q-dialog v-model="showBreakReminder" persistent>
+      <q-card style="min-width: 400px; background: var(--erp-bg-elevated); border: 1px solid var(--erp-border);">
+        <q-card-section class="text-center q-pa-lg">
+          <q-icon name="coffee" color="amber-5" size="48px" />
+          <div class="text-h6 text-white q-mt-md">Time for a Break!</div>
+          <div class="text-body2 text-grey-4 q-mt-sm">
+            You've been working for over {{ breakReminderLabel }} without a break. Taking regular breaks helps maintain productivity and well-being.
+          </div>
+        </q-card-section>
+        <q-card-actions align="center" class="q-pb-lg q-gutter-md">
+          <q-btn flat label="Ignore and continue working" color="grey-5" no-caps @click="dismissBreakReminder" />
+          <q-btn unelevated label="Take a Break" color="amber-8" icon="pause" no-caps @click="handleTakeBreak" />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
   </q-layout>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from 'src/stores/authStore'
 import { useNotificationStore } from 'src/stores/notificationStore'
 import { useNotificationSocket } from 'src/composables/useNotificationSocket'
+import { useBreakReminder } from 'src/composables/useBreakReminder'
 import { useTheme } from 'src/composables/useTheme'
 import { useQuasar } from 'quasar'
 import UserAvatar from 'src/components/UserAvatar.vue'
@@ -315,9 +333,27 @@ const router = useRouter()
 const authStore = useAuthStore()
 const notificationStore = useNotificationStore()
 const { isDark, toggle: toggleTheme } = useTheme()
+const {
+  showBreakReminder, breakReminderLabel,
+  dismissBreakReminder, takeBreakFromReminder,
+  startChecking, stopChecking
+} = useBreakReminder()
 
 useNotificationSocket()
 notificationStore.fetchUnreadCount()
+
+// Start global break reminder checking
+onMounted(startChecking)
+onUnmounted(stopChecking)
+
+async function handleTakeBreak() {
+  try {
+    await takeBreakFromReminder()
+    $q.notify({ type: 'positive', message: 'Break started' })
+  } catch (e) {
+    $q.notify({ type: 'negative', message: e.response?.data?.message || 'Failed to start break' })
+  }
+}
 
 const leftDrawerOpen = ref(true)
 
