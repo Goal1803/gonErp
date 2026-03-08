@@ -154,6 +154,7 @@ public class ReportService {
                             .workLocation(e.getWorkLocation() != null ? e.getWorkLocation().name() : null)
                             .isLateArrival(e.isLateArrival())
                             .timezoneId(cfg.getTimezoneId())
+                            .dailyNotes(e.getDailyNotes())
                             .build();
                     } else {
                         return TeamMemberDailyDTO.builder()

@@ -538,6 +538,25 @@
                     <q-badge :color="teamStatusColor(props.row.status)" :label="teamStatusLabel(props.row.status)" />
                   </q-td>
                 </template>
+                <template #body-cell-notes="props">
+                  <q-td :props="props">
+                    <q-icon
+                      v-if="props.row.dailyNotes"
+                      name="sticky_note_2"
+                      color="amber-5"
+                      size="20px"
+                    >
+                      <q-tooltip
+                        class="bg-grey-9 text-white"
+                        anchor="top middle"
+                        self="bottom middle"
+                        max-width="400px"
+                        style="white-space: pre-wrap; font-size: 0.8rem; line-height: 1.4;"
+                      >{{ props.row.dailyNotes }}</q-tooltip>
+                    </q-icon>
+                    <span v-else class="text-grey-7">-</span>
+                  </q-td>
+                </template>
                 <template #body-cell-flags="props">
                   <q-td :props="props" class="q-gutter-xs">
                     <q-badge v-if="props.row.lateArrival" color="red-7" label="Late" />
@@ -1392,6 +1411,7 @@ const teamDailyColumns = [
   { name: 'totalWorkMinutes', label: 'Work', field: 'totalWorkMinutes', align: 'center', sortable: true },
   { name: 'status', label: 'Status', field: 'status', align: 'center' },
   { name: 'workLocation', label: 'Location', field: 'workLocation', align: 'center' },
+  { name: 'notes', label: 'Notes', field: 'dailyNotes', align: 'center' },
   { name: 'flags', label: '', field: 'flags', align: 'right' }
 ]
 

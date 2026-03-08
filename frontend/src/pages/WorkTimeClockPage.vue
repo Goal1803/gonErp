@@ -236,6 +236,17 @@
             </q-list>
           </q-card-section>
         </q-card>
+
+        <!-- Checkout Note -->
+        <q-card v-if="todayEntry?.dailyNotes" class="premium-card q-mt-md" flat>
+          <q-card-section>
+            <div class="text-subtitle1 text-white text-weight-bold q-mb-md">
+              <q-icon name="sticky_note_2" color="amber-5" class="q-mr-sm" />
+              Checkout Note
+            </div>
+            <div class="text-white" style="white-space: pre-wrap; background: var(--erp-bg-tertiary, rgba(255,255,255,0.03)); border: 1px solid var(--erp-border-subtle); border-radius: 8px; padding: 10px 12px; line-height: 1.5;">{{ todayEntry.dailyNotes }}</div>
+          </q-card-section>
+        </q-card>
       </div>
     </div>
 
