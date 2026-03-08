@@ -7,6 +7,7 @@ import com.gonerp.organization.model.*;
 import com.gonerp.organization.repository.*;
 import com.gonerp.usermanager.model.User;
 import com.gonerp.usermanager.repository.UserRepository;
+import com.gonerp.usermanager.dto.UserResponse;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
@@ -286,6 +287,16 @@ public class OrgStructureService {
 
     public void removeUserGroup(Long userId, Long userGroupId) {
         userUserGroupRepository.deleteByUserIdAndUserGroupId(userId, userGroupId);
+    }
+
+    // ─── Group members ─────────────────────────────────────────────────
+
+    public List<UserResponse> getGroupMembers(Long groupId) {
+        userGroupRepository.findById(groupId)
+                .orElseThrow(() -> new EntityNotFoundException("User group not found: " + groupId));
+        return userUserGroupRepository.findByUserGroupId(groupId).stream()
+                .map(uug -> UserResponse.from(uug.getUser()))
+                .toList();
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────────

@@ -4,6 +4,7 @@ import com.gonerp.common.ApiResponse;
 import com.gonerp.organization.dto.OrgStructureRequest;
 import com.gonerp.organization.dto.OrgStructureResponse;
 import com.gonerp.organization.service.OrgStructureService;
+import com.gonerp.usermanager.dto.UserResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -97,6 +98,11 @@ public class OrgStructureController {
     public ResponseEntity<ApiResponse<Void>> deleteUserGroup(@PathVariable Long id) {
         orgStructureService.deleteOrgUserGroup(id);
         return ResponseEntity.ok(ApiResponse.ok("User group deleted", null));
+    }
+
+    @GetMapping("/user-groups/{id}/members")
+    public ResponseEntity<ApiResponse<List<UserResponse>>> getGroupMembers(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.ok(orgStructureService.getGroupMembers(id)));
     }
 
     // ─── User Assignments ────────────────────────────────────────────────

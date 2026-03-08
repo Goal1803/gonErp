@@ -35,6 +35,7 @@ export const orgStructureApi = {
   updateDepartment: (id, data) => api.put(`/org-structure/departments/${id}`, data),
   deleteDepartment: (id) => api.delete(`/org-structure/departments/${id}`),
   getUserGroups: () => api.get('/org-structure/user-groups'),
+  getGroupMembers: (groupId) => api.get(`/org-structure/user-groups/${groupId}/members`),
   createUserGroup: (data) => api.post('/org-structure/user-groups', data),
   updateUserGroup: (id, data) => api.put(`/org-structure/user-groups/${id}`, data),
   deleteUserGroup: (id) => api.delete(`/org-structure/user-groups/${id}`),

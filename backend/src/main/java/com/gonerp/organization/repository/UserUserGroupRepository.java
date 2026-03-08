@@ -11,6 +11,8 @@ public interface UserUserGroupRepository extends JpaRepository<UserUserGroup, Lo
 
     List<UserUserGroup> findByUserId(Long userId);
 
+    List<UserUserGroup> findByUserGroupId(Long userGroupId);
+
     boolean existsByUserIdAndUserGroupId(Long userId, Long userGroupId);
 
     void deleteByUserIdAndUserGroupId(Long userId, Long userGroupId);

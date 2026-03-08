@@ -57,6 +57,10 @@
 
       <template #body-cell-actions="props">
         <q-td :props="props" auto-width>
+          <q-btn v-if="activeTab === 'userGroups'" flat round dense icon="people" color="blue-5" size="sm"
+            @click="openMembers(props.row)">
+            <q-tooltip>Manage Members</q-tooltip>
+          </q-btn>
           <template v-if="!props.row.isDefault">
             <q-btn flat round dense icon="edit" color="green-5" size="sm" @click="openEdit(props.row)">
               <q-tooltip>Edit</q-tooltip>
@@ -65,7 +69,7 @@
               <q-tooltip>Delete</q-tooltip>
             </q-btn>
           </template>
-          <span v-else class="text-grey-7 text-caption">Read-only</span>
+          <span v-else-if="activeTab !== 'userGroups'" class="text-grey-7 text-caption">Read-only</span>
         </q-td>
       </template>
 
@@ -86,6 +90,92 @@
       :update-fn="dialog.updateFn"
       @saved="onSaved"
     />
+
+    <!-- Members Dialog -->
+    <q-dialog v-model="membersDialog.show" persistent maximized transition-show="slide-up" transition-hide="slide-down">
+      <q-card class="column" style="background: #1a1a2e">
+        <!-- Header -->
+        <q-bar class="bg-dark text-white">
+          <q-icon name="groups" />
+          <span class="q-ml-sm text-weight-medium">{{ membersDialog.group?.name }} — Members</span>
+          <q-space />
+          <q-btn dense flat icon="close" @click="membersDialog.show = false" />
+        </q-bar>
+
+        <q-card-section class="col q-pa-md" style="overflow: auto">
+          <!-- Add member -->
+          <div class="row items-center q-mb-md q-gutter-sm">
+            <q-select
+              v-model="membersDialog.selectedUser"
+              :options="availableUsers"
+              option-label="label"
+              option-value="id"
+              label="Add member"
+              outlined dense
+              use-input
+              input-debounce="200"
+              @filter="filterUsers"
+              class="col"
+              style="max-width: 400px"
+              :loading="membersDialog.loadingUsers"
+            >
+              <template #option="{ opt, itemProps }">
+                <q-item v-bind="itemProps">
+                  <q-item-section avatar>
+                    <UserAvatar :user="opt.user" size="28px" />
+                  </q-item-section>
+                  <q-item-section>
+                    <q-item-label>{{ opt.label }}</q-item-label>
+                    <q-item-label caption>{{ opt.user.userName }}</q-item-label>
+                  </q-item-section>
+                </q-item>
+              </template>
+              <template #no-option>
+                <q-item><q-item-section class="text-grey">No users available</q-item-section></q-item>
+              </template>
+            </q-select>
+            <q-btn icon="add" label="Add" color="primary" unelevated size="sm" :disable="!membersDialog.selectedUser"
+              :loading="membersDialog.adding" @click="addMember" />
+          </div>
+
+          <!-- Members table -->
+          <q-table
+            :rows="membersDialog.members"
+            :columns="memberColumns"
+            :loading="membersDialog.loading"
+            row-key="id"
+            flat
+            class="premium-card"
+            :pagination="{ rowsPerPage: 50 }"
+          >
+            <template #body-cell-avatar="props">
+              <q-td :props="props" auto-width>
+                <UserAvatar :user="props.row" size="32px" />
+              </q-td>
+            </template>
+            <template #body-cell-name="props">
+              <q-td :props="props">
+                {{ props.row.firstName }} {{ props.row.lastName }}
+              </q-td>
+            </template>
+            <template #body-cell-actions="props">
+              <q-td :props="props" auto-width>
+                <q-btn flat round dense icon="person_remove" color="red-5" size="sm"
+                  @click="confirmRemoveMember(props.row)">
+                  <q-tooltip>Remove from group</q-tooltip>
+                </q-btn>
+              </q-td>
+            </template>
+            <template #no-data>
+              <div class="full-width text-center q-pa-xl text-grey-5">
+                <q-icon name="group_off" size="3rem" class="q-mb-sm" />
+                <div>No members in this group</div>
+              </div>
+            </template>
+          </q-table>
+        </q-card-section>
+      </q-card>
+    </q-dialog>
   </q-page>
 </template>
 
@@ -93,7 +183,9 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useQuasar } from 'quasar'
 import { orgStructureApi } from 'src/api/organizations'
+import { userApi } from 'src/api/users'
 import LookupFormDialog from 'src/components/LookupFormDialog.vue'
+import UserAvatar from 'src/components/UserAvatar.vue'
 
 const $q = useQuasar()
 
@@ -209,6 +301,116 @@ const confirmDelete = (item) => {
 const onSaved = () => {
   dialog.value.show = false
   loadData(activeTab.value)
+}
+
+// ─── Members management ──────────────────────────────────────────
+const membersDialog = ref({
+  show: false,
+  group: null,
+  members: [],
+  loading: false,
+  allUsers: [],
+  loadingUsers: false,
+  selectedUser: null,
+  adding: false
+})
+
+const memberColumns = [
+  { name: 'avatar', label: '', field: 'avatarUrl', align: 'left', style: 'width: 48px' },
+  { name: 'userName', label: 'Username', field: 'userName', sortable: true, align: 'left' },
+  { name: 'name', label: 'Name', field: 'firstName', sortable: true, align: 'left' },
+  { name: 'actions', label: '', field: 'actions', align: 'center' }
+]
+
+const availableUsers = ref([])
+
+const openMembers = async (group) => {
+  membersDialog.value = {
+    show: true,
+    group,
+    members: [],
+    loading: true,
+    allUsers: [],
+    loadingUsers: false,
+    selectedUser: null,
+    adding: false
+  }
+  await loadMembers()
+  await loadAllUsers()
+}
+
+const loadMembers = async () => {
+  membersDialog.value.loading = true
+  try {
+    const res = await orgStructureApi.getGroupMembers(membersDialog.value.group.id)
+    membersDialog.value.members = res.data.data || []
+  } catch {
+    $q.notify({ type: 'negative', message: 'Failed to load members' })
+  } finally {
+    membersDialog.value.loading = false
+  }
+}
+
+const loadAllUsers = async () => {
+  membersDialog.value.loadingUsers = true
+  try {
+    const res = await userApi.getAll({ size: 1000, status: 'ACTIVE' })
+    membersDialog.value.allUsers = (res.data.data?.content || [])
+  } catch {
+    // silent
+  } finally {
+    membersDialog.value.loadingUsers = false
+  }
+}
+
+const filterUsers = (val, update) => {
+  update(() => {
+    const memberIds = new Set(membersDialog.value.members.map(m => m.id))
+    const needle = (val || '').toLowerCase()
+    availableUsers.value = membersDialog.value.allUsers
+      .filter(u => !memberIds.has(u.id))
+      .filter(u => !needle ||
+        u.userName.toLowerCase().includes(needle) ||
+        (u.firstName || '').toLowerCase().includes(needle) ||
+        (u.lastName || '').toLowerCase().includes(needle)
+      )
+      .map(u => ({
+        id: u.id,
+        label: `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.userName,
+        user: u
+      }))
+  })
+}
+
+const addMember = async () => {
+  if (!membersDialog.value.selectedUser) return
+  membersDialog.value.adding = true
+  try {
+    await orgStructureApi.assignUserGroup(membersDialog.value.selectedUser.id, membersDialog.value.group.id)
+    membersDialog.value.selectedUser = null
+    await loadMembers()
+    $q.notify({ type: 'positive', message: 'Member added' })
+  } catch (err) {
+    $q.notify({ type: 'negative', message: err.response?.data?.message || 'Failed to add member' })
+  } finally {
+    membersDialog.value.adding = false
+  }
+}
+
+const confirmRemoveMember = (user) => {
+  $q.dialog({
+    title: 'Remove Member',
+    message: `Remove <strong>${user.firstName} ${user.lastName}</strong> from <strong>${membersDialog.value.group.name}</strong>?`,
+    html: true, cancel: true, color: 'negative'
+  }).onOk(async () => {
+    try {
+      await orgStructureApi.removeUserGroup(user.id, membersDialog.value.group.id)
+      await loadMembers()
+      $q.notify({ type: 'positive', message: 'Member removed' })
+    } catch (err) {
+      $q.notify({ type: 'negative', message: err.response?.data?.message || 'Failed to remove member' })
+    }
+  })
 }
 
 watch(activeTab, () => {})
