@@ -43,13 +43,11 @@ public class UserWorkTimeConfigService {
                 });
     }
 
-    @Transactional(readOnly = true)
     public UserWorkTimeConfigResponse getConfigResponse(Long userId) {
         UserWorkTimeConfig config = getOrCreateConfig(userId);
         return UserWorkTimeConfigResponse.from(config);
     }
 
-    @Transactional(readOnly = true)
     public List<UserWorkTimeConfigResponse> getOrgConfigs(Long orgId) {
         // Ensure all org users have configs
         List<User> orgUsers = userRepository.findByOrganizationId(orgId);

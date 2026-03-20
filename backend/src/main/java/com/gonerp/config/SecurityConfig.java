@@ -48,6 +48,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/tasks/files/**").permitAll()
                 .requestMatchers("/api/users/files/**").permitAll()
                 .requestMatchers("/api/ws/**").permitAll()
+                .requestMatchers("/api/finance/public/**").permitAll()
                 .requestMatchers("/api/**").authenticated()
                 .anyRequest().authenticated()
             )

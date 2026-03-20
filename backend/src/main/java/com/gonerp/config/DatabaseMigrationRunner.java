@@ -85,6 +85,11 @@ public class DatabaseMigrationRunner implements ApplicationRunner {
                 }
             }
 
+            // ── fin_transactions: add inter_account flag ──
+
+            addColumnIfNotExists(conn, "fin_transactions", "inter_account",
+                    "ALTER TABLE fin_transactions ADD COLUMN inter_account BOOLEAN NOT NULL DEFAULT FALSE");
+
             log.info("Database migration check completed");
         } catch (Exception e) {
             log.warn("Database migration runner failed (non-fatal, Hibernate ddl-auto may handle it): {}", e.getMessage());

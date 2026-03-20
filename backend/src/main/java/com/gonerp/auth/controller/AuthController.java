@@ -4,6 +4,8 @@ import com.gonerp.auth.dto.AuthResponse;
 import com.gonerp.auth.dto.LoginRequest;
 import com.gonerp.common.ApiResponse;
 import com.gonerp.config.JwtTokenProvider;
+import com.gonerp.finance.model.FinanceUserRole;
+import com.gonerp.finance.repository.FinanceUserRoleRepository;
 import com.gonerp.organization.model.Organization;
 import com.gonerp.usermanager.model.User;
 import com.gonerp.usermanager.model.enums.RoleName;
@@ -25,6 +27,7 @@ public class AuthController {
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider jwtTokenProvider;
     private final UserRepository userRepository;
+    private final FinanceUserRoleRepository financeUserRoleRepository;
 
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody LoginRequest request) {
@@ -73,7 +76,9 @@ public class AuthController {
             builder.moduleTaskManager(true)
                     .moduleImageManager(true)
                     .moduleDesigns(true)
-                    .moduleWorkTime(true);
+                    .moduleWorkTime(true)
+                    .moduleFinance(true)
+                    .financeRole("FINANCE_CFO");
         } else if (org != null) {
             builder.organizationId(org.getId())
                     .organizationName(org.getName())
@@ -81,7 +86,12 @@ public class AuthController {
                     .moduleTaskManager(org.isModuleTaskManager())
                     .moduleImageManager(org.isModuleImageManager())
                     .moduleDesigns(org.isModuleDesigns())
-                    .moduleWorkTime(org.isModuleWorkTime());
+                    .moduleWorkTime(org.isModuleWorkTime())
+                    .moduleFinance(org.isModuleFinance());
+            if (org.isModuleFinance()) {
+                financeUserRoleRepository.findByOrganizationIdAndUserId(org.getId(), user.getId())
+                        .ifPresent(fur -> builder.financeRole(fur.getFinanceRole().name()));
+            }
         }
 
         return builder.build();

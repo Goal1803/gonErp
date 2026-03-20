@@ -27,7 +27,16 @@ export const useAuthStore = defineStore('auth', {
     hasTaskManager: (state) => state.user?.moduleTaskManager ?? true,
     hasImageManager: (state) => state.user?.moduleImageManager ?? true,
     hasDesigns: (state) => state.user?.moduleDesigns ?? true,
-    hasWorkTime: (state) => state.user?.moduleWorkTime ?? false
+    hasWorkTime: (state) => state.user?.moduleWorkTime ?? false,
+    hasFinance: (state) => {
+      // Superadmin always has access
+      if (state.user?.role === 'SUPER_ADMIN') return true
+      if (!state.user?.moduleFinance) return false
+      // Admins can access finance config even without a finance role
+      if (state.user?.role === 'ADMIN') return true
+      return !!state.user?.financeRole
+    },
+    financeRole: (state) => state.user?.financeRole || null
   },
 
   actions: {

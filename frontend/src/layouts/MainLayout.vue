@@ -260,6 +260,22 @@
             </q-item-section>
           </q-item>
 
+          <!-- Finance -->
+          <q-item
+            v-if="authStore.hasFinance"
+            clickable
+            v-ripple
+            to="/finance"
+            class="rounded-borders q-mb-xs"
+          >
+            <q-item-section avatar>
+              <q-icon name="account_balance" />
+            </q-item-section>
+            <q-item-section>
+              <q-item-label>Finance</q-item-label>
+            </q-item-section>
+          </q-item>
+
           <!-- Coming Soon -->
           <q-item-label header class="text-grey-6 text-uppercase text-caption q-mb-xs q-mt-sm">
             Coming Soon
@@ -385,7 +401,6 @@ const roleChipColor = computed(() => {
 })
 
 const comingSoon = [
-  { label: 'Finance', icon: 'account_balance' },
   { label: 'Sales', icon: 'point_of_sale' },
   { label: 'Marketing', icon: 'campaign' },
   { label: 'Inventory', icon: 'inventory' }

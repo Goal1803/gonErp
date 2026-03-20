@@ -96,6 +96,61 @@ const routes = [
         component: () => import('pages/OrgStructurePage.vue'),
         meta: { title: 'Organization Structure', requiresAdmin: true }
       },
+      // ─── Finance Module ──────────────────────────────────────────────
+      {
+        path: 'finance',
+        name: 'finance',
+        component: () => import('pages/FinancePage.vue'),
+        meta: { title: 'Finance', requiresModule: 'hasFinance' }
+      },
+      {
+        path: 'finance/config',
+        name: 'financeConfig',
+        component: () => import('pages/FinanceConfigPage.vue'),
+        meta: { title: 'Finance Config', requiresModule: 'hasFinance', requiresAdmin: true }
+      },
+      {
+        path: 'finance/gma',
+        name: 'gmaMonthlyDashboard',
+        component: () => import('pages/GmaMonthlyDashboardPage.vue'),
+        meta: { title: 'Monthly Accounting', requiresModule: 'hasFinance' }
+      },
+      {
+        path: 'finance/accounts',
+        name: 'financeAccounts',
+        component: () => import('pages/GmaAccountsPage.vue'),
+        meta: { title: 'Bank Accounts', requiresModule: 'hasFinance' }
+      },
+      {
+        path: 'finance/currencies',
+        name: 'financeCurrencies',
+        component: () => import('pages/FinanceCurrencyPage.vue'),
+        meta: { title: 'Currencies', requiresModule: 'hasFinance' }
+      },
+      {
+        path: 'finance/gma/report/:id',
+        name: 'gmaMonthlyReport',
+        component: () => import('pages/GmaMonthlyReportPage.vue'),
+        meta: { title: 'Monthly Report', requiresModule: 'hasFinance' }
+      },
+      {
+        path: 'finance/gma/rules',
+        name: 'gmaRules',
+        component: () => import('pages/GmaRulesPage.vue'),
+        meta: { title: 'Categorization Rules', requiresModule: 'hasFinance' }
+      },
+      {
+        path: 'finance/gma/amazon',
+        name: 'gmaAmazonReconciliation',
+        component: () => import('pages/GmaAmazonReconciliationPage.vue'),
+        meta: { title: 'Amazon Reconciliation', requiresModule: 'hasFinance' }
+      },
+      {
+        path: 'finance/gma/share',
+        name: 'gmaShare',
+        component: () => import('pages/GmaSharePage.vue'),
+        meta: { title: 'Share Links', requiresModule: 'hasFinance' }
+      },
       // ─── Working Time Management ─────────────────────────────────────
       {
         path: 'worktime',
@@ -146,6 +201,13 @@ const routes = [
         meta: { title: 'Work Time Settings', requiresModule: 'hasWorkTime', requiresAdmin: true }
       }
     ]
+  },
+  // ─── Public Steuerberater Page (no auth, outside MainLayout) ──────
+  {
+    path: '/finance/steuerberater/:token',
+    name: 'steuerberater',
+    component: () => import('pages/GmaSteuerberaterPage.vue'),
+    meta: { title: 'Shared Report' }
   },
   {
     path: '/:catchAll(.*)*',
