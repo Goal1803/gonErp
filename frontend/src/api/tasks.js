@@ -128,6 +128,11 @@ export const taskConfigApi = {
   removeUserGroup: (userId, groupId) => api.delete(`/tasks/config/users/${userId}/user-groups/${groupId}`)
 }
 
+export const designDashboardApi = {
+  getBoard: (boardId, startDate, endDate, userId) => api.get(`/tasks/dashboard/board/${boardId}`, { params: { startDate, endDate, userId } }),
+  getCombined: (startDate, endDate, userId) => api.get('/tasks/dashboard/combined', { params: { startDate, endDate, userId } })
+}
+
 export const designConfigApi = {
   getStaffRoles: () => api.get('/tasks/designs/config/staff-roles'),
   createStaffRole: (data) => api.post('/tasks/designs/config/staff-roles', data),

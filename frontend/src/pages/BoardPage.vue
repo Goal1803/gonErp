@@ -61,6 +61,8 @@
       <q-chip v-if="isConnected" dense color="teal-9" text-color="teal-3" size="xs" icon="circle"
         class="q-mr-sm" style="font-size:0.68rem">Live</q-chip>
 
+      <q-btn v-if="isPodDesign" flat dense icon="bar_chart" label="Dashboard" color="amber-5" size="sm"
+        class="q-mr-sm" :to="`/tasks/${boardStore.board?.id}/dashboard`" />
       <q-btn flat dense icon="group" label="Members" color="grey-5" size="sm"
         class="q-mr-sm" @click="showMembers = true" />
       <q-btn flat dense icon="edit" color="grey-5" size="sm"

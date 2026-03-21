@@ -21,7 +21,6 @@ public class WorkTimeSettingsService {
     private final WorkTimeSettingsRepository settingsRepository;
     private final OrganizationRepository organizationRepository;
 
-    @Transactional(readOnly = true)
     public WorkTimeSettingsResponse getSettings(Long organizationId) {
         WorkTimeSettings settings = settingsRepository.findByOrganizationId(organizationId)
                 .orElseGet(() -> createDefaultSettings(organizationId));

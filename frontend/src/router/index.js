@@ -79,6 +79,18 @@ const routes = [
         meta: { title: 'Design Board', requiresModule: 'hasDesigns' }
       },
       {
+        path: 'tasks/:boardId/dashboard',
+        name: 'boardDashboard',
+        component: () => import('pages/DesignDashboardPage.vue'),
+        meta: { title: 'Board Dashboard', requiresModule: 'hasTaskManager' }
+      },
+      {
+        path: 'designs/dashboard',
+        name: 'designsDashboard',
+        component: () => import('pages/DesignDashboardPage.vue'),
+        meta: { title: 'Designs Dashboard', requiresModule: 'hasDesigns' }
+      },
+      {
         path: 'organizations',
         name: 'organizations',
         component: () => import('pages/OrganizationManagerPage.vue'),

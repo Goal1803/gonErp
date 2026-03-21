@@ -36,6 +36,19 @@
           </q-card>
         </router-link>
 
+        <!-- Dashboard card -->
+        <router-link to="/designs/dashboard" class="home-card-link">
+          <q-card class="home-card" flat>
+            <q-card-section class="column items-center q-pa-lg">
+              <q-icon name="bar_chart" size="56px" color="amber-5" />
+              <div class="text-h6 text-white q-mt-md">Dashboard</div>
+              <div class="text-caption text-grey-5 q-mt-xs text-center">
+                Design analytics &amp; reports
+              </div>
+            </q-card-section>
+          </q-card>
+        </router-link>
+
         <!-- Settings card (admin only) -->
         <div v-if="authStore.isAdmin" class="home-card-link" @click="showConfigDialog = true">
           <q-card class="home-card" flat>

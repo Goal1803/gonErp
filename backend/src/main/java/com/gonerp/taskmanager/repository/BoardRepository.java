@@ -1,6 +1,7 @@
 package com.gonerp.taskmanager.repository;
 
 import com.gonerp.taskmanager.model.Board;
+import com.gonerp.taskmanager.model.enums.BoardType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -22,4 +23,7 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
 
     @Query("SELECT DISTINCT b FROM Board b JOIN FETCH b.owner WHERE b.active = true AND b.organization.id = :orgId")
     List<Board> findAllByOrganizationId(@Param("orgId") Long orgId);
+
+    @Query("SELECT b FROM Board b WHERE b.active = true AND b.organization.id = :orgId AND b.boardType = :boardType")
+    List<Board> findByOrganizationIdAndBoardType(@Param("orgId") Long orgId, @Param("boardType") BoardType boardType);
 }
