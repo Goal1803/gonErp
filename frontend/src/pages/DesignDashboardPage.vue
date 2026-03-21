@@ -603,16 +603,42 @@ watch(selectedUserId, () => loadDashboard())
 watch(() => route.params.boardId, () => loadDashboard())
 
 async function loadBoardMembers() {
-  if (!isPerBoard.value || !isAdmin.value) return
+  if (!isAdmin.value) return
   try {
-    const res = await boardApi.getById(boardId.value)
-    const board = res.data.data
-    if (board?.members?.length) {
-      memberOptions.value = board.members.map(m => ({
-        label: `${m.user?.firstName || ''} ${m.user?.lastName || ''}`.trim() || m.user?.userName || 'Unknown',
-        value: m.user?.id,
-        avatarUrl: m.user?.avatarUrl
-      }))
+    if (isPerBoard.value) {
+      // Single board — load members from that board
+      const res = await boardApi.getById(boardId.value)
+      const board = res.data.data
+      if (board?.members?.length) {
+        memberOptions.value = board.members.map(m => ({
+          label: `${m.user?.firstName || ''} ${m.user?.lastName || ''}`.trim() || m.user?.userName || 'Unknown',
+          value: m.user?.id,
+          avatarUrl: m.user?.avatarUrl
+        }))
+      }
+    } else {
+      // Combined — load all POD_DESIGN boards and merge members
+      const res = await boardApi.getAll()
+      const boards = (res.data.data || []).filter(b => b.boardType === 'POD_DESIGN')
+      const memberMap = new Map()
+      for (const b of boards) {
+        try {
+          const bRes = await boardApi.getById(b.id)
+          const board = bRes.data.data
+          if (board?.members) {
+            for (const m of board.members) {
+              if (m.user?.id && !memberMap.has(m.user.id)) {
+                memberMap.set(m.user.id, {
+                  label: `${m.user.firstName || ''} ${m.user.lastName || ''}`.trim() || m.user.userName || 'Unknown',
+                  value: m.user.id,
+                  avatarUrl: m.user.avatarUrl
+                })
+              }
+            }
+          }
+        } catch { /* ignore */ }
+      }
+      memberOptions.value = Array.from(memberMap.values())
     }
   } catch { /* ignore */ }
 }
