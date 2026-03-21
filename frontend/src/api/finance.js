@@ -3,7 +3,9 @@ import { api } from 'src/boot/axios'
 export const financeConfigApi = {
   getRoles: () => api.get('/finance/config/roles'),
   assignRole: (data) => api.post('/finance/config/roles', data),
-  removeRole: (userId) => api.delete(`/finance/config/roles/${userId}`)
+  removeRole: (userId) => api.delete(`/finance/config/roles/${userId}`),
+  exportConfig: () => api.get('/finance/config/export'),
+  importConfig: (data) => api.post('/finance/config/import', data)
 }
 
 export const financeAccountApi = {

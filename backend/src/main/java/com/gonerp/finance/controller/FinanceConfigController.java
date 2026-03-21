@@ -1,8 +1,10 @@
 package com.gonerp.finance.controller;
 
 import com.gonerp.common.ApiResponse;
+import com.gonerp.finance.dto.FinanceConfigBundle;
 import com.gonerp.finance.dto.FinanceUserRoleRequest;
 import com.gonerp.finance.dto.FinanceUserRoleResponse;
+import com.gonerp.finance.service.FinanceConfigService;
 import com.gonerp.finance.service.FinanceUserRoleService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +22,7 @@ import java.util.List;
 public class FinanceConfigController {
 
     private final FinanceUserRoleService financeUserRoleService;
+    private final FinanceConfigService financeConfigService;
 
     @GetMapping("/roles")
     public ResponseEntity<ApiResponse<List<FinanceUserRoleResponse>>> getAllRoles() {
@@ -37,5 +40,18 @@ public class FinanceConfigController {
     public ResponseEntity<ApiResponse<Void>> removeRole(@PathVariable Long userId) {
         financeUserRoleService.remove(userId);
         return ResponseEntity.ok(ApiResponse.ok("Role removed", null));
+    }
+
+    // --- Config Export / Import ---
+
+    @GetMapping("/export")
+    public ResponseEntity<ApiResponse<FinanceConfigBundle>> exportConfig() {
+        return ResponseEntity.ok(ApiResponse.ok(financeConfigService.exportConfig()));
+    }
+
+    @PostMapping("/import")
+    public ResponseEntity<ApiResponse<String>> importConfig(@RequestBody FinanceConfigBundle bundle) {
+        String summary = financeConfigService.importConfig(bundle);
+        return ResponseEntity.ok(ApiResponse.ok(summary, summary));
     }
 }
