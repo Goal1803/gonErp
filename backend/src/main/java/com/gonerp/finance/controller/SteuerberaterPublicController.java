@@ -55,15 +55,15 @@ public class SteuerberaterPublicController {
         return ResponseEntity.ok(ApiResponse.ok("Comment added", steuerberaterService.addComment(token, request)));
     }
 
-    @GetMapping("/{token}/export/csv")
-    public ResponseEntity<byte[]> exportCsv(
+    @GetMapping("/{token}/export/excel")
+    public ResponseEntity<byte[]> exportExcel(
             @PathVariable String token,
             @RequestParam(required = false) Long accountId) {
         var link = steuerberaterService.validateAndAccessLink(token);
-        byte[] csv = exportService.exportReportCsv(link.getMonthlyReport().getId(), accountId);
+        byte[] xlsx = exportService.exportReportExcel(link.getMonthlyReport().getId(), accountId);
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=transactions.csv")
-                .contentType(MediaType.parseMediaType("text/csv"))
-                .body(csv);
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=transactions.xlsx")
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(xlsx);
     }
 }

@@ -82,11 +82,14 @@ export const financeShareLinkApi = {
 }
 
 export const financeExportApi = {
-  exportCsv: (reportId, accountId) => {
+  exportExcel: (reportId, accountId) => {
     const params = accountId ? `?accountId=${accountId}` : ''
-    return api.get(`/finance/export/csv/report/${reportId}${params}`, { responseType: 'blob' })
+    return api.get(`/finance/export/excel/report/${reportId}${params}`, { responseType: 'blob' })
   },
-  exportZip: (reportId) => api.get(`/finance/export/zip/report/${reportId}`, { responseType: 'blob' })
+  exportZip: (reportId) => api.get(`/finance/export/zip/report/${reportId}`, { responseType: 'blob' }),
+  generateZip: (reportId) => api.post(`/finance/export/generate/${reportId}`),
+  getHistory: (reportId) => api.get(`/finance/export/history/${reportId}`),
+  deleteExport: (id) => api.delete(`/finance/export/${id}`)
 }
 
 export const financeAmazonApi = {
