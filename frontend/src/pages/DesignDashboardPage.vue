@@ -80,8 +80,8 @@
     <!-- Dashboard content -->
     <template v-else-if="dashboard">
       <!-- Summary cards row -->
-      <div class="row q-gutter-md q-mb-lg">
-        <div class="col-xs-12 col-sm-6 col-md-3">
+      <div class="row q-gutter-md q-mb-lg no-wrap">
+        <div class="col">
           <q-card class="stat-card" flat>
             <q-card-section class="text-center q-pa-lg">
               <q-icon name="add_circle" size="32px" color="blue-4" />
@@ -90,7 +90,7 @@
             </q-card-section>
           </q-card>
         </div>
-        <div class="col-xs-12 col-sm-6 col-md-3">
+        <div class="col">
           <q-card class="stat-card" flat>
             <q-card-section class="text-center q-pa-lg">
               <q-icon name="check_circle" size="32px" color="green-5" />
@@ -99,7 +99,7 @@
             </q-card-section>
           </q-card>
         </div>
-        <div class="col-xs-12 col-sm-6 col-md-3">
+        <div class="col">
           <q-card class="stat-card" flat>
             <q-card-section class="text-center q-pa-lg">
               <q-icon name="trending_up" size="32px" color="cyan-4" />
@@ -108,7 +108,7 @@
             </q-card-section>
           </q-card>
         </div>
-        <div class="col-xs-12 col-sm-6 col-md-3">
+        <div class="col">
           <q-card class="stat-card" flat>
             <q-card-section class="text-center q-pa-lg">
               <q-icon name="timer" size="32px" color="amber-5" />
@@ -162,7 +162,7 @@
             </q-card-section>
           </q-card>
 
-          <!-- Daily Trend -->
+          <!-- Daily Trend Line Chart -->
           <q-card class="dashboard-card q-mb-lg" flat>
             <q-card-section>
               <div class="text-subtitle1 text-white q-mb-md">
@@ -170,21 +170,73 @@
                 Daily Trend
               </div>
               <div v-if="dashboard.dailyTrends && dashboard.dailyTrends.length">
-                <div v-for="day in dashboard.dailyTrends" :key="day.date" class="q-mb-sm">
-                  <div class="text-caption text-grey-5 q-mb-xs">{{ formatDate(day.date) }}</div>
-                  <div class="row items-center q-mb-xs">
-                    <span class="trend-label text-blue-4">Created</span>
-                    <div class="col q-mx-sm trend-bar-wrap">
-                      <div class="trend-bar trend-bar--created" :style="{ width: trendBarWidth(day.created, maxTrendCount) }"></div>
+                <!-- Legend -->
+                <div class="row q-gutter-md q-mb-sm">
+                  <div class="row items-center"><div style="width:12px;height:3px;background:#42A5F5;border-radius:2px" class="q-mr-xs"></div><span class="text-caption text-grey-4">Created</span></div>
+                  <div class="row items-center"><div style="width:12px;height:3px;background:#66BB6A;border-radius:2px" class="q-mr-xs"></div><span class="text-caption text-grey-4">Completed</span></div>
+                </div>
+                <!-- SVG Chart -->
+                <div style="position:relative; width:100%; overflow-x:auto;">
+                  <svg :width="chartWidth" :height="chartHeight" class="trend-chart">
+                    <!-- Grid lines -->
+                    <line v-for="i in 5" :key="'grid'+i"
+                      :x1="chartPadding.left" :x2="chartWidth - chartPadding.right"
+                      :y1="chartPadding.top + (chartInnerH / 4) * (i - 1)" :y2="chartPadding.top + (chartInnerH / 4) * (i - 1)"
+                      stroke="rgba(255,255,255,0.06)" stroke-width="1" />
+                    <!-- Y axis labels -->
+                    <text v-for="i in 5" :key="'ylabel'+i"
+                      :x="chartPadding.left - 6"
+                      :y="chartPadding.top + (chartInnerH / 4) * (i - 1) + 4"
+                      fill="rgba(255,255,255,0.3)" font-size="10" text-anchor="end">
+                      {{ Math.round(maxTrendCount * (5 - i) / 4) }}
+                    </text>
+                    <!-- X axis labels (show every Nth) -->
+                    <text v-for="(day, idx) in chartXLabels" :key="'xlabel'+idx"
+                      v-show="idx % labelStep === 0 || idx === chartXLabels.length - 1"
+                      :x="chartX(idx)" :y="chartHeight - 4"
+                      fill="rgba(255,255,255,0.4)" font-size="10" text-anchor="middle">
+                      {{ day }}
+                    </text>
+                    <!-- Created line -->
+                    <polyline :points="createdLinePoints" fill="none" stroke="#42A5F5" stroke-width="2" stroke-linejoin="round" />
+                    <!-- Completed line -->
+                    <polyline :points="completedLinePoints" fill="none" stroke="#66BB6A" stroke-width="2" stroke-linejoin="round" />
+                    <!-- Created area -->
+                    <polygon :points="createdAreaPoints" fill="rgba(66,165,245,0.1)" />
+                    <!-- Completed area -->
+                    <polygon :points="completedAreaPoints" fill="rgba(102,187,106,0.1)" />
+                    <!-- Created dots -->
+                    <circle v-for="(day, idx) in dashboard.dailyTrends" :key="'cd'+idx"
+                      :cx="chartX(idx)" :cy="chartY(day.created)" r="3" fill="#42A5F5"
+                      :class="{ 'chart-dot-active': hoveredDayIdx === idx }" />
+                    <!-- Completed dots -->
+                    <circle v-for="(day, idx) in dashboard.dailyTrends" :key="'cpd'+idx"
+                      :cx="chartX(idx)" :cy="chartY(day.completed)" r="3" fill="#66BB6A"
+                      :class="{ 'chart-dot-active': hoveredDayIdx === idx }" />
+                    <!-- Hover vertical line -->
+                    <line v-if="hoveredDayIdx !== null"
+                      :x1="chartX(hoveredDayIdx)" :x2="chartX(hoveredDayIdx)"
+                      :y1="chartPadding.top" :y2="chartPadding.top + chartInnerH"
+                      stroke="rgba(255,255,255,0.15)" stroke-width="1" stroke-dasharray="3,3" />
+                    <!-- Invisible hit areas for hover -->
+                    <rect v-for="(day, idx) in dashboard.dailyTrends" :key="'hit'+idx"
+                      :x="chartX(idx) - 15" :y="chartPadding.top"
+                      width="30" :height="chartInnerH"
+                      fill="transparent" style="cursor:pointer"
+                      @mouseenter="onChartHover(idx, $event)"
+                      @mouseleave="hoveredDayIdx = null" />
+                  </svg>
+                  <!-- Tooltip -->
+                  <div v-if="hoveredDayIdx !== null && chartTooltip" class="chart-tooltip" :style="chartTooltipStyle">
+                    <div class="text-weight-bold q-mb-xs">{{ chartTooltip.date }}</div>
+                    <div class="row items-center q-mb-xs">
+                      <div style="width:8px;height:8px;border-radius:50%;background:#42A5F5" class="q-mr-xs"></div>
+                      Created: <span class="text-weight-bold q-ml-xs">{{ chartTooltip.created }}</span>
                     </div>
-                    <span class="text-white text-weight-bold trend-count">{{ day.created }}</span>
-                  </div>
-                  <div class="row items-center">
-                    <span class="trend-label text-green-5">Completed</span>
-                    <div class="col q-mx-sm trend-bar-wrap">
-                      <div class="trend-bar trend-bar--completed" :style="{ width: trendBarWidth(day.completed, maxTrendCount) }"></div>
+                    <div class="row items-center">
+                      <div style="width:8px;height:8px;border-radius:50%;background:#66BB6A" class="q-mr-xs"></div>
+                      Completed: <span class="text-weight-bold q-ml-xs">{{ chartTooltip.completed }}</span>
                     </div>
-                    <span class="text-white text-weight-bold trend-count">{{ day.completed }}</span>
                   </div>
                 </div>
               </div>
@@ -195,28 +247,47 @@
 
         <!-- Right column: Breakdowns -->
         <div class="col-xs-12 col-md">
-          <!-- Top Performers -->
-          <q-card class="dashboard-card q-mb-lg" flat v-if="sortedPerformers && sortedPerformers.length">
+          <!-- Idea Creators -->
+          <q-card class="dashboard-card q-mb-lg" flat v-if="dashboard.ideaCreatorStats && dashboard.ideaCreatorStats.length">
             <q-card-section>
               <div class="text-subtitle1 text-white q-mb-md">
-                <q-icon name="emoji_events" color="amber-5" class="q-mr-xs" />
-                Top Performers
+                <q-icon name="lightbulb" color="amber-5" class="q-mr-xs" />
+                Idea Creators
               </div>
-              <div v-for="(p, i) in sortedPerformers" :key="p.userId || i" class="row items-center q-mb-sm performer-row">
+              <div v-for="(p, i) in dashboard.ideaCreatorStats" :key="p.userId || i" class="row items-center q-mb-sm performer-row">
                 <span class="text-weight-bold q-mr-sm rank-badge" :class="rankClass(i)">{{ i + 1 }}</span>
                 <q-avatar size="28px" class="q-mr-sm">
                   <img v-if="p.avatarUrl" :src="p.avatarUrl" />
                   <q-icon v-else name="person" color="grey-5" />
                 </q-avatar>
                 <span class="text-white col ellipsis">{{ p.firstName || p.userName }}</span>
-                <span class="text-blue-4 q-mx-sm" title="Created">{{ p.created }}</span>
-                <span class="text-green-5 q-mx-sm" title="Completed">{{ p.completed }}</span>
-                <span class="text-grey-5 text-caption" title="Avg days">{{ p.avgDaysToComplete != null ? p.avgDaysToComplete.toFixed(1) : '-' }}d</span>
+                <q-badge color="blue-8" :label="`${p.created} created`" class="q-mx-xs" />
+                <q-badge color="green-8" :label="`${p.completed} done`" class="q-mx-xs" />
               </div>
             </q-card-section>
           </q-card>
 
-          <!-- By Member -->
+          <!-- Designers -->
+          <q-card class="dashboard-card q-mb-lg" flat v-if="dashboard.designerStats && dashboard.designerStats.length">
+            <q-card-section>
+              <div class="text-subtitle1 text-white q-mb-md">
+                <q-icon name="brush" color="purple-4" class="q-mr-xs" />
+                Designers
+              </div>
+              <div v-for="(p, i) in dashboard.designerStats" :key="p.userId || i" class="row items-center q-mb-sm performer-row">
+                <span class="text-weight-bold q-mr-sm rank-badge" :class="rankClass(i)">{{ i + 1 }}</span>
+                <q-avatar size="28px" class="q-mr-sm">
+                  <img v-if="p.avatarUrl" :src="p.avatarUrl" />
+                  <q-icon v-else name="person" color="grey-5" />
+                </q-avatar>
+                <span class="text-white col ellipsis">{{ p.firstName || p.userName }}</span>
+                <q-badge color="blue-8" :label="`${p.created} assigned`" class="q-mx-xs" />
+                <q-badge color="green-8" :label="`${p.completed} done`" class="q-mx-xs" />
+              </div>
+            </q-card-section>
+          </q-card>
+
+          <!-- All Members -->
           <q-card class="dashboard-card q-mb-lg" flat v-if="dashboard.memberStats && dashboard.memberStats.length">
             <q-card-section>
               <div class="text-subtitle1 text-white q-mb-md">
@@ -309,8 +380,8 @@ const isAdmin = computed(() => authStore.isAdmin || authStore.isSuperAdmin)
 
 // Date range
 const dateMode = ref('month')
-const customStart = ref('')
-const customEnd = ref('')
+const customStart = ref(new Date().getFullYear() + '-01-01')
+const customEnd = ref(new Date().toISOString().slice(0, 10))
 
 function getDateRange() {
   const today = new Date().toISOString().slice(0, 10)
@@ -378,10 +449,6 @@ const avgDays = computed(() => {
   return '-'
 })
 
-const sortedPerformers = computed(() => {
-  if (!dashboard.value?.memberStats) return []
-  return [...dashboard.value.memberStats].sort((a, b) => b.completed - a.completed || b.created - a.created)
-})
 
 const stageEntries = computed(() => {
   if (!dashboard.value?.designsByStage) return []
@@ -404,15 +471,105 @@ function stageColor (index) {
   return stageColors[index % stageColors.length]
 }
 
-function trendBarWidth (value, max) {
-  if (!max || !value) return '0%'
-  return Math.round((value / max) * 100) + '%'
+// Line chart helpers
+const chartPadding = { top: 10, right: 15, bottom: 30, left: 35 }
+const chartHeight = 220
+
+const chartWidth = computed(() => {
+  const days = dashboard.value?.dailyTrends?.length || 1
+  return Math.max(400, days * 30 + chartPadding.left + chartPadding.right)
+})
+
+// Show every Nth label to avoid overlap
+const labelStep = computed(() => {
+  const days = dashboard.value?.dailyTrends?.length || 1
+  if (days <= 10) return 1
+  if (days <= 20) return 2
+  if (days <= 40) return 5
+  if (days <= 90) return 7
+  return 14
+})
+
+const chartInnerH = computed(() => chartHeight - chartPadding.top - chartPadding.bottom)
+
+function chartX(idx) {
+  const days = dashboard.value?.dailyTrends?.length || 1
+  const innerW = chartWidth.value - chartPadding.left - chartPadding.right
+  if (days <= 1) return chartPadding.left + innerW / 2
+  return chartPadding.left + (idx / (days - 1)) * innerW
 }
+
+function chartY(value) {
+  const max = maxTrendCount.value || 1
+  return chartPadding.top + chartInnerH.value * (1 - value / max)
+}
+
+const chartXLabels = computed(() => {
+  if (!dashboard.value?.dailyTrends) return []
+  return dashboard.value.dailyTrends.map(d => {
+    const parts = d.date.split('-')
+    return `${parts[2]}/${parts[1]}`
+  })
+})
+
+const createdLinePoints = computed(() => {
+  if (!dashboard.value?.dailyTrends) return ''
+  return dashboard.value.dailyTrends.map((d, i) => `${chartX(i)},${chartY(d.created)}`).join(' ')
+})
+
+const completedLinePoints = computed(() => {
+  if (!dashboard.value?.dailyTrends) return ''
+  return dashboard.value.dailyTrends.map((d, i) => `${chartX(i)},${chartY(d.completed)}`).join(' ')
+})
+
+const createdAreaPoints = computed(() => {
+  if (!dashboard.value?.dailyTrends?.length) return ''
+  const days = dashboard.value.dailyTrends
+  const baseline = chartPadding.top + chartInnerH.value
+  const top = days.map((d, i) => `${chartX(i)},${chartY(d.created)}`).join(' ')
+  return `${chartX(0)},${baseline} ${top} ${chartX(days.length - 1)},${baseline}`
+})
+
+const completedAreaPoints = computed(() => {
+  if (!dashboard.value?.dailyTrends?.length) return ''
+  const days = dashboard.value.dailyTrends
+  const baseline = chartPadding.top + chartInnerH.value
+  const top = days.map((d, i) => `${chartX(i)},${chartY(d.completed)}`).join(' ')
+  return `${chartX(0)},${baseline} ${top} ${chartX(days.length - 1)},${baseline}`
+})
 
 function formatDate (dateStr) {
   if (!dateStr) return ''
   const d = new Date(dateStr)
   return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+}
+
+// Chart tooltip
+const hoveredDayIdx = ref(null)
+const chartTooltipPos = ref({ x: 0, y: 0 })
+
+const chartTooltip = computed(() => {
+  if (hoveredDayIdx.value === null || !dashboard.value?.dailyTrends) return null
+  const day = dashboard.value.dailyTrends[hoveredDayIdx.value]
+  if (!day) return null
+  return {
+    date: formatDate(day.date),
+    created: day.created,
+    completed: day.completed
+  }
+})
+
+const chartTooltipStyle = computed(() => ({
+  left: chartTooltipPos.value.x + 'px',
+  top: chartTooltipPos.value.y + 'px'
+}))
+
+function onChartHover(idx, event) {
+  hoveredDayIdx.value = idx
+  chartTooltipPos.value = {
+    x: event.clientX + 14,
+    y: event.clientY - 50
+  }
 }
 
 function rankClass (index) {
@@ -510,32 +667,27 @@ onMounted(() => {
   text-align: right;
 }
 
-.trend-label {
-  min-width: 72px;
+.trend-chart {
+  display: block;
+}
+.trend-chart circle {
+  transition: r 0.15s;
+}
+.trend-chart .chart-dot-active {
+  r: 5;
+}
+.chart-tooltip {
+  position: fixed;
+  background: rgba(30, 30, 40, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  padding: 8px 12px;
   font-size: 12px;
-  font-weight: 500;
-}
-.trend-count {
-  min-width: 28px;
-  text-align: right;
-  font-size: 13px;
-}
-.trend-bar-wrap {
-  height: 14px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 7px;
-  overflow: hidden;
-}
-.trend-bar {
-  height: 100%;
-  border-radius: 7px;
-  transition: width 0.3s ease;
-}
-.trend-bar--created {
-  background: linear-gradient(90deg, #42a5f5, #1e88e5);
-}
-.trend-bar--completed {
-  background: linear-gradient(90deg, #66bb6a, #43a047);
+  color: white;
+  pointer-events: none;
+  z-index: 9999;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
 }
 
 .performer-row {

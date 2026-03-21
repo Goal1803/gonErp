@@ -20,6 +20,8 @@ public class DesignDashboardResponse {
     private int totalRejected;
     private Map<String, Integer> designsByStage;
     private List<MemberStats> memberStats;
+    private List<MemberStats> ideaCreatorStats;
+    private List<MemberStats> designerStats;
     private List<ProductTypeStats> productTypeStats;
     private List<NicheStats> nicheStats;
     private List<DailyTrend> dailyTrends;

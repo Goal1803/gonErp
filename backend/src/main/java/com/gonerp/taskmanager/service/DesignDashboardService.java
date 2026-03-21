@@ -142,6 +142,14 @@ public class DesignDashboardService {
         List<DesignDashboardResponse.MemberStats> memberStats = buildMemberStats(
                 boardIds, singleBoard, boardId, startDateTime, endDateTime, filterUserId);
 
+        // Idea Creator stats - count designs where each user is the ideaCreator
+        List<DesignDashboardResponse.MemberStats> ideaCreatorStats = buildRoleStats(
+                userCards, completedDesigns, "IDEA_CREATOR", filterUserId);
+
+        // Designer stats - count designs where each user is a designer
+        List<DesignDashboardResponse.MemberStats> designerStats = buildRoleStats(
+                userCards, completedDesigns, "DESIGNER", filterUserId);
+
         // Product type stats
         List<DesignDashboardResponse.ProductTypeStats> productTypeStats = new ArrayList<>();
         List<Object[]> ptCounts = singleBoard
@@ -178,10 +186,86 @@ public class DesignDashboardService {
                 .totalRejected(totalRejected)
                 .designsByStage(designsByStage)
                 .memberStats(memberStats)
+                .ideaCreatorStats(ideaCreatorStats)
+                .designerStats(designerStats)
                 .productTypeStats(productTypeStats)
                 .nicheStats(nicheStats)
                 .dailyTrends(dailyTrends)
                 .build();
+    }
+
+    private List<DesignDashboardResponse.MemberStats> buildRoleStats(
+            List<Card> allCards, List<DesignDetail> completedDesigns,
+            String role, Long filterUserId) {
+
+        // Get all design details for the cards
+        Map<Long, User> userMap = new LinkedHashMap<>();
+
+        for (Card card : allCards) {
+            DesignDetail dd = designDetailRepository.findByCardId(card.getId()).orElse(null);
+            if (dd == null) continue;
+
+            if ("IDEA_CREATOR".equals(role) && dd.getIdeaCreator() != null) {
+                userMap.putIfAbsent(dd.getIdeaCreator().getId(), dd.getIdeaCreator());
+            } else if ("DESIGNER".equals(role) && dd.getDesigners() != null) {
+                for (User designer : dd.getDesigners()) {
+                    userMap.putIfAbsent(designer.getId(), designer);
+                }
+            }
+        }
+
+        if (filterUserId != null) {
+            userMap.keySet().retainAll(Set.of(filterUserId));
+        }
+
+        Set<Long> completedCardIds = completedDesigns.stream()
+                .filter(dd -> dd.getCard() != null)
+                .map(dd -> dd.getCard().getId())
+                .collect(Collectors.toSet());
+
+        List<DesignDashboardResponse.MemberStats> stats = new ArrayList<>();
+        for (Map.Entry<Long, User> entry : userMap.entrySet()) {
+            User user = entry.getValue();
+            int created = 0;
+            int completed = 0;
+
+            for (Card card : allCards) {
+                DesignDetail dd = designDetailRepository.findByCardId(card.getId()).orElse(null);
+                if (dd == null) continue;
+
+                boolean involved = false;
+                if ("IDEA_CREATOR".equals(role) && dd.getIdeaCreator() != null
+                        && dd.getIdeaCreator().getId().equals(user.getId())) {
+                    involved = true;
+                } else if ("DESIGNER".equals(role) && dd.getDesigners() != null
+                        && dd.getDesigners().stream().anyMatch(d -> d.getId().equals(user.getId()))) {
+                    involved = true;
+                }
+
+                if (involved) {
+                    created++;
+                    if (completedCardIds.contains(card.getId())) {
+                        completed++;
+                    }
+                }
+            }
+
+            if (created > 0 || completed > 0) {
+                stats.add(DesignDashboardResponse.MemberStats.builder()
+                        .userId(user.getId())
+                        .userName(user.getUserName())
+                        .firstName(user.getFirstName())
+                        .lastName(user.getLastName())
+                        .avatarUrl(user.getAvatarUrl())
+                        .created(created)
+                        .completed(completed)
+                        .avgDaysToComplete(0)
+                        .build());
+            }
+        }
+
+        stats.sort((a, b) -> b.getCompleted() - a.getCompleted());
+        return stats;
     }
 
     private double calculateAvgDaysToComplete(List<DesignDetail> completedDesigns) {
