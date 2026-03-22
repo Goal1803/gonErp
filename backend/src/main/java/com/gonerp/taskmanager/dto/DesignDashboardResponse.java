@@ -15,8 +15,9 @@ import java.util.Map;
 public class DesignDashboardResponse {
     private int totalCreated;
     private int totalCompleted;
+    private int totalCancelled;
     private double completionRate;
-    private double avgDaysToComplete;
+    private double avgHoursToComplete;
     private int totalRejected;
     private Map<String, Integer> designsByStage;
     private List<MemberStats> memberStats;
@@ -38,7 +39,7 @@ public class DesignDashboardResponse {
         private String avatarUrl;
         private int created;
         private int completed;
-        private double avgDaysToComplete;
+        private double avgHoursToComplete;
     }
 
     @Data

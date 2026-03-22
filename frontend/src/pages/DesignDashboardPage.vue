@@ -102,6 +102,15 @@
         <div class="col">
           <q-card class="stat-card" flat>
             <q-card-section class="text-center q-pa-lg">
+              <q-icon name="cancel" size="32px" color="red-4" />
+              <div class="text-h4 text-white q-mt-sm">{{ dashboard.totalCancelled }}</div>
+              <div class="text-caption text-grey-5">Designs Cancelled</div>
+            </q-card-section>
+          </q-card>
+        </div>
+        <div class="col">
+          <q-card class="stat-card" flat>
+            <q-card-section class="text-center q-pa-lg">
               <q-icon name="trending_up" size="32px" color="cyan-4" />
               <div class="text-h4 text-white q-mt-sm">{{ completionRate }}%</div>
               <div class="text-caption text-grey-5">Completion Rate</div>
@@ -112,8 +121,8 @@
           <q-card class="stat-card" flat>
             <q-card-section class="text-center q-pa-lg">
               <q-icon name="timer" size="32px" color="amber-5" />
-              <div class="text-h4 text-white q-mt-sm">{{ avgDays }}</div>
-              <div class="text-caption text-grey-5">Avg Days to Complete</div>
+              <div class="text-h4 text-white q-mt-sm">{{ avgHours }}h</div>
+              <div class="text-caption text-grey-5">Avg Hours to Complete</div>
             </q-card-section>
           </q-card>
         </div>
@@ -443,9 +452,9 @@ const completionRate = computed(() => {
   return Math.round((dashboard.value.totalCompleted / dashboard.value.totalCreated) * 100)
 })
 
-const avgDays = computed(() => {
+const avgHours = computed(() => {
   if (!dashboard.value) return '-'
-  if (dashboard.value.avgDaysToComplete != null) return Number(dashboard.value.avgDaysToComplete).toFixed(1)
+  if (dashboard.value.avgHoursToComplete != null) return Number(dashboard.value.avgHoursToComplete).toFixed(1)
   return '-'
 })
 
@@ -583,7 +592,7 @@ const memberColumns = [
   { name: 'name', label: 'Member', field: row => row.firstName || row.userName, align: 'left', sortable: true },
   { name: 'created', label: 'Created', field: 'created', align: 'center', sortable: true },
   { name: 'completed', label: 'Completed', field: 'completed', align: 'center', sortable: true },
-  { name: 'avgDays', label: 'Avg Days', field: 'avgDaysToComplete', align: 'center', sortable: true,
+  { name: 'avgHours', label: 'Avg Hours', field: 'avgHoursToComplete', align: 'center', sortable: true,
     format: v => v != null ? Number(v).toFixed(1) : '-' }
 ]
 

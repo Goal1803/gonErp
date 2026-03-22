@@ -92,7 +92,16 @@ public class DesignDashboardService {
         }
         Set<Long> userCardIds = userCards.stream().map(Card::getId).collect(Collectors.toSet());
 
-        int totalCreated = userCards.size();
+        // Exclude cards in "Draft" column from totalCreated
+        List<Card> nonDraftCards = userCards.stream()
+                .filter(c -> c.getColumn() == null || !"Draft".equalsIgnoreCase(c.getColumn().getTitle()))
+                .toList();
+        int totalCreated = nonDraftCards.size();
+
+        // Cancelled designs (cards in "Canceled" column)
+        int totalCancelled = (int) userCards.stream()
+                .filter(c -> c.getColumn() != null && "Canceled".equalsIgnoreCase(c.getColumn().getTitle()))
+                .count();
 
         // Completed designs
         List<DesignDetail> completedDesigns = singleBoard
@@ -108,8 +117,8 @@ public class DesignDashboardService {
         int totalCompleted = completedDesigns.size();
         double completionRate = totalCreated > 0 ? (double) totalCompleted / totalCreated * 100 : 0;
 
-        // Average days to complete
-        double avgDaysToComplete = calculateAvgDaysToComplete(completedDesigns);
+        // Average hours to complete
+        double avgHoursToComplete = calculateAvgHoursToComplete(completedDesigns);
 
         // Total rejected
         int totalRejected = singleBoard
@@ -181,8 +190,9 @@ public class DesignDashboardService {
         return DesignDashboardResponse.builder()
                 .totalCreated(totalCreated)
                 .totalCompleted(totalCompleted)
+                .totalCancelled(totalCancelled)
                 .completionRate(Math.round(completionRate * 100.0) / 100.0)
-                .avgDaysToComplete(Math.round(avgDaysToComplete * 100.0) / 100.0)
+                .avgHoursToComplete(Math.round(avgHoursToComplete * 100.0) / 100.0)
                 .totalRejected(totalRejected)
                 .designsByStage(designsByStage)
                 .memberStats(memberStats)
@@ -259,7 +269,7 @@ public class DesignDashboardService {
                         .avatarUrl(user.getAvatarUrl())
                         .created(created)
                         .completed(completed)
-                        .avgDaysToComplete(0)
+                        .avgHoursToComplete(0)
                         .build());
             }
         }
@@ -268,19 +278,19 @@ public class DesignDashboardService {
         return stats;
     }
 
-    private double calculateAvgDaysToComplete(List<DesignDetail> completedDesigns) {
+    private double calculateAvgHoursToComplete(List<DesignDetail> completedDesigns) {
         if (completedDesigns.isEmpty()) return 0;
 
-        double totalDays = 0;
+        double totalHours = 0;
         int count = 0;
         for (DesignDetail dd : completedDesigns) {
             if (dd.getCard() != null && dd.getCard().getCreatedAt() != null && dd.getApprovalDate() != null) {
                 long hours = ChronoUnit.HOURS.between(dd.getCard().getCreatedAt(), dd.getApprovalDate());
-                totalDays += hours / 24.0;
+                totalHours += hours;
                 count++;
             }
         }
-        return count > 0 ? totalDays / count : 0;
+        return count > 0 ? totalHours / count : 0;
     }
 
     private List<DesignDashboardResponse.MemberStats> buildMemberStats(
@@ -321,7 +331,7 @@ public class DesignDashboardService {
                     : designDetailRepository.findCompletedByDesignerInBoardsBetween(boardIds, userId, startDateTime, endDateTime);
             int completed = userCompleted.size();
 
-            double avgDays = calculateAvgDaysToComplete(userCompleted);
+            double avgDays = calculateAvgHoursToComplete(userCompleted);
 
             if (created > 0 || completed > 0) {
                 stats.add(DesignDashboardResponse.MemberStats.builder()
@@ -332,7 +342,7 @@ public class DesignDashboardService {
                         .avatarUrl(user.getAvatarUrl())
                         .created(created)
                         .completed(completed)
-                        .avgDaysToComplete(Math.round(avgDays * 100.0) / 100.0)
+                        .avgHoursToComplete(Math.round(avgDays * 100.0) / 100.0)
                         .build());
             }
         }
@@ -412,7 +422,7 @@ public class DesignDashboardService {
                 .totalCreated(0)
                 .totalCompleted(0)
                 .completionRate(0)
-                .avgDaysToComplete(0)
+                .avgHoursToComplete(0)
                 .totalRejected(0)
                 .designsByStage(new LinkedHashMap<>())
                 .memberStats(new ArrayList<>())
