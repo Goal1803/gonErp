@@ -92,29 +92,30 @@ public class DesignDashboardService {
         }
         Set<Long> userCardIds = userCards.stream().map(Card::getId).collect(Collectors.toSet());
 
-        // Exclude cards in "Draft" column from totalCreated
-        List<Card> nonDraftCards = userCards.stream()
+        // Exclude Draft from created count
+        int totalCreated = (int) userCards.stream()
                 .filter(c -> c.getColumn() == null || !"Draft".equalsIgnoreCase(c.getColumn().getTitle()))
-                .toList();
-        int totalCreated = nonDraftCards.size();
+                .count();
 
-        // Cancelled designs (cards in "Canceled" column)
+        // Cancelled designs (cards currently in "Canceled" column)
         int totalCancelled = (int) userCards.stream()
                 .filter(c -> c.getColumn() != null && "Canceled".equalsIgnoreCase(c.getColumn().getTitle()))
                 .count();
 
-        // Completed designs
-        List<DesignDetail> completedDesigns = singleBoard
-                ? designDetailRepository.findCompletedInBoardBetween(boardId, startDateTime, endDateTime)
-                : designDetailRepository.findCompletedInBoardsBetween(boardIds, startDateTime, endDateTime);
+        // Completed designs — cards currently in "Done" or "Listed" column AND created in the date range
+        List<Card> completedCards = userCards.stream()
+                .filter(c -> c.getColumn() != null && (
+                        "Done".equalsIgnoreCase(c.getColumn().getTitle()) ||
+                        "Listed".equalsIgnoreCase(c.getColumn().getTitle())))
+                .toList();
 
-        if (filterUserId != null) {
-            completedDesigns = completedDesigns.stream()
-                    .filter(dd -> dd.getCard() != null && userCardIds.contains(dd.getCard().getId()))
-                    .toList();
-        }
+        // Get DesignDetails for completed cards (for avg hours calculation)
+        List<DesignDetail> completedDesigns = completedCards.stream()
+                .map(c -> designDetailRepository.findByCardId(c.getId()).orElse(null))
+                .filter(dd -> dd != null)
+                .toList();
 
-        int totalCompleted = completedDesigns.size();
+        int totalCompleted = completedCards.size();
         double completionRate = totalCreated > 0 ? (double) totalCompleted / totalCreated * 100 : 0;
 
         // Average hours to complete
