@@ -123,12 +123,18 @@
           <kanban-column
             :column="col"
             :card-filter="cardFilter"
+            :selectable="showBulkActions"
+            :selected-ids="selectedCardIds"
+            :board-type="boardStore.board?.boardType || 'GENERAL'"
             @open-card="openCard"
             @delete="confirmDeleteColumn"
             @delete-card="confirmDeleteCard"
+            @copy-card="handleCopyCard"
             @refresh="refreshBoard"
             @drag-start="onDragStart"
             @drag-end="onDragEnd"
+            @assign-card="onAssignCard"
+            @toggle-select-card="onToggleSelectCard"
           />
         </template>
       </draggable>
@@ -151,6 +157,100 @@
       </div>
     </div>
 
+    <!-- Bulk actions bar -->
+    <div v-if="showBulkActions" class="bulk-actions-bar">
+      <span class="text-white">{{ selectedCardIds.size }} card(s) selected</span>
+      <q-btn flat color="blue-4" icon="person_add" label="Assign Member" no-caps @click="showBulkMemberAssign = true" />
+      <q-btn v-if="isPodDesign" flat color="purple-4" icon="brush" label="Assign Designer" no-caps @click="showBulkDesignerAssign = true" />
+      <q-btn flat color="grey-5" icon="close" label="Clear" no-caps @click="selectedCardIds.clear()" />
+    </div>
+
+    <!-- Bulk member assign dialog -->
+    <q-dialog v-model="showBulkMemberAssign">
+      <q-card style="min-width:350px" class="bg-dark text-white">
+        <q-card-section>
+          <div class="text-h6">Assign Member to {{ selectedCardIds.size }} card(s)</div>
+        </q-card-section>
+        <q-card-section>
+          <q-select
+            v-model="bulkMemberUserId"
+            :options="memberOptions"
+            option-value="id"
+            option-label="displayName"
+            emit-value
+            map-options
+            dense
+            outlined
+            color="teal-5"
+            label="Select member"
+          />
+        </q-card-section>
+        <q-card-actions align="right">
+          <q-btn flat label="Cancel" color="grey-5" v-close-popup />
+          <q-btn flat label="Assign" color="teal-5" :disable="!bulkMemberUserId" :loading="bulkAssigning" @click="doBulkMemberAssign" />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
+
+    <!-- Bulk designer assign dialog (POD_DESIGN only) -->
+    <q-dialog v-model="showBulkDesignerAssign">
+      <q-card style="min-width:350px" class="bg-dark text-white">
+        <q-card-section>
+          <div class="text-h6">Assign Designer to {{ selectedCardIds.size }} card(s)</div>
+        </q-card-section>
+        <q-card-section>
+          <q-select
+            v-model="bulkDesignerUserId"
+            :options="memberOptions"
+            option-value="id"
+            option-label="displayName"
+            emit-value
+            map-options
+            dense
+            outlined
+            color="teal-5"
+            label="Select designer"
+          />
+        </q-card-section>
+        <q-card-actions align="right">
+          <q-btn flat label="Cancel" color="grey-5" v-close-popup />
+          <q-btn flat label="Assign" color="purple-4" :disable="!bulkDesignerUserId" :loading="bulkAssigning" @click="doBulkDesignerAssign" />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
+
+    <!-- Quick assign dialog (single card) -->
+    <q-dialog v-model="showQuickAssign">
+      <q-card style="min-width:350px" class="bg-dark text-white">
+        <q-card-section>
+          <div class="text-h6">Quick Assign: {{ assignTarget?.name }}</div>
+        </q-card-section>
+        <q-card-section>
+          <q-tabs v-if="isPodDesign" v-model="quickAssignTab" dense class="text-grey-5" active-color="teal-5" indicator-color="teal-5" narrow-indicator>
+            <q-tab name="member" label="Member" />
+            <q-tab name="designer" label="Designer" />
+          </q-tabs>
+          <q-select
+            v-model="quickAssignUserId"
+            :options="memberOptions"
+            option-value="id"
+            option-label="displayName"
+            emit-value
+            map-options
+            dense
+            outlined
+            color="teal-5"
+            :label="isPodDesign && quickAssignTab === 'designer' ? 'Select designer' : 'Select member'"
+            class="q-mt-sm"
+          />
+        </q-card-section>
+        <q-card-actions align="right">
+          <q-btn flat label="Cancel" color="grey-5" v-close-popup />
+          <q-btn flat label="Assign" color="teal-5" :disable="!quickAssignUserId" :loading="quickAssigning" @click="doQuickAssign" />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
+
     <!-- Card detail dialog (pass boardType) -->
     <card-detail-dialog
       v-model="showCard"
@@ -166,6 +266,7 @@
       :activity-event="cardActivityEvent"
       @updated="refreshBoard"
       @deleted="refreshBoard"
+      @open-card="openCard"
       @dismiss-update="cardExternalUpdate = null"
     />
 
@@ -188,14 +289,14 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useQuasar } from 'quasar'
 import draggable from 'vuedraggable'
 import { useBoardStore } from 'src/stores/boardStore'
 import { useAuthStore } from 'src/stores/authStore'
 import { useBoardSocket } from 'src/composables/useBoardSocket'
-import { columnApi, cardApi } from 'src/api/tasks'
+import { columnApi, cardApi, designApi } from 'src/api/tasks'
 import { TAB_ID } from 'src/boot/axios'
 import KanbanColumn from 'src/components/KanbanColumn.vue'
 import CardDetailDialog from 'src/components/CardDetailDialog.vue'
@@ -231,6 +332,100 @@ const searchFocused = ref(false)
 const cardCommentEvent = ref(null) // forwarded comment events
 const cardActivityEvent = ref(null) // forwarded activity events
 const kanbanScrollEl = ref(null) // ref to the horizontal scroll container
+
+// ─── Multi-select & Bulk Actions ──────────────────────────────────────────────
+const selectedCardIds = reactive(new Set())
+const showBulkActions = computed(() => selectedCardIds.size > 0)
+
+const showBulkMemberAssign = ref(false)
+const showBulkDesignerAssign = ref(false)
+const bulkMemberUserId = ref(null)
+const bulkDesignerUserId = ref(null)
+const bulkAssigning = ref(false)
+
+const onToggleSelectCard = (card) => {
+  if (selectedCardIds.has(card.id)) {
+    selectedCardIds.delete(card.id)
+  } else {
+    selectedCardIds.add(card.id)
+  }
+}
+
+const doBulkMemberAssign = async () => {
+  if (!bulkMemberUserId.value) return
+  bulkAssigning.value = true
+  try {
+    const promises = [...selectedCardIds].map(cardId =>
+      cardApi.addMember(cardId, bulkMemberUserId.value)
+    )
+    await Promise.allSettled(promises)
+    $q.notify({ type: 'positive', message: `Member assigned to ${selectedCardIds.size} card(s)` })
+    selectedCardIds.clear()
+    showBulkMemberAssign.value = false
+    bulkMemberUserId.value = null
+    await refreshBoard()
+  } catch {
+    $q.notify({ type: 'negative', message: 'Failed to assign member to some cards' })
+  } finally {
+    bulkAssigning.value = false
+  }
+}
+
+const doBulkDesignerAssign = async () => {
+  if (!bulkDesignerUserId.value) return
+  bulkAssigning.value = true
+  try {
+    const promises = [...selectedCardIds].map(cardId =>
+      designApi.addDesigner(cardId, bulkDesignerUserId.value)
+    )
+    await Promise.allSettled(promises)
+    $q.notify({ type: 'positive', message: `Designer assigned to ${selectedCardIds.size} card(s)` })
+    selectedCardIds.clear()
+    showBulkDesignerAssign.value = false
+    bulkDesignerUserId.value = null
+    await refreshBoard()
+  } catch {
+    $q.notify({ type: 'negative', message: 'Failed to assign designer to some cards' })
+  } finally {
+    bulkAssigning.value = false
+  }
+}
+
+// ─── Quick Assign (single card) ───────────────────────────────────────────────
+const assignTarget = ref(null)
+const showQuickAssign = ref(false)
+const quickAssignUserId = ref(null)
+const quickAssignTab = ref('member')
+const quickAssigning = ref(false)
+
+const onAssignCard = (card) => {
+  assignTarget.value = card
+  quickAssignUserId.value = null
+  quickAssignTab.value = 'member'
+  showQuickAssign.value = true
+}
+
+const doQuickAssign = async () => {
+  if (!quickAssignUserId.value || !assignTarget.value) return
+  quickAssigning.value = true
+  try {
+    if (isPodDesign.value && quickAssignTab.value === 'designer') {
+      await designApi.addDesigner(assignTarget.value.id, quickAssignUserId.value)
+      $q.notify({ type: 'positive', message: 'Designer assigned' })
+    } else {
+      await cardApi.addMember(assignTarget.value.id, quickAssignUserId.value)
+      $q.notify({ type: 'positive', message: 'Member assigned' })
+    }
+    showQuickAssign.value = false
+    quickAssignUserId.value = null
+    assignTarget.value = null
+    await refreshBoard()
+  } catch {
+    $q.notify({ type: 'negative', message: 'Failed to assign' })
+  } finally {
+    quickAssigning.value = false
+  }
+}
 
 // ─── Filters ─────────────────────────────────────────────────────────────────
 const showFilters = ref(false)
@@ -325,7 +520,7 @@ const localColumns = computed({
 })
 
 const openCard = (card) => {
-  selectedCardId.value = card.id
+  selectedCardId.value = typeof card === 'object' ? card.id : card
   cardExternalUpdate.value = null
   showCard.value = true
 }
@@ -395,6 +590,20 @@ const confirmDeleteColumn = (columnId) => {
       $q.notify({ type: 'negative', message: err.response?.data?.message || 'Failed to delete column' })
     }
   })
+}
+
+const handleCopyCard = async (card) => {
+  try {
+    const res = await cardApi.copy(card.id)
+    $q.notify({ type: 'positive', message: 'Card copied to first column' })
+    await refreshBoard()
+    const newCardId = res.data?.data?.id
+    if (newCardId) {
+      openCard(newCardId)
+    }
+  } catch {
+    $q.notify({ type: 'negative', message: 'Failed to copy card' })
+  }
 }
 
 const confirmDeleteCard = (card) => {
@@ -749,4 +958,21 @@ onUnmounted(() => {
 }
 .col-ghost { opacity: 0.35; }
 .col-drag { transform: rotate(1deg); box-shadow: 0 12px 32px var(--erp-shadow); }
+
+/* Bulk actions bar */
+.bulk-actions-bar {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(30, 30, 40, 0.95);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 12px;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 9999;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
 </style>

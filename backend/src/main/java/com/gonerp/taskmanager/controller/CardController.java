@@ -44,6 +44,12 @@ public class CardController {
         return ResponseEntity.ok(ApiResponse.ok("Card updated", cardService.update(id, request)));
     }
 
+    @PostMapping("/cards/{id}/copy")
+    public ResponseEntity<ApiResponse<CardDetailResponse>> copyCard(@PathVariable Long id) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.ok("Card copied", cardService.copyCard(id)));
+    }
+
     @DeleteMapping("/cards/{id}")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long id) {
         cardService.delete(id);

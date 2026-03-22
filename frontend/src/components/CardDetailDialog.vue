@@ -26,6 +26,9 @@
           >{{ detail?.stage }}</q-chip
         >
         <q-space />
+        <q-btn flat round dense icon="content_copy" color="blue-4" @click="copyCard">
+          <q-tooltip>Copy card</q-tooltip>
+        </q-btn>
         <q-btn flat round dense icon="delete" color="red-4" @click="confirmDeleteCard">
           <q-tooltip>Delete card</q-tooltip>
         </q-btn>
@@ -1108,7 +1111,7 @@ const props = defineProps({
   commentEvent: { type: Object, default: null },
   activityEvent: { type: Object, default: null },
 });
-const emit = defineEmits(["update:modelValue", "updated", "deleted", "dismiss-update"]);
+const emit = defineEmits(["update:modelValue", "updated", "deleted", "dismiss-update", "open-card"]);
 const $q = useQuasar();
 const authStore = useAuthStore();
 
@@ -1683,6 +1686,21 @@ watch(() => props.activityEvent, (event) => {
     detail.value.activities.push(event);
   }
 });
+
+const copyCard = async () => {
+  try {
+    const res = await cardApi.copy(detail.value.id);
+    $q.notify({ type: "positive", message: "Card copied to first column" });
+    emit("deleted"); // reuse event to trigger board reload
+    // Open the copied card
+    const newCardId = res.data?.data?.id;
+    if (newCardId) {
+      setTimeout(() => emit("open-card", newCardId), 300);
+    }
+  } catch {
+    $q.notify({ type: "negative", message: "Failed to copy card" });
+  }
+};
 
 const confirmDeleteCard = () => {
   $q.dialog({

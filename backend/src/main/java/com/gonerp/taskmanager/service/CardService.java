@@ -156,6 +156,66 @@ public class CardService {
         return CardDetailResponse.from(card);
     }
 
+    public CardDetailResponse copyCard(Long id) {
+        Card original = getCardOrThrow(id);
+        checkBoardAccess(original.getColumn());
+
+        Board board = original.getColumn().getBoard();
+
+        // Get the first column of the board
+        List<BoardColumn> columns = boardColumnRepository.findByBoardIdOrderByPositionAsc(board.getId());
+        if (columns.isEmpty()) {
+            throw new IllegalStateException("Board has no columns");
+        }
+        BoardColumn firstColumn = columns.get(0);
+        int position = cardRepository.countByColumnId(firstColumn.getId()) + 1;
+
+        // Create the copy
+        Card copy = Card.builder()
+                .name(original.getName() + " (copy)")
+                .status(CardStatus.OPEN)
+                .position(position)
+                .stage(firstColumn.getTitle())
+                .mainImageUrl(original.getMainImageUrl())
+                .column(firstColumn)
+                .build();
+        copy = cardRepository.save(copy);
+
+        // Copy members
+        if (original.getMembers() != null) {
+            for (CardMember cm : original.getMembers()) {
+                cardMemberRepository.save(CardMember.builder().card(copy).user(cm.getUser()).build());
+            }
+        }
+
+        // Ensure current user is also a member
+        User currentUser = getCurrentUser();
+        boolean alreadyMember = original.getMembers() != null &&
+                original.getMembers().stream().anyMatch(cm -> cm.getUser().getId().equals(currentUser.getId()));
+        if (!alreadyMember) {
+            cardMemberRepository.save(CardMember.builder().card(copy).user(currentUser).build());
+        }
+
+        // If POD_DESIGN board, create a new DesignDetail with same ideaCreator
+        if (board.getBoardType() == BoardType.POD_DESIGN) {
+            DesignDetail originalDd = designDetailRepository.findByCardId(id).orElse(null);
+            DesignDetail.DesignDetailBuilder ddBuilder = DesignDetail.builder().card(copy);
+            if (originalDd != null && originalDd.getIdeaCreator() != null) {
+                ddBuilder.ideaCreator(originalDd.getIdeaCreator());
+            } else {
+                ddBuilder.ideaCreator(currentUser);
+            }
+            designDetailRepository.save(ddBuilder.build());
+        }
+
+        String actor = currentUser.getUserName();
+        logActivity(copy, actor + " created this card (copied from \"" + original.getName() + "\")");
+
+        eventPublisher.publish(board.getId(), "CARD_CREATED",
+                copy.getId(), firstColumn.getId(), actor, CardSummaryResponse.from(copy));
+        return CardDetailResponse.from(copy);
+    }
+
     public void delete(Long id) {
         Card card = getCardOrThrow(id);
         checkBoardAccess(card.getColumn());

@@ -1,13 +1,32 @@
 <template>
-  <div class="kanban-card" :data-card-id="card.id" @click="$emit('open', card)">
-    <!-- Delete button (visible on hover) -->
-    <q-btn
-      flat round dense icon="close" color="grey-6" size="xs"
-      class="card-delete-btn"
-      @click.stop="$emit('delete', card)"
-    >
-      <q-tooltip>Delete card</q-tooltip>
-    </q-btn>
+  <div class="kanban-card" :class="{ 'card-selected': selected }" :data-card-id="card.id" @click="$emit('open', card)">
+    <!-- Selection checkbox (top-left, visible on hover or when selectable) -->
+    <div class="card-select-checkbox" :class="{ 'always-visible': selectable || selected }">
+      <q-checkbox
+        :model-value="selected"
+        dense
+        size="xs"
+        color="teal-5"
+        @update:model-value="$emit('toggle-select', card)"
+        @click.stop
+      />
+    </div>
+
+    <!-- Action buttons (visible on hover) -->
+    <div class="card-action-btns">
+      <q-btn
+        flat round dense icon="content_copy" color="grey-6" size="xs"
+        @click.stop="$emit('copy', card)"
+      >
+        <q-tooltip>Copy card</q-tooltip>
+      </q-btn>
+      <q-btn
+        flat round dense icon="close" color="grey-6" size="xs"
+        @click.stop="$emit('delete', card)"
+      >
+        <q-tooltip>Delete card</q-tooltip>
+      </q-btn>
+    </div>
 
     <!-- Main image (always square, image fits without cropping) -->
     <div v-if="card.mainImageUrl" class="card-cover">
@@ -55,6 +74,14 @@
               <q-tooltip class="text-caption">{{ [m.firstName, m.lastName].filter(Boolean).join(' ') || m.userName }}</q-tooltip>
             </div>
           </div>
+          <!-- Quick assign button (visible on hover) -->
+          <q-btn
+            class="card-assign-btn"
+            flat round dense icon="person_add" color="grey-6" size="xs"
+            @click.stop="$emit('assign', card)"
+          >
+            <q-tooltip>Assign member</q-tooltip>
+          </q-btn>
         </div>
       </div>
     </div>
@@ -65,8 +92,13 @@
 import UserAvatar from 'src/components/UserAvatar.vue'
 import { thumbUrl } from 'src/utils/fileUrl'
 
-defineProps({ card: { type: Object, required: true } })
-defineEmits(['open', 'delete'])
+defineProps({
+  card: { type: Object, required: true },
+  selectable: { type: Boolean, default: false },
+  selected: { type: Boolean, default: false },
+  boardType: { type: String, default: 'GENERAL' }
+})
+defineEmits(['open', 'delete', 'copy', 'assign', 'toggle-select'])
 
 const statusColor = (s) => ({
   OPEN: 'grey-7', IN_PROGRESS: 'blue-7', DONE: 'green-8', BLOCKED: 'red-8', CANCELLED: 'grey-9'
@@ -83,20 +115,51 @@ const statusColor = (s) => ({
   transition: box-shadow 0.15s, transform 0.1s;
   overflow: hidden;
 }
+.kanban-card.card-selected {
+  border-color: #26a69a;
+  box-shadow: 0 0 0 2px rgba(38, 166, 154, 0.35);
+}
 .kanban-card:hover {
   box-shadow: 0 4px 16px rgba(0,0,0,0.4);
   transform: translateY(-1px);
 }
-.card-delete-btn {
+.card-select-checkbox {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  z-index: 3;
+  opacity: 0;
+  transition: opacity 0.15s;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 4px;
+  padding: 1px;
+  line-height: 0;
+}
+.card-select-checkbox.always-visible,
+.kanban-card:hover .card-select-checkbox {
+  opacity: 1;
+}
+.card-action-btns {
   position: absolute;
   top: 4px;
   right: 4px;
   z-index: 2;
   opacity: 0;
-  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  gap: 2px;
   transition: opacity 0.15s;
 }
-.kanban-card:hover .card-delete-btn {
+.card-action-btns .q-btn {
+  background: rgba(0, 0, 0, 0.6);
+}
+.kanban-card:hover .card-action-btns {
+  opacity: 1;
+}
+.card-assign-btn {
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.kanban-card:hover .card-assign-btn {
   opacity: 1;
 }
 .card-cover {

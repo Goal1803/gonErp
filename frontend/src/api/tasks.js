@@ -29,6 +29,7 @@ export const cardApi = {
   getById: (id) => api.get(`/tasks/cards/${id}`),
   update: (id, data) => api.put(`/tasks/cards/${id}`, data),
   delete: (id) => api.delete(`/tasks/cards/${id}`),
+  copy: (id) => api.post(`/tasks/cards/${id}/copy`),
   move: (id, data) => api.patch(`/tasks/cards/${id}/move`, data),
   reorder: (columnId, orderedIds) => api.patch(`/tasks/columns/${columnId}/cards/reorder`, { orderedIds }),
   addComment: (id, data) => api.post(`/tasks/cards/${id}/comments`, data),

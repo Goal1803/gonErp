@@ -44,7 +44,18 @@
         class="col-cards-inner"
       >
         <template #item="{ element }">
-          <kanban-card v-show="cardVisible(element)" :card="element" @open="$emit('open-card', element)" @delete="$emit('delete-card', $event)" />
+          <kanban-card
+            v-show="cardVisible(element)"
+            :card="element"
+            :selectable="selectable"
+            :selected="selectedIds.has(element.id)"
+            :board-type="boardType"
+            @open="$emit('open-card', element)"
+            @delete="$emit('delete-card', $event)"
+            @copy="$emit('copy-card', $event)"
+            @assign="$emit('assign-card', $event)"
+            @toggle-select="$emit('toggle-select-card', $event)"
+          />
         </template>
       </draggable>
     </div>
@@ -86,8 +97,11 @@ import { useBoardStore } from 'src/stores/boardStore'
 const props = defineProps({
   column: { type: Object, required: true },
   cardFilter: { type: Function, default: null },
+  selectable: { type: Boolean, default: false },
+  selectedIds: { type: Set, default: () => new Set() },
+  boardType: { type: String, default: 'GENERAL' },
 })
-const emit = defineEmits(['open-card', 'delete', 'delete-card', 'refresh', 'drag-start', 'drag-end'])
+const emit = defineEmits(['open-card', 'delete', 'delete-card', 'copy-card', 'refresh', 'drag-start', 'drag-end', 'assign-card', 'toggle-select-card'])
 const $q = useQuasar()
 const boardStore = useBoardStore()
 
