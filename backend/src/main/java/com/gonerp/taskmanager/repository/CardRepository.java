@@ -78,6 +78,22 @@ public interface CardRepository extends JpaRepository<Card, Long> {
                                             @Param("startDate") LocalDateTime startDate,
                                             @Param("endDate") LocalDateTime endDate);
 
+    // Find cards in "Canceled" column with lastUpdatedAt in range for a board
+    @Query("SELECT c FROM Card c WHERE c.column.board.id = :boardId " +
+            "AND LOWER(c.column.title) = 'canceled' " +
+            "AND c.lastUpdatedAt >= :startDate AND c.lastUpdatedAt < :endDate")
+    List<Card> findCancelledInBoardBetween(@Param("boardId") Long boardId,
+                                            @Param("startDate") LocalDateTime startDate,
+                                            @Param("endDate") LocalDateTime endDate);
+
+    // Find cards in "Canceled" column with lastUpdatedAt in range across multiple boards
+    @Query("SELECT c FROM Card c WHERE c.column.board.id IN :boardIds " +
+            "AND LOWER(c.column.title) = 'canceled' " +
+            "AND c.lastUpdatedAt >= :startDate AND c.lastUpdatedAt < :endDate")
+    List<Card> findCancelledInBoardsBetween(@Param("boardIds") List<Long> boardIds,
+                                             @Param("startDate") LocalDateTime startDate,
+                                             @Param("endDate") LocalDateTime endDate);
+
     // Count cards per column for a board (snapshot)
     @Query("SELECT c.column.title, COUNT(c) FROM Card c WHERE c.column.board.id = :boardId GROUP BY c.column.title")
     List<Object[]> countByColumnForBoard(@Param("boardId") Long boardId);

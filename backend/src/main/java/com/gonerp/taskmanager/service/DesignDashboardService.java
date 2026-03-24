@@ -92,9 +92,9 @@ public class DesignDashboardService {
         }
         Set<Long> userCardIds = userCards.stream().map(Card::getId).collect(Collectors.toSet());
 
-        // Exclude Draft from created count
-        int totalCreated = (int) userCards.stream()
-                .filter(c -> c.getColumn() == null || !"Draft".equalsIgnoreCase(c.getColumn().getTitle()))
+        int totalCreated = userCards.size();
+        int totalDrafts = (int) userCards.stream()
+                .filter(c -> c.getColumn() != null && "Draft".equalsIgnoreCase(c.getColumn().getTitle()))
                 .count();
 
         // Cancelled designs (cards currently in "Canceled" column)
@@ -160,41 +160,84 @@ public class DesignDashboardService {
         List<DesignDashboardResponse.MemberStats> designerStats = buildRoleStats(
                 userCards, completedDesigns, "DESIGNER", filterUserId);
 
-        // Product type stats
-        List<DesignDashboardResponse.ProductTypeStats> productTypeStats = new ArrayList<>();
-        List<Object[]> ptCounts = singleBoard
-                ? designDetailRepository.countProductTypesInBoardBetween(boardId, startDateTime, endDateTime)
-                : designDetailRepository.countProductTypesInBoardsBetween(boardIds, startDateTime, endDateTime);
-        for (Object[] row : ptCounts) {
-            productTypeStats.add(DesignDashboardResponse.ProductTypeStats.builder()
-                    .name((String) row[0])
-                    .count(((Long) row[1]).intValue())
-                    .build());
+        // Product type and Niche stats — compute from userCards with draft counts
+        Map<String, int[]> ptMap = new LinkedHashMap<>(); // name -> [count, drafts]
+        Map<String, int[]> nicheMap = new LinkedHashMap<>();
+        for (Card card : userCards) {
+            boolean isDraft = card.getColumn() != null && "Draft".equalsIgnoreCase(card.getColumn().getTitle());
+            DesignDetail dd = designDetailRepository.findByCardId(card.getId()).orElse(null);
+            if (dd == null) continue;
+            if (dd.getProductTypes() != null) {
+                for (var pt : dd.getProductTypes()) {
+                    ptMap.computeIfAbsent(pt.getName(), k -> new int[]{0, 0});
+                    ptMap.get(pt.getName())[0]++;
+                    if (isDraft) ptMap.get(pt.getName())[1]++;
+                }
+            }
+            if (dd.getNiches() != null) {
+                for (var n : dd.getNiches()) {
+                    nicheMap.computeIfAbsent(n.getName(), k -> new int[]{0, 0});
+                    nicheMap.get(n.getName())[0]++;
+                    if (isDraft) nicheMap.get(n.getName())[1]++;
+                }
+            }
         }
+        List<DesignDashboardResponse.ProductTypeStats> productTypeStats = ptMap.entrySet().stream()
+                .map(e -> DesignDashboardResponse.ProductTypeStats.builder()
+                        .name(e.getKey()).count(e.getValue()[0]).drafts(e.getValue()[1]).build())
+                .toList();
+        List<DesignDashboardResponse.NicheStats> nicheStats = nicheMap.entrySet().stream()
+                .map(e -> DesignDashboardResponse.NicheStats.builder()
+                        .name(e.getKey()).count(e.getValue()[0]).drafts(e.getValue()[1]).build())
+                .toList();
 
-        // Niche stats
-        List<DesignDashboardResponse.NicheStats> nicheStats = new ArrayList<>();
-        List<Object[]> nicheCounts = singleBoard
-                ? designDetailRepository.countNichesInBoardBetween(boardId, startDateTime, endDateTime)
-                : designDetailRepository.countNichesInBoardsBetween(boardIds, startDateTime, endDateTime);
-        for (Object[] row : nicheCounts) {
-            nicheStats.add(DesignDashboardResponse.NicheStats.builder()
-                    .name((String) row[0])
-                    .count(((Long) row[1]).intValue())
-                    .build());
+        // === Activity in Period metrics ===
+
+        // Activity Completed: designs with approvalDate in the period (regardless of creation date)
+        List<DesignDetail> activityCompletedDesigns = singleBoard
+                ? designDetailRepository.findCompletedInBoardBetween(boardId, startDateTime, endDateTime)
+                : designDetailRepository.findCompletedInBoardsBetween(boardIds, startDateTime, endDateTime);
+
+        // If filterUserId is set, filter to cards where user is a member
+        if (filterUserId != null) {
+            activityCompletedDesigns = activityCompletedDesigns.stream()
+                    .filter(dd -> dd.getCard() != null && dd.getCard().getMembers() != null
+                            && dd.getCard().getMembers().stream()
+                                    .anyMatch(cm -> cm.getUser() != null && cm.getUser().getId().equals(filterUserId)))
+                    .toList();
         }
+        int activityCompleted = activityCompletedDesigns.size();
+        double activityAvgHoursToComplete = calculateAvgHoursToComplete(activityCompletedDesigns);
+
+        // Activity Cancelled: cards currently in "Canceled" column whose lastUpdatedAt is in range
+        List<Card> activityCancelledCards = singleBoard
+                ? cardRepository.findCancelledInBoardBetween(boardId, startDateTime, endDateTime)
+                : cardRepository.findCancelledInBoardsBetween(boardIds, startDateTime, endDateTime);
+        if (filterUserId != null) {
+            activityCancelledCards = activityCancelledCards.stream()
+                    .filter(c -> c.getMembers() != null
+                            && c.getMembers().stream()
+                                    .anyMatch(cm -> cm.getUser() != null && cm.getUser().getId().equals(filterUserId)))
+                    .toList();
+        }
+        int activityCancelled = activityCancelledCards.size();
 
         // Daily trends
         List<DesignDashboardResponse.DailyTrend> dailyTrends = buildDailyTrends(
-                boardIds, singleBoard, boardId, startDate, endDate, filterUserId, completedDesigns);
+                boardIds, singleBoard, boardId, startDate, endDate, filterUserId,
+                completedDesigns, activityCompletedDesigns);
 
         return DesignDashboardResponse.builder()
                 .totalCreated(totalCreated)
+                .totalDrafts(totalDrafts)
                 .totalCompleted(totalCompleted)
                 .totalCancelled(totalCancelled)
                 .completionRate(Math.round(completionRate * 100.0) / 100.0)
                 .avgHoursToComplete(Math.round(avgHoursToComplete * 100.0) / 100.0)
                 .totalRejected(totalRejected)
+                .activityCompleted(activityCompleted)
+                .activityCancelled(activityCancelled)
+                .activityAvgHoursToComplete(Math.round(activityAvgHoursToComplete * 100.0) / 100.0)
                 .designsByStage(designsByStage)
                 .memberStats(memberStats)
                 .ideaCreatorStats(ideaCreatorStats)
@@ -238,6 +281,7 @@ public class DesignDashboardService {
         for (Map.Entry<Long, User> entry : userMap.entrySet()) {
             User user = entry.getValue();
             int created = 0;
+            int drafts = 0;
             int completed = 0;
 
             for (Card card : allCards) {
@@ -255,6 +299,9 @@ public class DesignDashboardService {
 
                 if (involved) {
                     created++;
+                    if (card.getColumn() != null && "Draft".equalsIgnoreCase(card.getColumn().getTitle())) {
+                        drafts++;
+                    }
                     if (completedCardIds.contains(card.getId())) {
                         completed++;
                     }
@@ -269,6 +316,7 @@ public class DesignDashboardService {
                         .lastName(user.getLastName())
                         .avatarUrl(user.getAvatarUrl())
                         .created(created)
+                        .drafts(drafts)
                         .completed(completed)
                         .avgHoursToComplete(0)
                         .build());
@@ -321,18 +369,32 @@ public class DesignDashboardService {
 
             String username = user.getUserName();
 
-            // Created count
-            int created = singleBoard
-                    ? (int) cardRepository.countCreatedInBoardByUserBetween(boardId, username, startDateTime, endDateTime)
-                    : (int) cardRepository.countCreatedInBoardsByUserBetween(boardIds, username, startDateTime, endDateTime);
+            // Get cards where user is a member
+            List<Card> memberCards = singleBoard
+                    ? cardRepository.findByMemberInBoardBetween(boardId, userId, startDateTime, endDateTime)
+                    : cardRepository.findByMemberInBoardsBetween(boardIds, userId, startDateTime, endDateTime);
 
-            // Completed count
-            List<DesignDetail> userCompleted = singleBoard
-                    ? designDetailRepository.findCompletedByDesignerInBoardBetween(boardId, userId, startDateTime, endDateTime)
-                    : designDetailRepository.findCompletedByDesignerInBoardsBetween(boardIds, userId, startDateTime, endDateTime);
-            int completed = userCompleted.size();
+            int created = memberCards.size();
+            int drafts = (int) memberCards.stream()
+                    .filter(c -> c.getColumn() != null && "Draft".equalsIgnoreCase(c.getColumn().getTitle()))
+                    .count();
 
-            double avgDays = calculateAvgHoursToComplete(userCompleted);
+            // Completed count — cards currently in Done/Listed
+            int completed = (int) memberCards.stream()
+                    .filter(c -> c.getColumn() != null && (
+                            "Done".equalsIgnoreCase(c.getColumn().getTitle()) ||
+                            "Listed".equalsIgnoreCase(c.getColumn().getTitle())))
+                    .count();
+
+            // Avg hours from completed design details
+            List<DesignDetail> userCompleted = memberCards.stream()
+                    .filter(c -> c.getColumn() != null && (
+                            "Done".equalsIgnoreCase(c.getColumn().getTitle()) ||
+                            "Listed".equalsIgnoreCase(c.getColumn().getTitle())))
+                    .map(c -> designDetailRepository.findByCardId(c.getId()).orElse(null))
+                    .filter(dd -> dd != null)
+                    .toList();
+            double avgHours = calculateAvgHoursToComplete(userCompleted);
 
             if (created > 0 || completed > 0) {
                 stats.add(DesignDashboardResponse.MemberStats.builder()
@@ -342,8 +404,9 @@ public class DesignDashboardService {
                         .lastName(user.getLastName())
                         .avatarUrl(user.getAvatarUrl())
                         .created(created)
+                        .drafts(drafts)
                         .completed(completed)
-                        .avgHoursToComplete(Math.round(avgDays * 100.0) / 100.0)
+                        .avgHoursToComplete(Math.round(avgHours * 100.0) / 100.0)
                         .build());
             }
         }
@@ -360,7 +423,7 @@ public class DesignDashboardService {
     private List<DesignDashboardResponse.DailyTrend> buildDailyTrends(
             List<Long> boardIds, boolean singleBoard, Long boardId,
             LocalDate startDate, LocalDate endDate, Long filterUserId,
-            List<DesignDetail> completedDesigns) {
+            List<DesignDetail> completedDesigns, List<DesignDetail> activityCompletedDesigns) {
 
         // Get all created cards in range for daily grouping
         List<Card> createdCards = singleBoard
@@ -384,8 +447,23 @@ public class DesignDashboardService {
                         c -> c.getCreatedAt().toLocalDate().format(DATE_FORMAT),
                         Collectors.collectingAndThen(Collectors.counting(), Long::intValue)));
 
-        // Group completed designs by approval date
+        // Group draft cards by date
+        Map<String, Integer> draftsByDate = createdCards.stream()
+                .filter(c -> c.getCreatedAt() != null && c.getColumn() != null
+                        && "Draft".equalsIgnoreCase(c.getColumn().getTitle()))
+                .collect(Collectors.groupingBy(
+                        c -> c.getCreatedAt().toLocalDate().format(DATE_FORMAT),
+                        Collectors.collectingAndThen(Collectors.counting(), Long::intValue)));
+
+        // Group completed designs by approval date (created-in-period completed)
         Map<String, Integer> completedByDate = completedDesigns.stream()
+                .filter(dd -> dd.getApprovalDate() != null)
+                .collect(Collectors.groupingBy(
+                        dd -> dd.getApprovalDate().toLocalDate().format(DATE_FORMAT),
+                        Collectors.collectingAndThen(Collectors.counting(), Long::intValue)));
+
+        // Group activity-completed designs by approval date
+        Map<String, Integer> activityCompletedByDate = activityCompletedDesigns.stream()
                 .filter(dd -> dd.getApprovalDate() != null)
                 .collect(Collectors.groupingBy(
                         dd -> dd.getApprovalDate().toLocalDate().format(DATE_FORMAT),
@@ -399,7 +477,9 @@ public class DesignDashboardService {
             trends.add(DesignDashboardResponse.DailyTrend.builder()
                     .date(dateStr)
                     .created(createdByDate.getOrDefault(dateStr, 0))
+                    .drafts(draftsByDate.getOrDefault(dateStr, 0))
                     .completed(completedByDate.getOrDefault(dateStr, 0))
+                    .activityCompleted(activityCompletedByDate.getOrDefault(dateStr, 0))
                     .build());
             current = current.plusDays(1);
         }
@@ -425,6 +505,9 @@ public class DesignDashboardService {
                 .completionRate(0)
                 .avgHoursToComplete(0)
                 .totalRejected(0)
+                .activityCompleted(0)
+                .activityCancelled(0)
+                .activityAvgHoursToComplete(0)
                 .designsByStage(new LinkedHashMap<>())
                 .memberStats(new ArrayList<>())
                 .productTypeStats(new ArrayList<>())

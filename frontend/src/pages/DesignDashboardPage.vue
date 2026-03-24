@@ -79,13 +79,14 @@
 
     <!-- Dashboard content -->
     <template v-else-if="dashboard">
-      <!-- Summary cards row -->
-      <div class="row q-gutter-md q-mb-lg no-wrap">
+      <!-- Created in Period -->
+      <div class="text-overline text-grey-5 q-mb-xs">Created in Period</div>
+      <div class="row q-gutter-md q-mb-md no-wrap">
         <div class="col">
           <q-card class="stat-card" flat>
             <q-card-section class="text-center q-pa-lg">
               <q-icon name="add_circle" size="32px" color="blue-4" />
-              <div class="text-h4 text-white q-mt-sm">{{ dashboard.totalCreated }}</div>
+              <div class="text-h4 text-white q-mt-sm">{{ dashboard.totalCreated }}<span v-if="dashboard.totalDrafts" class="text-caption text-grey-5 q-ml-xs">({{ dashboard.totalDrafts }} drafts)</span></div>
               <div class="text-caption text-grey-5">Designs Created</div>
             </q-card-section>
           </q-card>
@@ -95,7 +96,7 @@
             <q-card-section class="text-center q-pa-lg">
               <q-icon name="check_circle" size="32px" color="green-5" />
               <div class="text-h4 text-white q-mt-sm">{{ dashboard.totalCompleted }}</div>
-              <div class="text-caption text-grey-5">Designs Completed</div>
+              <div class="text-caption text-grey-5">Completed of Created</div>
             </q-card-section>
           </q-card>
         </div>
@@ -104,7 +105,7 @@
             <q-card-section class="text-center q-pa-lg">
               <q-icon name="cancel" size="32px" color="red-4" />
               <div class="text-h4 text-white q-mt-sm">{{ dashboard.totalCancelled }}</div>
-              <div class="text-caption text-grey-5">Designs Cancelled</div>
+              <div class="text-caption text-grey-5">Cancelled of Created</div>
             </q-card-section>
           </q-card>
         </div>
@@ -117,11 +118,34 @@
             </q-card-section>
           </q-card>
         </div>
+      </div>
+
+      <!-- Activity in Period -->
+      <div class="text-overline text-grey-5 q-mb-xs">Activity in Period</div>
+      <div class="row q-gutter-md q-mb-lg no-wrap">
+        <div class="col">
+          <q-card class="stat-card" flat>
+            <q-card-section class="text-center q-pa-lg">
+              <q-icon name="check_circle" size="32px" color="green-5" />
+              <div class="text-h4 text-white q-mt-sm">{{ dashboard.activityCompleted }}</div>
+              <div class="text-caption text-grey-5">Designs Completed</div>
+            </q-card-section>
+          </q-card>
+        </div>
+        <div class="col">
+          <q-card class="stat-card" flat>
+            <q-card-section class="text-center q-pa-lg">
+              <q-icon name="cancel" size="32px" color="red-4" />
+              <div class="text-h4 text-white q-mt-sm">{{ dashboard.activityCancelled }}</div>
+              <div class="text-caption text-grey-5">Designs Cancelled</div>
+            </q-card-section>
+          </q-card>
+        </div>
         <div class="col">
           <q-card class="stat-card" flat>
             <q-card-section class="text-center q-pa-lg">
               <q-icon name="timer" size="32px" color="amber-5" />
-              <div class="text-h4 text-white q-mt-sm">{{ avgHours }}h</div>
+              <div class="text-h4 text-white q-mt-sm">{{ activityAvgHours }}h</div>
               <div class="text-caption text-grey-5">Avg Hours to Complete</div>
             </q-card-section>
           </q-card>
@@ -182,7 +206,8 @@
                 <!-- Legend -->
                 <div class="row q-gutter-md q-mb-sm">
                   <div class="row items-center"><div style="width:12px;height:3px;background:#42A5F5;border-radius:2px" class="q-mr-xs"></div><span class="text-caption text-grey-4">Created</span></div>
-                  <div class="row items-center"><div style="width:12px;height:3px;background:#66BB6A;border-radius:2px" class="q-mr-xs"></div><span class="text-caption text-grey-4">Completed</span></div>
+                  <div class="row items-center"><div style="width:12px;height:3px;background:#66BB6A;border-radius:2px" class="q-mr-xs"></div><span class="text-caption text-grey-4">Completed (of created)</span></div>
+                  <div class="row items-center"><div style="width:12px;height:3px;background:#FFA726;border-radius:2px" class="q-mr-xs"></div><span class="text-caption text-grey-4">Completed (activity)</span></div>
                 </div>
                 <!-- SVG Chart -->
                 <div style="position:relative; width:100%; overflow-x:auto;">
@@ -214,6 +239,10 @@
                     <polygon :points="createdAreaPoints" fill="rgba(66,165,245,0.1)" />
                     <!-- Completed area -->
                     <polygon :points="completedAreaPoints" fill="rgba(102,187,106,0.1)" />
+                    <!-- Activity Completed line -->
+                    <polyline :points="activityCompletedLinePoints" fill="none" stroke="#FFA726" stroke-width="2" stroke-linejoin="round" />
+                    <!-- Activity Completed area -->
+                    <polygon :points="activityCompletedAreaPoints" fill="rgba(255,167,38,0.1)" />
                     <!-- Created dots -->
                     <circle v-for="(day, idx) in dashboard.dailyTrends" :key="'cd'+idx"
                       :cx="chartX(idx)" :cy="chartY(day.created)" r="3" fill="#42A5F5"
@@ -221,6 +250,10 @@
                     <!-- Completed dots -->
                     <circle v-for="(day, idx) in dashboard.dailyTrends" :key="'cpd'+idx"
                       :cx="chartX(idx)" :cy="chartY(day.completed)" r="3" fill="#66BB6A"
+                      :class="{ 'chart-dot-active': hoveredDayIdx === idx }" />
+                    <!-- Activity Completed dots -->
+                    <circle v-for="(day, idx) in dashboard.dailyTrends" :key="'acd'+idx"
+                      :cx="chartX(idx)" :cy="chartY(day.activityCompleted || 0)" r="3" fill="#FFA726"
                       :class="{ 'chart-dot-active': hoveredDayIdx === idx }" />
                     <!-- Hover vertical line -->
                     <line v-if="hoveredDayIdx !== null"
@@ -240,11 +273,15 @@
                     <div class="text-weight-bold q-mb-xs">{{ chartTooltip.date }}</div>
                     <div class="row items-center q-mb-xs">
                       <div style="width:8px;height:8px;border-radius:50%;background:#42A5F5" class="q-mr-xs"></div>
-                      Created: <span class="text-weight-bold q-ml-xs">{{ chartTooltip.created }}</span>
+                      Created: <span class="text-weight-bold q-ml-xs">{{ chartTooltip.created }}<span v-if="chartTooltip.drafts" class="text-grey-5"> ({{ chartTooltip.drafts }} drafts)</span></span>
+                    </div>
+                    <div class="row items-center q-mb-xs">
+                      <div style="width:8px;height:8px;border-radius:50%;background:#66BB6A" class="q-mr-xs"></div>
+                      Completed (of created): <span class="text-weight-bold q-ml-xs">{{ chartTooltip.completed }}</span>
                     </div>
                     <div class="row items-center">
-                      <div style="width:8px;height:8px;border-radius:50%;background:#66BB6A" class="q-mr-xs"></div>
-                      Completed: <span class="text-weight-bold q-ml-xs">{{ chartTooltip.completed }}</span>
+                      <div style="width:8px;height:8px;border-radius:50%;background:#FFA726" class="q-mr-xs"></div>
+                      Completed (activity): <span class="text-weight-bold q-ml-xs">{{ chartTooltip.activityCompleted }}</span>
                     </div>
                   </div>
                 </div>
@@ -270,7 +307,7 @@
                   <q-icon v-else name="person" color="grey-5" />
                 </q-avatar>
                 <span class="text-white col ellipsis">{{ p.firstName || p.userName }}</span>
-                <q-badge color="blue-8" :label="`${p.created} created`" class="q-mx-xs" />
+                <q-badge color="blue-8" :label="`${p.created} created${p.drafts ? ' (' + p.drafts + ' drafts)' : ''}`" class="q-mx-xs" />
                 <q-badge color="green-8" :label="`${p.completed} done`" class="q-mx-xs" />
               </div>
             </q-card-section>
@@ -338,7 +375,7 @@
               </div>
               <div v-for="item in dashboard.productTypeStats" :key="item.name" class="row items-center q-mb-xs">
                 <span class="text-grey-3 col ellipsis">{{ item.name }}</span>
-                <q-badge :label="item.count" color="purple-8" text-color="white" />
+                <q-badge :label="`${item.count}${item.drafts ? ' (' + item.drafts + ' drafts)' : ''}`" color="purple-8" text-color="white" />
               </div>
             </q-card-section>
           </q-card>
@@ -352,7 +389,7 @@
               </div>
               <div v-for="item in dashboard.nicheStats" :key="item.name" class="row items-center q-mb-xs">
                 <span class="text-grey-3 col ellipsis">{{ item.name }}</span>
-                <q-badge :label="item.count" color="orange-8" text-color="white" />
+                <q-badge :label="`${item.count}${item.drafts ? ' (' + item.drafts + ' drafts)' : ''}`" color="orange-8" text-color="white" />
               </div>
             </q-card-section>
           </q-card>
@@ -458,6 +495,12 @@ const avgHours = computed(() => {
   return '-'
 })
 
+const activityAvgHours = computed(() => {
+  if (!dashboard.value) return '-'
+  if (dashboard.value.activityAvgHoursToComplete != null) return Number(dashboard.value.activityAvgHoursToComplete).toFixed(1)
+  return '-'
+})
+
 
 const stageEntries = computed(() => {
   if (!dashboard.value?.designsByStage) return []
@@ -472,7 +515,7 @@ const maxStageCount = computed(() => {
 
 const maxTrendCount = computed(() => {
   if (!dashboard.value?.dailyTrends?.length) return 1
-  return Math.max(1, ...dashboard.value.dailyTrends.flatMap(d => [d.created, d.completed]))
+  return Math.max(1, ...dashboard.value.dailyTrends.flatMap(d => [d.created, d.completed, d.activityCompleted || 0]))
 })
 
 const stageColors = ['teal-5', 'blue-5', 'cyan-5', 'green-5', 'lime-6', 'amber-5', 'orange-5', 'deep-purple-4', 'pink-4', 'indigo-4']
@@ -547,6 +590,19 @@ const completedAreaPoints = computed(() => {
   return `${chartX(0)},${baseline} ${top} ${chartX(days.length - 1)},${baseline}`
 })
 
+const activityCompletedLinePoints = computed(() => {
+  if (!dashboard.value?.dailyTrends) return ''
+  return dashboard.value.dailyTrends.map((d, i) => `${chartX(i)},${chartY(d.activityCompleted || 0)}`).join(' ')
+})
+
+const activityCompletedAreaPoints = computed(() => {
+  if (!dashboard.value?.dailyTrends?.length) return ''
+  const days = dashboard.value.dailyTrends
+  const baseline = chartPadding.top + chartInnerH.value
+  const top = days.map((d, i) => `${chartX(i)},${chartY(d.activityCompleted || 0)}`).join(' ')
+  return `${chartX(0)},${baseline} ${top} ${chartX(days.length - 1)},${baseline}`
+})
+
 function formatDate (dateStr) {
   if (!dateStr) return ''
   const d = new Date(dateStr)
@@ -564,7 +620,9 @@ const chartTooltip = computed(() => {
   return {
     date: formatDate(day.date),
     created: day.created,
-    completed: day.completed
+    drafts: day.drafts || 0,
+    completed: day.completed,
+    activityCompleted: day.activityCompleted || 0
   }
 })
 
@@ -590,7 +648,8 @@ function rankClass (index) {
 
 const memberColumns = [
   { name: 'name', label: 'Member', field: row => row.firstName || row.userName, align: 'left', sortable: true },
-  { name: 'created', label: 'Created', field: 'created', align: 'center', sortable: true },
+  { name: 'created', label: 'Created', field: 'created', align: 'center', sortable: true,
+    format: (v, row) => row.drafts ? `${v} (${row.drafts} drafts)` : `${v}` },
   { name: 'completed', label: 'Completed', field: 'completed', align: 'center', sortable: true },
   { name: 'avgHours', label: 'Avg Hours', field: 'avgHoursToComplete', align: 'center', sortable: true,
     format: v => v != null ? Number(v).toFixed(1) : '-' }
