@@ -41,37 +41,61 @@
       <!-- Left column -->
       <div class="col-12 col-md-7">
         <!-- Order Items -->
-        <q-card flat class="detail-card q-mb-md">
+        <div class="text-overline text-grey-5 q-mb-sm">Order Items ({{ order.items?.length || 0 }})</div>
+        <template v-if="order.items && order.items.length">
+          <q-card v-for="(item, idx) in order.items" :key="item.id || idx" flat class="item-card q-mb-sm">
+            <q-card-section class="q-pa-md">
+              <div class="row items-start q-gutter-md">
+                <!-- Item number badge -->
+                <q-avatar size="32px" color="cyan-9" text-color="white" font-size="14px" class="q-mt-xs">
+                  {{ idx + 1 }}
+                </q-avatar>
+                <div class="col">
+                  <!-- Product name -->
+                  <div class="text-white text-weight-medium" style="font-size: 14px; line-height: 1.4;">
+                    {{ item.productName || 'Unnamed item' }}
+                  </div>
+                  <!-- SKU + Listing + Qty row -->
+                  <div class="row items-center q-gutter-sm q-mt-xs">
+                    <div class="variation-item-inline">
+                      <span class="variation-label">SKU</span>
+                      <span class="variation-value">{{ item.sku || '-' }}</span>
+                    </div>
+                    <div class="variation-item-inline">
+                      <span class="variation-label">Quantity</span>
+                      <span class="variation-value">{{ item.quantity }}</span>
+                    </div>
+                  </div>
+                  <!-- Variations -->
+                  <div v-if="item.variations" class="q-mt-sm">
+                    <div class="variation-list">
+                      <template v-for="(v, vi) in parseVariations(item.variations)" :key="vi">
+                        <!-- Inline chip for short single-line values -->
+                        <div v-if="!v.multiline" class="variation-item-inline">
+                          <span class="variation-label">{{ v.key }}</span>
+                          <span class="variation-value">{{ v.value }}</span>
+                        </div>
+                        <!-- Block display for multi-line values (e.g., Personalization) -->
+                        <div v-else class="variation-item-block">
+                          <div class="variation-block-label">{{ v.key }}</div>
+                          <pre class="variation-block-value">{{ v.value }}</pre>
+                        </div>
+                      </template>
+                    </div>
+                  </div>
+                </div>
+                <!-- Price -->
+                <div class="text-right q-mt-xs" style="min-width: 80px;">
+                  <div class="text-white text-weight-medium" style="font-size: 15px;">{{ formatCurrency(item.itemTotal) }}</div>
+                  <div v-if="item.quantity > 1" class="text-grey-5" style="font-size: 11px;">{{ formatCurrency(item.itemPrice) }} ea</div>
+                </div>
+              </div>
+            </q-card-section>
+          </q-card>
+        </template>
+        <q-card v-else flat class="detail-card q-mb-md">
           <q-card-section>
-            <div class="text-overline text-grey-5 q-mb-sm">Order Items ({{ order.items?.length || 0 }})</div>
-            <q-table
-              v-if="order.items && order.items.length"
-              :rows="order.items"
-              :columns="itemColumns"
-              row-key="id"
-              flat bordered dense
-              class="items-table"
-              :pagination="{ rowsPerPage: 0 }"
-              hide-pagination
-            >
-              <template v-slot:body-cell-productName="props">
-                <q-td :props="props">
-                  <div class="ellipsis" style="max-width: 250px">
-                    {{ props.row.productName }}
-                    <q-tooltip v-if="props.row.productName && props.row.productName.length > 35">{{ props.row.productName }}</q-tooltip>
-                  </div>
-                </q-td>
-              </template>
-              <template v-slot:body-cell-variations="props">
-                <q-td :props="props">
-                  <div class="ellipsis" style="max-width: 180px">
-                    {{ props.row.variations || '-' }}
-                    <q-tooltip v-if="props.row.variations">{{ props.row.variations }}</q-tooltip>
-                  </div>
-                </q-td>
-              </template>
-            </q-table>
-            <div v-else class="text-grey-5">No items imported yet. Import the Etsy Sold Order Items CSV to add items.</div>
+            <div class="text-grey-5">No items imported yet. Import the Etsy Sold Order Items CSV to add items.</div>
           </q-card-section>
         </q-card>
 
@@ -303,15 +327,6 @@ const trackingStatusOptions = [
   { label: 'Returned', value: 'RETURNED' }
 ]
 
-const itemColumns = [
-  { name: 'productName', label: 'Product', field: 'productName', align: 'left' },
-  { name: 'sku', label: 'SKU', field: 'sku', align: 'left' },
-  { name: 'variations', label: 'Variations', field: 'variations', align: 'left' },
-  { name: 'quantity', label: 'Qty', field: 'quantity', align: 'center' },
-  { name: 'itemPrice', label: 'Price', field: 'itemPrice', align: 'right', format: v => v != null ? Number(v).toFixed(2) : '-' },
-  { name: 'itemTotal', label: 'Total', field: 'itemTotal', align: 'right', format: v => v != null ? Number(v).toFixed(2) : '-' }
-]
-
 const grossProfit = computed(() => {
   const net = Number(order.value.orderNet) || 0
   const fc = Number(editForm.value.fulfillmentCost) || 0
@@ -350,6 +365,40 @@ function formatCurrency (val) {
 function channelColor (ch) {
   const map = { ETSY: 'orange-7', AMAZON: 'amber-8', SHOPIFY: 'green-7' }
   return map[ch] || 'grey-7'
+}
+
+function decodeHtmlEntities (str) {
+  if (!str) return str
+  return str
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
+}
+
+function parseVariations (variationsStr) {
+  if (!variationsStr) return []
+  const decoded = decodeHtmlEntities(variationsStr)
+  // Split on comma followed by a key pattern (Word:) — but only when the comma
+  // is NOT inside multi-line content (i.e., only split on commas before a new key)
+  const parts = decoded.split(/,(?=\s*[A-Za-z][A-Za-z0-9 _-]*:)/)
+  return parts.map(part => {
+    const colonIdx = part.indexOf(':')
+    if (colonIdx > 0) {
+      const key = part.substring(0, colonIdx).trim()
+      const value = part.substring(colonIdx + 1)
+      // Preserve leading/trailing whitespace per line but trim the whole block
+      const trimmedValue = value.replace(/^\s*\n/, '').replace(/\n\s*$/, '')
+      return {
+        key,
+        value: trimmedValue || value.trim(),
+        multiline: value.includes('\n')
+      }
+    }
+    return { key: '', value: part.trim(), multiline: part.includes('\n') }
+  }).filter(v => v.value)
 }
 
 function countryFlag (code) {
@@ -414,17 +463,64 @@ onMounted(() => {
   color: #e0e0e0;
   font-size: 13px;
 }
-.items-table {
+.item-card {
   background: var(--erp-bg-tertiary);
-  border-color: var(--erp-border-subtle);
+  border: 1px solid var(--erp-border-subtle);
+  border-radius: 10px;
+  transition: border-color 0.15s;
 }
-.items-table :deep(th) {
-  color: #b0bec5;
+.item-card:hover {
+  border-color: rgba(0, 188, 212, 0.3);
+}
+.variation-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.variation-item-inline {
+  display: inline-flex;
+  align-items: baseline;
+  background: rgba(0, 188, 212, 0.08);
+  border: 1px solid rgba(0, 188, 212, 0.18);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 13px;
+  line-height: 1.4;
+  align-self: flex-start;
+}
+.variation-item-inline .variation-label {
+  color: #80cbc4;
   font-weight: 600;
-  background: var(--erp-bg);
+  margin-right: 6px;
+  white-space: nowrap;
 }
-.items-table :deep(td) {
+.variation-item-inline .variation-label::after {
+  content: ':';
+}
+.variation-item-inline .variation-value {
   color: #e0e0e0;
-  border-color: var(--erp-border-subtle);
+}
+.variation-item-block {
+  background: rgba(0, 188, 212, 0.06);
+  border: 1px solid rgba(0, 188, 212, 0.15);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+.variation-block-label {
+  color: #80cbc4;
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+.variation-block-value {
+  color: #e0e0e0;
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
 }
 </style>

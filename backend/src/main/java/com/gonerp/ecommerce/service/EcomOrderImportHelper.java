@@ -61,7 +61,11 @@ public class EcomOrderImportHelper {
                         updateDetails.add("merged financials");
                     }
 
-                    if (!itemRows.isEmpty() && (existing.getItems() == null || existing.getItems().isEmpty())) {
+                    if (!itemRows.isEmpty() && (existing.getItems() == null || existing.getItems().isEmpty() || hasOnlyPlaceholderItems(existing))) {
+                        // Remove placeholder items before adding real ones
+                        if (hasOnlyPlaceholderItems(existing)) {
+                            existing.getItems().clear();
+                        }
                         for (Map<String, String> itemRow : itemRows) {
                             EcomOrderItem item = buildOrderItem(existing, itemRow);
                             existing.getItems().add(item);
@@ -84,7 +88,7 @@ public class EcomOrderImportHelper {
                         List<String> skipReasons = new ArrayList<>();
                         if (orderRow != null && existing.getOrderTotal() != null)
                             skipReasons.add("financials already present");
-                        if (!itemRows.isEmpty() && existing.getItems() != null && !existing.getItems().isEmpty())
+                        if (!itemRows.isEmpty() && existing.getItems() != null && !existing.getItems().isEmpty() && !hasOnlyPlaceholderItems(existing))
                             skipReasons.add("items already present (" + existing.getItems().size() + ")");
                         if (orderRow == null && itemRows.isEmpty())
                             skipReasons.add("no new data");
@@ -265,6 +269,16 @@ public class EcomOrderImportHelper {
                 .itemTotal(parseAmount(getField(itemRow, "Item Total")))
                 .rawData(new LinkedHashMap<>(itemRow))
                 .build();
+    }
+
+    /**
+     * A placeholder item is one created from the Orders CSV only — has SKU but no
+     * platformItemId and no productName. These should be replaced when real items arrive.
+     */
+    private boolean hasOnlyPlaceholderItems(EcomOrder order) {
+        if (order.getItems() == null || order.getItems().isEmpty()) return false;
+        return order.getItems().stream().allMatch(item ->
+                item.getPlatformItemId() == null && item.getProductName() == null);
     }
 
     // ===================== utilities =====================
