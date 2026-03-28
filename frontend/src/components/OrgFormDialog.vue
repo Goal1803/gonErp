@@ -64,6 +64,7 @@
               <q-toggle v-model="form.moduleDesigns" label="Designs" color="purple-5" />
               <q-toggle v-model="form.moduleWorkTime" label="Working Time" color="orange-5" class="q-ml-md" />
               <q-toggle v-model="form.moduleFinance" label="Finance" color="green-8" class="q-ml-md" />
+              <q-toggle v-model="form.moduleEcommerce" label="E-commerce" color="cyan-5" class="q-ml-md" />
             </div>
 
             <!-- Admin User (create only) -->
@@ -136,7 +137,7 @@ const showPwd = ref(false)
 
 const defaultForm = {
   name: '', slug: '', orgTypeId: null, active: true,
-  moduleTaskManager: true, moduleImageManager: true, moduleDesigns: true, moduleWorkTime: false, moduleFinance: false,
+  moduleTaskManager: true, moduleImageManager: true, moduleDesigns: true, moduleWorkTime: false, moduleFinance: false, moduleEcommerce: false,
   adminUserName: '', adminPassword: '', adminFirstName: '', adminLastName: ''
 }
 
@@ -162,6 +163,7 @@ watch(() => props.org, (o) => {
       moduleDesigns: o.moduleDesigns ?? true,
       moduleWorkTime: o.moduleWorkTime ?? false,
       moduleFinance: o.moduleFinance ?? false,
+      moduleEcommerce: o.moduleEcommerce ?? false,
       adminUserName: '', adminPassword: '', adminFirstName: '', adminLastName: ''
     }
   } else {

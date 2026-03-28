@@ -10,6 +10,9 @@ import com.gonerp.taskmanager.model.enums.DesignStatus;
 import com.gonerp.taskmanager.model.enums.NotificationType;
 import com.gonerp.taskmanager.repository.*;
 import com.gonerp.taskmanager.websocket.BoardEventPublisher;
+import com.gonerp.ecommerce.model.EcomOrder;
+import com.gonerp.ecommerce.model.enums.OrderStatus;
+import com.gonerp.ecommerce.repository.EcomOrderRepository;
 import com.gonerp.usermanager.model.User;
 import com.gonerp.usermanager.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -47,6 +50,7 @@ public class CardService {
     private final CardMemberRepository cardMemberRepository;
     private final CommentReactionRepository commentReactionRepository;
     private final DesignDetailRepository designDetailRepository;
+    private final EcomOrderRepository ecomOrderRepository;
     private final DesignStaffRoleRepository designStaffRoleRepository;
     private final UserDesignStaffRoleRepository userDesignStaffRoleRepository;
     private final UserRepository userRepository;
@@ -68,6 +72,26 @@ public class CardService {
         var authorities = SecurityContextHolder.getContext().getAuthentication().getAuthorities();
         return authorities.stream().anyMatch(a ->
                 a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ROLE_SUPER_ADMIN"));
+    }
+
+    private OrderStatus mapColumnToOrderStatus(String columnTitle) {
+        return switch (columnTitle) {
+            case "Draft" -> OrderStatus.DRAFT;
+            case "New Order" -> OrderStatus.NEW_ORDER;
+            case "Clarify with Customer" -> OrderStatus.CLARIFY_WITH_CUSTOMER;
+            case "Confirmed" -> OrderStatus.CONFIRMED;
+            case "Designing" -> OrderStatus.DESIGNING;
+            case "Design Checking" -> OrderStatus.DESIGN_CHECKING;
+            case "Need to Fix" -> OrderStatus.NEED_TO_FIX;
+            case "Fix Checking" -> OrderStatus.FIX_CHECKING;
+            case "Fixing" -> OrderStatus.FIXING;
+            case "Confirming Design with Customer" -> OrderStatus.CONFIRMING_DESIGN_WITH_CUSTOMER;
+            case "Design Approved" -> OrderStatus.DESIGN_APPROVED;
+            case "Fulfilled" -> OrderStatus.FULFILLED;
+            case "Track Generated" -> OrderStatus.TRACK_GENERATED;
+            case "Track Added to Store" -> OrderStatus.TRACK_ADDED_TO_STORE;
+            default -> null;
+        };
     }
 
     private void checkBoardAccess(BoardColumn column) {
@@ -275,6 +299,17 @@ public class CardService {
                     dd.setApprovalDate(null);
                 }
                 designDetailRepository.save(dd);
+            });
+        }
+
+        // Sync order status for POD_ORDER boards
+        if (card.getColumn().getBoard().getBoardType() == BoardType.POD_ORDER) {
+            ecomOrderRepository.findByCardId(card.getId()).ifPresent(order -> {
+                OrderStatus newStatus = mapColumnToOrderStatus(targetColumn.getTitle());
+                if (newStatus != null) {
+                    order.setStatus(newStatus);
+                    ecomOrderRepository.save(order);
+                }
             });
         }
 

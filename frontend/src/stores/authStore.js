@@ -36,6 +36,12 @@ export const useAuthStore = defineStore('auth', {
       if (state.user?.role === 'ADMIN') return true
       return !!state.user?.financeRole
     },
+    hasEcommerce: (state) => {
+      if (state.user?.role === 'SUPER_ADMIN') return true
+      if (!state.user?.moduleEcommerce) return false
+      if (state.user?.role === 'ADMIN') return true
+      return !!state.user?.ecommerceRole
+    },
     financeRole: (state) => state.user?.financeRole || null
   },
 

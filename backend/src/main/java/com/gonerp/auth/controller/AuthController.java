@@ -5,6 +5,7 @@ import com.gonerp.auth.dto.LoginRequest;
 import com.gonerp.common.ApiResponse;
 import com.gonerp.config.JwtTokenProvider;
 import com.gonerp.finance.model.FinanceUserRole;
+import com.gonerp.ecommerce.repository.EcomStoreMemberRepository;
 import com.gonerp.finance.repository.FinanceUserRoleRepository;
 import com.gonerp.organization.model.Organization;
 import com.gonerp.usermanager.model.User;
@@ -28,6 +29,7 @@ public class AuthController {
     private final JwtTokenProvider jwtTokenProvider;
     private final UserRepository userRepository;
     private final FinanceUserRoleRepository financeUserRoleRepository;
+    private final EcomStoreMemberRepository ecomStoreMemberRepository;
 
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody LoginRequest request) {
@@ -78,6 +80,7 @@ public class AuthController {
                     .moduleDesigns(true)
                     .moduleWorkTime(true)
                     .moduleFinance(true)
+                    .moduleEcommerce(true)
                     .financeRole("FINANCE_CFO");
         } else if (org != null) {
             builder.organizationId(org.getId())
@@ -87,7 +90,8 @@ public class AuthController {
                     .moduleImageManager(org.isModuleImageManager())
                     .moduleDesigns(org.isModuleDesigns())
                     .moduleWorkTime(org.isModuleWorkTime())
-                    .moduleFinance(org.isModuleFinance());
+                    .moduleFinance(org.isModuleFinance())
+                    .moduleEcommerce(org.isModuleEcommerce());
             if (org.isModuleFinance()) {
                 financeUserRoleRepository.findByOrganizationIdAndUserId(org.getId(), user.getId())
                         .ifPresent(fur -> builder.financeRole(fur.getFinanceRole().name()));

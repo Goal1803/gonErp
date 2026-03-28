@@ -163,6 +163,12 @@ const routes = [
         component: () => import('pages/GmaSharePage.vue'),
         meta: { title: 'Share Links', requiresModule: 'hasFinance' }
       },
+      // ─── E-commerce Module ──────────────────────────────────────────
+      { path: 'ecommerce', name: 'ecommerce', component: () => import('pages/EcommercePage.vue'), meta: { title: 'E-commerce', requiresModule: 'hasEcommerce' } },
+      { path: 'ecommerce/stores', name: 'ecomStores', component: () => import('pages/EcomStoresPage.vue'), meta: { title: 'Stores', requiresModule: 'hasEcommerce' } },
+      { path: 'ecommerce/stores/:id', name: 'ecomStoreDetail', component: () => import('pages/EcomStoreDetailPage.vue'), meta: { title: 'Store Detail', requiresModule: 'hasEcommerce' } },
+      { path: 'ecommerce/orders', name: 'ecomOrders', component: () => import('pages/EcomOrdersPage.vue'), meta: { title: 'Orders', requiresModule: 'hasEcommerce' } },
+      { path: 'ecommerce/orders/:id', name: 'ecomOrderDetail', component: () => import('pages/EcomOrderDetailPage.vue'), meta: { title: 'Order Detail', requiresModule: 'hasEcommerce' } },
       // ─── Working Time Management ─────────────────────────────────────
       {
         path: 'worktime',

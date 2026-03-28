@@ -35,6 +35,13 @@ public class BoardService {
             "Fixing", "Fix-Checking", "Done", "Listed", "Canceled"
     );
 
+    private static final List<String> POD_ORDER_COLUMNS = List.of(
+            "Draft", "New Order", "Clarify with Customer", "Confirmed",
+            "Designing", "Design Checking", "Need to Fix", "Fix Checking",
+            "Fixing", "Confirming Design with Customer", "Design Approved",
+            "Fulfilled", "Track Generated", "Track Added to Store"
+    );
+
     private User getCurrentUser() {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByUserName(username)
@@ -141,10 +148,17 @@ public class BoardService {
                 .board(board).user(user).role(BoardMemberRole.OWNER).build();
         boardMemberRepository.save(ownerMember);
 
+        List<String> autoColumns = null;
         if (boardType == BoardType.POD_DESIGN) {
-            for (int i = 0; i < POD_DESIGN_COLUMNS.size(); i++) {
+            autoColumns = POD_DESIGN_COLUMNS;
+        } else if (boardType == BoardType.POD_ORDER) {
+            autoColumns = POD_ORDER_COLUMNS;
+        }
+
+        if (autoColumns != null) {
+            for (int i = 0; i < autoColumns.size(); i++) {
                 BoardColumn column = BoardColumn.builder()
-                        .title(POD_DESIGN_COLUMNS.get(i))
+                        .title(autoColumns.get(i))
                         .position(i + 1)
                         .board(board)
                         .build();

@@ -276,6 +276,12 @@
             </q-item-section>
           </q-item>
 
+          <!-- E-commerce -->
+          <q-item v-if="authStore.hasEcommerce" clickable v-ripple to="/ecommerce" class="rounded-borders q-mb-xs">
+            <q-item-section avatar><q-icon name="storefront" /></q-item-section>
+            <q-item-section><q-item-label>E-commerce</q-item-label></q-item-section>
+          </q-item>
+
           <!-- Coming Soon -->
           <q-item-label header class="text-grey-6 text-uppercase text-caption q-mb-xs q-mt-sm">
             Coming Soon

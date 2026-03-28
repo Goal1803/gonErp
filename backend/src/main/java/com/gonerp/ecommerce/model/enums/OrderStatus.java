@@ -1,0 +1,20 @@
+package com.gonerp.ecommerce.model.enums;
+
+public enum OrderStatus {
+    DRAFT,
+    NEW_ORDER,
+    CLARIFY_WITH_CUSTOMER,
+    CONFIRMED,
+    DESIGNING,
+    DESIGN_CHECKING,
+    NEED_TO_FIX,
+    FIX_CHECKING,
+    FIXING,
+    CONFIRMING_DESIGN_WITH_CUSTOMER,
+    DESIGN_APPROVED,
+    FULFILLED,
+    TRACK_GENERATED,
+    TRACK_ADDED_TO_STORE,
+    COMPLETED,
+    CANCELLED
+}

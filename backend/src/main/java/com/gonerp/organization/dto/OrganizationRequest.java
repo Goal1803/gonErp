@@ -23,6 +23,7 @@ public class OrganizationRequest {
     private Boolean moduleDesigns;
     private Boolean moduleWorkTime;
     private Boolean moduleFinance;
+    private Boolean moduleEcommerce;
 
     // For creating first admin user (only used on create)
     private String adminUserName;

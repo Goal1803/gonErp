@@ -18,6 +18,7 @@ public class OrganizationResponse {
     private boolean moduleDesigns;
     private boolean moduleWorkTime;
     private boolean moduleFinance;
+    private boolean moduleEcommerce;
     private Long orgTypeId;
     private String orgTypeName;
     private long userCount;
@@ -35,6 +36,7 @@ public class OrganizationResponse {
                 .moduleDesigns(org.isModuleDesigns())
                 .moduleWorkTime(org.isModuleWorkTime())
                 .moduleFinance(org.isModuleFinance())
+                .moduleEcommerce(org.isModuleEcommerce())
                 .orgTypeId(org.getOrgType() != null ? org.getOrgType().getId() : null)
                 .orgTypeName(org.getOrgType() != null ? org.getOrgType().getName() : null)
                 .userCount(userCount)
