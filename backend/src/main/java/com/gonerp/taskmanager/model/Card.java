@@ -2,6 +2,7 @@ package com.gonerp.taskmanager.model;
 
 import com.gonerp.common.BaseModel;
 import com.gonerp.taskmanager.model.enums.CardStatus;
+import com.gonerp.usermanager.model.User;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.BatchSize;
@@ -45,6 +46,10 @@ public class Card extends BaseModel {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "column_id", nullable = false)
     private BoardColumn column;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "designer_id")
+    private User designer;
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(

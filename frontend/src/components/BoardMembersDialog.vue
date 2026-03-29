@@ -42,8 +42,8 @@
                 </q-item>
               </template>
             </q-select>
-            <q-select v-model="selectedRole" :options="['MEMBER','ADMIN']" label="Role"
-              outlined color="teal-5" dense style="width:110px" />
+            <q-select v-model="selectedRole" :options="roleOptions" emit-value map-options label="Role"
+              outlined color="teal-5" dense style="min-width:140px" />
             <q-btn icon="person_add" color="teal-6" unelevated dense @click="addMember" :loading="adding"
               :disable="!selectedUser" />
           </div>
@@ -64,12 +64,13 @@
               <q-select
                 v-if="canManage && m.role !== 'OWNER'"
                 :model-value="m.role"
-                :options="['MEMBER','ADMIN']"
+                :options="roleOptions"
+                emit-value map-options
                 dense borderless color="teal-5"
-                style="min-width:100px"
+                style="min-width:140px"
                 @update:model-value="changeRole(m.user.id, $event)"
               />
-              <q-chip v-else :color="roleColor(m.role)" text-color="white" dense size="sm">{{ m.role }}</q-chip>
+              <q-chip v-else :color="roleColor(m.role)" text-color="white" dense size="sm">{{ roleLabel(m.role) }}</q-chip>
             </q-item-section>
             <q-item-section side v-if="canManage && m.role !== 'OWNER'">
               <q-btn flat round dense icon="person_remove" color="red-4" size="xs"
@@ -95,7 +96,8 @@ const props = defineProps({
   modelValue: Boolean,
   boardId: { type: Number, default: null },
   members: { type: Array, default: () => [] },
-  canManage: { type: Boolean, default: false }
+  canManage: { type: Boolean, default: false },
+  boardType: { type: String, default: 'GENERAL' }
 })
 const emit = defineEmits(['update:modelValue', 'updated'])
 const $q = useQuasar()
@@ -147,7 +149,37 @@ const onFilterUsers = (val, update) => {
   })
 }
 
-const roleColor = (role) => ({ OWNER: 'orange-8', ADMIN: 'teal-7', MEMBER: 'grey-7' }[role] || 'grey-7')
+const roleOptions = computed(() => {
+  if (props.boardType === 'POD_ORDER') {
+    return [
+      { label: 'Board Admin', value: 'ADMIN' },
+      { label: 'Seller', value: 'SELLER' },
+      { label: 'Seller Support', value: 'SELLER_SUPPORT' },
+      { label: 'Fulfillment Staff', value: 'FULFILLMENT_STAFF' },
+      { label: 'Designer', value: 'DESIGNER' },
+      { label: 'Member', value: 'MEMBER' }
+    ]
+  }
+  return [
+    { label: 'Admin', value: 'ADMIN' },
+    { label: 'Member', value: 'MEMBER' }
+  ]
+})
+
+const roleLabel = (role) => {
+  const map = {
+    OWNER: 'Owner', ADMIN: 'Admin', MEMBER: 'Member',
+    SELLER: 'Seller', SELLER_SUPPORT: 'Seller Support',
+    FULFILLMENT_STAFF: 'Fulfillment', DESIGNER: 'Designer'
+  }
+  return map[role] || role
+}
+
+const roleColor = (role) => ({
+  OWNER: 'orange-8', ADMIN: 'teal-7', MEMBER: 'grey-7',
+  SELLER: 'blue-7', SELLER_SUPPORT: 'blue-5',
+  FULFILLMENT_STAFF: 'orange-7', DESIGNER: 'purple-7'
+}[role] || 'grey-7')
 
 const addMember = async () => {
   if (!selectedUser.value) return

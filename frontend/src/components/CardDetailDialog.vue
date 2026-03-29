@@ -709,6 +709,67 @@
 
           </div>
 
+          <!-- POD_ORDER: Designer assignment -->
+          <div v-if="props.boardType === 'POD_ORDER' && detail?.id" class="q-mb-sm">
+            <q-btn flat dense color="grey-5" icon="brush" label="Designer" size="sm">
+              <q-menu persistent style="min-width: 250px; background: var(--erp-bg-elevated); border: 1px solid var(--erp-border-subtle);">
+                <div class="q-pa-sm">
+                  <div class="row items-center q-mb-sm">
+                    <span class="text-grey-4" style="font-size: 0.72rem; font-weight: 600; letter-spacing: 0.05em;">ASSIGN DESIGNER</span>
+                    <q-space />
+                    <q-btn flat round dense icon="close" color="grey-5" size="xs" v-close-popup />
+                  </div>
+                  <div v-for="u in allBoardMemberUsers" :key="u.id"
+                    class="row items-center q-mb-xs label-row"
+                    style="cursor: pointer; border-radius: 6px; padding: 4px 6px;"
+                    @click="assignDesigner(u)">
+                    <UserAvatar :user="u" size="24px" />
+                    <span class="text-grey-3 q-ml-sm" style="font-size: 0.82rem">{{ u.firstName }} {{ u.lastName }}</span>
+                    <q-icon v-if="detail.designer && detail.designer.id === u.id" name="check" color="purple-4" size="16px" class="q-ml-xs" />
+                  </div>
+                </div>
+              </q-menu>
+            </q-btn>
+            <div v-if="detail.designer" class="row items-center q-gutter-xs q-mt-xs">
+              <UserAvatar :user="detail.designer" size="28px" />
+              <span class="text-grey-3" style="font-size: 0.82rem">{{ detail.designer.firstName }} {{ detail.designer.lastName }}</span>
+              <q-btn flat round dense icon="close" color="grey-6" size="xs" @click="removeDesigner">
+                <q-tooltip>Remove designer</q-tooltip>
+              </q-btn>
+            </div>
+          </div>
+
+          <!-- POD_ORDER: Link Order -->
+          <div v-if="props.boardType === 'POD_ORDER' && detail?.id" class="q-mb-sm">
+            <q-btn flat dense color="grey-5" icon="shopping_cart" :label="detail.linkedOrder ? 'Order #' + detail.linkedOrder.platformOrderId : 'Link Order'" size="sm">
+              <q-menu persistent style="min-width: 300px; background: var(--erp-bg-elevated); border: 1px solid var(--erp-border-subtle);">
+                <div class="q-pa-sm">
+                  <div class="row items-center q-mb-sm">
+                    <span class="text-grey-4" style="font-size: 0.72rem; font-weight: 600; letter-spacing: 0.05em;">LINK ORDER</span>
+                    <q-space />
+                    <q-btn v-if="detail.linkedOrder" flat dense icon="link_off" color="red-4" size="xs" @click="unlinkOrder" v-close-popup>
+                      <q-tooltip>Unlink order</q-tooltip>
+                    </q-btn>
+                    <q-btn flat round dense icon="close" color="grey-5" size="xs" v-close-popup />
+                  </div>
+                  <q-input v-model="orderSearch" label="Search by Order ID..." dense outlined dark clearable class="q-mb-sm" @update:model-value="searchOrders" />
+                  <div v-for="o in orderSearchResults" :key="o.id"
+                    class="row items-center q-mb-xs label-row"
+                    style="cursor: pointer; border-radius: 6px; padding: 6px;"
+                    @click="linkOrder(o.id)" v-close-popup>
+                    <div>
+                      <div class="text-grey-3" style="font-size: 0.82rem">#{{ o.platformOrderId }}</div>
+                      <div class="text-grey-5" style="font-size: 0.72rem">{{ o.customerName || o.sku || '' }} &middot; {{ o.orderTotal ? Number(o.orderTotal).toFixed(2) : '' }} {{ o.currency || '' }}</div>
+                    </div>
+                    <q-space />
+                    <q-icon v-if="detail.linkedOrder && detail.linkedOrder.orderId === o.id" name="check" color="cyan-4" size="16px" />
+                  </div>
+                  <div v-if="orderSearch && !orderSearchResults.length" class="text-grey-6 text-caption">No orders found</div>
+                </div>
+              </q-menu>
+            </q-btn>
+          </div>
+
           <!-- Design Detail Section (POD_DESIGN boards only) -->
           <DesignDetailSection
             v-if="props.boardType === 'POD_DESIGN' && detail?.id"
@@ -988,6 +1049,58 @@
             min-height: 0;
           "
         >
+          <!-- POD_ORDER: Customer Info (hidden from designers) -->
+          <div v-if="props.boardType === 'POD_ORDER' && detail?.linkedOrder?.customerName" class="q-mb-md" style="background: rgba(0,188,212,0.06); border: 1px solid rgba(0,188,212,0.15); border-radius: 8px; padding: 12px;">
+            <div class="text-grey-4" style="font-size: 0.72rem; font-weight: 600; letter-spacing: 0.05em; margin-bottom: 8px;">CUSTOMER & SHIPPING</div>
+            <div class="row q-col-gutter-sm" style="font-size: 0.82rem;">
+              <div class="col-12">
+                <span class="text-grey-5">Customer:</span>
+                <span class="text-white q-ml-xs">{{ detail.linkedOrder.customerName }}</span>
+              </div>
+              <div v-if="detail.linkedOrder.customerEmail" class="col-12">
+                <span class="text-grey-5">Email:</span>
+                <span class="text-white q-ml-xs">{{ detail.linkedOrder.customerEmail }}</span>
+              </div>
+              <div v-if="detail.linkedOrder.customerPhone" class="col-12">
+                <span class="text-grey-5">Phone:</span>
+                <span class="text-white q-ml-xs">{{ detail.linkedOrder.customerPhone }}</span>
+              </div>
+              <div v-if="detail.linkedOrder.shipStreet1" class="col-12">
+                <span class="text-grey-5">Address:</span>
+                <span class="text-white q-ml-xs">
+                  {{ detail.linkedOrder.shipStreet1 }}
+                  <template v-if="detail.linkedOrder.shipStreet2">, {{ detail.linkedOrder.shipStreet2 }}</template>
+                  <br>{{ [detail.linkedOrder.shipCity, detail.linkedOrder.shipState, detail.linkedOrder.shipZipcode].filter(Boolean).join(', ') }}
+                  <template v-if="detail.linkedOrder.shipCountry"><br>{{ detail.linkedOrder.shipCountry }}</template>
+                </span>
+              </div>
+              <div class="col-12">
+                <span class="text-grey-5">Tracking:</span>
+                <div class="row items-center q-gutter-xs q-mt-xs">
+                  <q-input
+                    v-model="orderTrackingNumber"
+                    dense outlined dark
+                    placeholder="Enter tracking number..."
+                    class="col"
+                    style="max-width: 260px;"
+                    @keyup.enter="saveTrackingNumber"
+                  />
+                  <q-btn flat dense icon="save" color="cyan-5" size="sm" @click="saveTrackingNumber" :loading="savingTracking">
+                    <q-tooltip>Save tracking</q-tooltip>
+                  </q-btn>
+                </div>
+              </div>
+              <div class="col-6">
+                <span class="text-grey-5">Total:</span>
+                <span class="text-white q-ml-xs">{{ detail.linkedOrder.orderTotal ? Number(detail.linkedOrder.orderTotal).toFixed(2) : '-' }} {{ detail.linkedOrder.currency || '' }}</span>
+              </div>
+              <div class="col-6">
+                <span class="text-grey-5">Status:</span>
+                <span class="text-white q-ml-xs">{{ (detail.linkedOrder.orderStatus || '').replace(/_/g, ' ') }}</span>
+              </div>
+            </div>
+          </div>
+
           <CommentSection
             :entity-id="detail.id"
             :comments="detail.comments"
@@ -1656,6 +1769,7 @@ watch(
         detail.value = res.data.data;
         originalStatus.value = detail.value.status;
         originalColumnId.value = detail.value.columnId;
+        orderTrackingNumber.value = detail.value.linkedOrder?.trackingNumber || '';
         scheduleOverflowCheck();
         nextTick(setupDescResizeObserver);
       } catch {
@@ -1672,6 +1786,7 @@ const refreshDetail = async () => {
     detail.value = res.data.data;
     originalStatus.value = detail.value.status;
     originalColumnId.value = detail.value.columnId;
+    orderTrackingNumber.value = detail.value.linkedOrder?.trackingNumber || '';
     emit("dismiss-update");
   } catch {
     /* silent */
@@ -1874,6 +1989,81 @@ const removeMember = async (user) => {
     $q.notify({ type: "negative", message: "Failed" });
   }
 };
+
+// === POD_ORDER: Designer, Order & Tracking ===
+const orderSearch = ref('')
+const orderSearchResults = ref([])
+const orderTrackingNumber = ref('')
+const savingTracking = ref(false)
+
+const assignDesigner = async (user) => {
+  try {
+    const res = await cardApi.setDesigner(detail.value.id, user.id)
+    detail.value = res.data.data
+    emit('updated')
+  } catch {
+    $q.notify({ type: 'negative', message: 'Failed to assign designer' })
+  }
+}
+
+const removeDesigner = async () => {
+  try {
+    const res = await cardApi.removeDesigner(detail.value.id)
+    detail.value = res.data.data
+    emit('updated')
+  } catch {
+    $q.notify({ type: 'negative', message: 'Failed to remove designer' })
+  }
+}
+
+const searchOrders = async (val) => {
+  if (!val || val.length < 2) { orderSearchResults.value = []; return }
+  try {
+    const { ecomOrderApi } = await import('src/api/ecommerce')
+    const res = await ecomOrderApi.getAll({ search: val })
+    orderSearchResults.value = res.data.data || []
+  } catch {
+    orderSearchResults.value = []
+  }
+}
+
+const linkOrder = async (orderId) => {
+  try {
+    const res = await cardApi.linkOrder(detail.value.id, orderId)
+    detail.value = res.data.data
+    orderTrackingNumber.value = detail.value.linkedOrder?.trackingNumber || ''
+    emit('updated')
+    $q.notify({ type: 'positive', message: 'Order linked', timeout: 1000 })
+  } catch {
+    $q.notify({ type: 'negative', message: 'Failed to link order' })
+  }
+}
+
+const unlinkOrder = async () => {
+  try {
+    const res = await cardApi.unlinkOrder(detail.value.id)
+    detail.value = res.data.data
+    emit('updated')
+    $q.notify({ type: 'positive', message: 'Order unlinked', timeout: 1000 })
+  } catch {
+    $q.notify({ type: 'negative', message: 'Failed to unlink order' })
+  }
+}
+
+const saveTrackingNumber = async () => {
+  if (!detail.value?.linkedOrder?.orderId) return
+  savingTracking.value = true
+  try {
+    const { ecomOrderApi } = await import('src/api/ecommerce')
+    await ecomOrderApi.update(detail.value.linkedOrder.orderId, { trackingNumber: orderTrackingNumber.value })
+    detail.value.linkedOrder.trackingNumber = orderTrackingNumber.value
+    $q.notify({ type: 'positive', message: 'Tracking number saved', timeout: 1000 })
+  } catch {
+    $q.notify({ type: 'negative', message: 'Failed to save tracking number' })
+  } finally {
+    savingTracking.value = false
+  }
+}
 
 const addLink = async () => {
   if (!newLink.value.url.trim()) return;

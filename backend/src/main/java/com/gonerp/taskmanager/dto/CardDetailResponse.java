@@ -5,8 +5,10 @@ import com.gonerp.taskmanager.model.enums.CardStatus;
 import lombok.Builder;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Data
 @Builder
@@ -32,13 +34,41 @@ public class CardDetailResponse {
     private LocalDateTime lastUpdatedAt;
     private String lastUpdatedBy;
     private DesignDetailResponse designDetail;
+    private UserSummaryResponse designer;
+    private LinkedOrderInfo linkedOrder;
+
+    @Data
+    @Builder
+    public static class LinkedOrderInfo {
+        private Long orderId;
+        private String platformOrderId;
+        private String salesChannel;
+        private String storeName;
+        private LocalDateTime orderDate;
+        private String orderStatus;
+        private int numberOfItems;
+        private String sku;
+        private BigDecimal orderTotal;
+        private String currency;
+        // Customer info — null when viewer is DESIGNER
+        private String customerName;
+        private String buyerUserId;
+        private String customerEmail;
+        private String customerPhone;
+        private String shipStreet1;
+        private String shipStreet2;
+        private String shipCity;
+        private String shipState;
+        private String shipZipcode;
+        private String shipCountry;
+        private String trackingNumber;
+    }
 
     public static CardDetailResponse from(Card card) {
         return from(card, null);
     }
 
     public static CardDetailResponse from(Card card, Long currentUserId) {
-        // Filter to only top-level comments (no parent)
         var topLevelComments = card.getComments().stream()
                 .filter(c -> c.getParent() == null)
                 .map(c -> CommentResponse.from(c, currentUserId))
@@ -66,6 +96,7 @@ public class CardDetailResponse {
                 .createdBy(card.getCreatedBy())
                 .lastUpdatedAt(card.getLastUpdatedAt())
                 .lastUpdatedBy(card.getLastUpdatedBy())
+                .designer(card.getDesigner() != null ? UserSummaryResponse.from(card.getDesigner()) : null)
                 .build();
     }
 }

@@ -52,7 +52,11 @@ export const cardApi = {
   addMember: (id, userId) => api.post(`/tasks/cards/${id}/members/${userId}`),
   removeMember: (id, userId) => api.delete(`/tasks/cards/${id}/members/${userId}`),
   addLink: (id, data) => api.post(`/tasks/cards/${id}/links`, data),
-  deleteLink: (id, linkId) => api.delete(`/tasks/cards/${id}/links/${linkId}`)
+  deleteLink: (id, linkId) => api.delete(`/tasks/cards/${id}/links/${linkId}`),
+  setDesigner: (id, userId) => api.patch(`/tasks/cards/${id}/designer/${userId}`),
+  removeDesigner: (id) => api.delete(`/tasks/cards/${id}/designer`),
+  linkOrder: (id, orderId) => api.patch(`/tasks/cards/${id}/link-order/${orderId}`),
+  unlinkOrder: (id) => api.delete(`/tasks/cards/${id}/link-order`)
 }
 
 export const designApi = {

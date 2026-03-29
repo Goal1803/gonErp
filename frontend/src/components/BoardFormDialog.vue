@@ -31,6 +31,11 @@
           POD Design boards have 10 fixed columns (Draft, Idea, Doing, etc.) that cannot be added, deleted, or renamed.
         </div>
 
+        <div v-if="!isEdit && form.boardType === 'POD_ORDER'" class="text-caption text-cyan-4 q-pa-sm"
+          style="background: rgba(0,188,212,0.08); border-radius: 6px; border: 1px solid rgba(0,188,212,0.2)">
+          POD Order boards have 14 fixed columns matching the order workflow (New Order, Designing, Fulfilled, etc.). Cards can be linked to e-commerce orders for status sync.
+        </div>
+
         <div>
           <div class="text-caption text-grey-5 q-mb-sm">Cover Color</div>
           <div class="row q-gutter-sm">
@@ -69,7 +74,8 @@ const $q = useQuasar()
 const colorOptions = ['#2E7D32', '#1565C0', '#6A1B9A', '#AD1457', '#E65100', '#F9A825', '#00695C', '#37474F']
 const boardTypeOptions = [
   { label: 'General', value: 'GENERAL' },
-  { label: 'POD Design', value: 'POD_DESIGN' }
+  { label: 'POD Design', value: 'POD_DESIGN' },
+  { label: 'POD Order', value: 'POD_ORDER' }
 ]
 
 const show = computed({ get: () => props.modelValue, set: v => emit('update:modelValue', v) })

@@ -82,6 +82,9 @@
                   <q-chip v-if="board.boardType === 'POD_DESIGN'" dense color="deep-purple-9" text-color="purple-2" size="sm" icon="palette">
                     POD Design
                   </q-chip>
+                  <q-chip v-if="board.boardType === 'POD_ORDER'" dense color="cyan-9" text-color="cyan-2" size="sm" icon="shopping_cart">
+                    POD Order
+                  </q-chip>
                   <q-chip dense color="grey-9" text-color="grey-4" size="sm" icon="view_column">
                     {{ board.columnCount || 0 }} columns
                   </q-chip>
@@ -105,7 +108,6 @@
     <board-form-dialog
       v-model="showForm"
       :board="editingBoard"
-      force-board-type="GENERAL"
       @saved="onSaved"
     />
 

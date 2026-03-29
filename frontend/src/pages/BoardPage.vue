@@ -283,6 +283,7 @@
       :board-id="boardId"
       :members="boardStore.board?.members || []"
       :can-manage="canManage"
+      :board-type="boardStore.board?.boardType || 'GENERAL'"
       @updated="refreshBoard"
     />
   </q-page>

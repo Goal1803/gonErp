@@ -123,11 +123,54 @@ public class CardService {
         checkBoardAccess(card.getColumn());
         User currentUser = getCurrentUser();
         CardDetailResponse response = CardDetailResponse.from(card, currentUser.getId());
-        if (card.getColumn().getBoard().getBoardType() == BoardType.POD_DESIGN) {
+        Board board = card.getColumn().getBoard();
+        if (board.getBoardType() == BoardType.POD_DESIGN) {
             designDetailRepository.findByCardId(id).ifPresent(dd ->
                     response.setDesignDetail(DesignDetailResponse.from(dd)));
         }
+        if (board.getBoardType() == BoardType.POD_ORDER) {
+            // Determine if current user has DESIGNER role on this board
+            boolean isDesigner = isUserDesignerOnBoard(currentUser, board);
+            ecomOrderRepository.findByCardId(id).ifPresent(order ->
+                    response.setLinkedOrder(buildLinkedOrderInfo(order, isDesigner)));
+        }
         return response;
+    }
+
+    private boolean isUserDesignerOnBoard(User user, Board board) {
+        if (isSystemAdmin() || board.getOwner().getId().equals(user.getId())) return false;
+        return boardMemberRepository.findByBoardIdAndUserId(board.getId(), user.getId())
+                .map(bm -> bm.getRole() == com.gonerp.taskmanager.model.enums.BoardMemberRole.DESIGNER)
+                .orElse(false);
+    }
+
+    private CardDetailResponse.LinkedOrderInfo buildLinkedOrderInfo(
+            com.gonerp.ecommerce.model.EcomOrder order, boolean hideCustomerInfo) {
+        var builder = CardDetailResponse.LinkedOrderInfo.builder()
+                .orderId(order.getId())
+                .platformOrderId(order.getPlatformOrderId())
+                .salesChannel(order.getSalesChannel() != null ? order.getSalesChannel().name() : null)
+                .storeName(order.getStore() != null ? order.getStore().getName() : null)
+                .orderDate(order.getOrderDate())
+                .orderStatus(order.getStatus() != null ? order.getStatus().name() : null)
+                .numberOfItems(order.getNumberOfItems())
+                .sku(order.getSku())
+                .orderTotal(order.getOrderTotal())
+                .currency(order.getCurrency())
+                .trackingNumber(order.getTrackingNumber());
+        if (!hideCustomerInfo) {
+            builder.customerName(order.getCustomerName())
+                    .buyerUserId(order.getBuyerUserId())
+                    .customerEmail(order.getCustomerEmail())
+                    .customerPhone(order.getCustomerPhone())
+                    .shipStreet1(order.getShipStreet1())
+                    .shipStreet2(order.getShipStreet2())
+                    .shipCity(order.getShipCity())
+                    .shipState(order.getShipState())
+                    .shipZipcode(order.getShipZipcode())
+                    .shipCountry(order.getShipCountry());
+        }
+        return builder.build();
     }
 
     public CardDetailResponse create(Long columnId, CardRequest request) {
@@ -634,6 +677,68 @@ public class CardService {
         if (url.startsWith(r2Props.getPublicUrl())) {
             fileStorageService.delete(url);
         }
+    }
+
+    // === POD_ORDER: Designer & Order linking ===
+
+    public CardDetailResponse setDesigner(Long cardId, Long userId) {
+        Card card = getCardOrThrow(cardId);
+        checkBoardAccess(card.getColumn());
+        User designer = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException("User not found: " + userId));
+        card.setDesigner(designer);
+        card = cardRepository.save(card);
+
+        // Auto-add designer as card member so they can view the card
+        if (!cardMemberRepository.existsByCardIdAndUserId(cardId, userId)) {
+            cardMemberRepository.save(CardMember.builder().card(card).user(designer).build());
+        }
+
+        logActivity(card, getCurrentUser().getUserName() + " assigned " + designer.getUserName() + " as designer");
+        return findById(cardId);
+    }
+
+    public CardDetailResponse removeDesigner(Long cardId) {
+        Card card = getCardOrThrow(cardId);
+        checkBoardAccess(card.getColumn());
+        User oldDesigner = card.getDesigner();
+        card.setDesigner(null);
+        card = cardRepository.save(card);
+        if (oldDesigner != null) {
+            logActivity(card, getCurrentUser().getUserName() + " removed designer " + oldDesigner.getUserName());
+        }
+        return findById(cardId);
+    }
+
+    public CardDetailResponse linkOrder(Long cardId, Long orderId) {
+        Card card = getCardOrThrow(cardId);
+        checkBoardAccess(card.getColumn());
+
+        // Unlink any previously linked order
+        ecomOrderRepository.findByCardId(cardId).ifPresent(oldOrder -> {
+            oldOrder.setCard(null);
+            ecomOrderRepository.save(oldOrder);
+        });
+
+        // Link the new order
+        com.gonerp.ecommerce.model.EcomOrder order = ecomOrderRepository.findById(orderId)
+                .orElseThrow(() -> new EntityNotFoundException("Order not found: " + orderId));
+        order.setCard(card);
+        ecomOrderRepository.save(order);
+
+        logActivity(card, getCurrentUser().getUserName() + " linked order #" + order.getPlatformOrderId());
+        return findById(cardId);
+    }
+
+    public CardDetailResponse unlinkOrder(Long cardId) {
+        Card card = getCardOrThrow(cardId);
+        checkBoardAccess(card.getColumn());
+        ecomOrderRepository.findByCardId(cardId).ifPresent(order -> {
+            order.setCard(null);
+            ecomOrderRepository.save(order);
+            logActivity(card, getCurrentUser().getUserName() + " unlinked order #" + order.getPlatformOrderId());
+        });
+        return findById(cardId);
     }
 
     private void logActivity(Card card, String action) {

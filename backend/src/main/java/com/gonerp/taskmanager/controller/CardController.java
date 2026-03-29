@@ -180,6 +180,30 @@ public class CardController {
         return ResponseEntity.ok(ApiResponse.ok("Member removed from card", null));
     }
 
+    // === POD_ORDER: Designer & Order linking ===
+
+    @PatchMapping("/cards/{id}/designer/{userId}")
+    public ResponseEntity<ApiResponse<CardDetailResponse>> setDesigner(
+            @PathVariable Long id, @PathVariable Long userId) {
+        return ResponseEntity.ok(ApiResponse.ok("Designer assigned", cardService.setDesigner(id, userId)));
+    }
+
+    @DeleteMapping("/cards/{id}/designer")
+    public ResponseEntity<ApiResponse<CardDetailResponse>> removeDesigner(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.ok("Designer removed", cardService.removeDesigner(id)));
+    }
+
+    @PatchMapping("/cards/{id}/link-order/{orderId}")
+    public ResponseEntity<ApiResponse<CardDetailResponse>> linkOrder(
+            @PathVariable Long id, @PathVariable Long orderId) {
+        return ResponseEntity.ok(ApiResponse.ok("Order linked", cardService.linkOrder(id, orderId)));
+    }
+
+    @DeleteMapping("/cards/{id}/link-order")
+    public ResponseEntity<ApiResponse<CardDetailResponse>> unlinkOrder(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.ok("Order unlinked", cardService.unlinkOrder(id)));
+    }
+
     @GetMapping("/files/{filename:.+}")
     public ResponseEntity<?> serveFile(
             @PathVariable String filename,
