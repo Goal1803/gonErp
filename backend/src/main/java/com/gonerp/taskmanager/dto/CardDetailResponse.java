@@ -20,6 +20,7 @@ public class CardDetailResponse {
     private String stage;
     private int position;
     private String mainImageUrl;
+    private String sku;
     private Long columnId;
     private Long boardId;
     private List<LabelResponse> labels;
@@ -82,6 +83,7 @@ public class CardDetailResponse {
                 .stage(card.getStage())
                 .position(card.getPosition())
                 .mainImageUrl(card.getMainImageUrl())
+                .sku(card.getSku())
                 .columnId(card.getColumn().getId())
                 .boardId(card.getColumn().getBoard().getId())
                 .labels(card.getLabels().stream().map(LabelResponse::from).toList())

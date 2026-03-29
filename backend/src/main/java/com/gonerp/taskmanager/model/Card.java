@@ -43,6 +43,9 @@ public class Card extends BaseModel {
     @Column(name = "main_image_url")
     private String mainImageUrl;
 
+    @Column(name = "sku", length = 500)
+    private String sku;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "column_id", nullable = false)
     private BoardColumn column;

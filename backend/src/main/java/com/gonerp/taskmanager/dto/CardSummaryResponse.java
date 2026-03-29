@@ -17,6 +17,7 @@ public class CardSummaryResponse {
     private String stage;
     private int position;
     private String mainImageUrl;
+    private String sku;
     private List<LabelResponse> labels;
     private List<TypeResponse> types;
     private List<UserSummaryResponse> members;
@@ -32,6 +33,7 @@ public class CardSummaryResponse {
                 .stage(card.getStage())
                 .position(card.getPosition())
                 .mainImageUrl(card.getMainImageUrl())
+                .sku(card.getSku())
                 .labels(card.getLabels().stream().map(LabelResponse::from).toList())
                 .types(card.getTypes().stream().map(TypeResponse::from).toList())
                 .members(card.getMembers().stream()

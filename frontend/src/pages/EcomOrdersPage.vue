@@ -8,6 +8,16 @@
       </div>
       <q-space />
       <q-btn
+        v-if="selectedOrders.length"
+        unelevated
+        color="teal-7"
+        icon="sync"
+        :label="`Sync ${selectedOrders.length} to Board`"
+        no-caps
+        class="q-mr-sm"
+        @click="showSyncDialog = true"
+      />
+      <q-btn
         unelevated
         color="cyan-7"
         icon="file_upload"
@@ -56,6 +66,16 @@
         style="min-width: 150px"
         @update:model-value="loadOrders"
       />
+      <q-select
+        v-model="filters.syncStatus"
+        :options="syncStatusOptions"
+        label="Sync"
+        dense outlined dark
+        emit-value map-options
+        clearable
+        style="min-width: 130px"
+        @update:model-value="loadOrders"
+      />
       <q-input
         v-model="filters.search"
         label="Search"
@@ -73,7 +93,7 @@
 
     <!-- Orders table -->
     <q-table
-      :rows="orders"
+      :rows="filteredOrders"
       :columns="columns"
       row-key="id"
       flat
@@ -81,6 +101,8 @@
       :loading="loading"
       class="erp-table"
       v-model:pagination="pagination"
+      selection="multiple"
+      v-model:selected="selectedOrders"
       @request="onRequest"
       @row-click="(evt, row) => router.push(`/ecommerce/orders/${row.id}`)"
     >
@@ -93,6 +115,16 @@
               <div v-for="item in props.row.items" :key="item.id">{{ item.productName || item.sku }} x{{ item.quantity }}</div>
             </q-tooltip>
           </div>
+        </q-td>
+      </template>
+      <template v-slot:body-cell-synced="props">
+        <q-td :props="props">
+          <q-icon v-if="props.row.cardId" name="link" color="teal-4" size="sm">
+            <q-tooltip>Synced to card #{{ props.row.cardId }}</q-tooltip>
+          </q-icon>
+          <q-icon v-else name="link_off" color="grey-7" size="sm">
+            <q-tooltip>Not synced</q-tooltip>
+          </q-icon>
         </q-td>
       </template>
       <template v-slot:body-cell-status="props">
@@ -153,6 +185,20 @@
               <q-icon name="attach_file" color="grey-5" />
             </template>
           </q-file>
+          <q-separator dark />
+          <q-toggle v-model="importForm.syncToBoard" label="Sync new orders to POD Order board" color="cyan-5" />
+          <q-select
+            v-if="importForm.syncToBoard"
+            v-model="importForm.boardId"
+            :options="podOrderBoardOptions"
+            label="Select POD Order Board"
+            dense outlined dark
+            emit-value map-options
+            :rules="[v => !!v || 'Board is required when sync is enabled']"
+          />
+          <div v-if="importForm.syncToBoard" class="text-caption text-cyan-5" style="background: rgba(0,188,212,0.08); border-radius: 6px; padding: 8px; border: 1px solid rgba(0,188,212,0.15);">
+            Each new order will create a card in the Draft column with order items, variations, and customer info in the description.
+          </div>
           <div class="text-caption text-grey-5">Upload at least one file. You can import orders and items separately — they will be merged by Order ID.</div>
         </q-card-section>
 
@@ -296,7 +342,7 @@
             no-caps
             @click="handleImport"
             :loading="importing"
-            :disable="!importForm.storeId || (!importForm.ordersFile && !importForm.itemsFile)"
+            :disable="!importForm.storeId || (!importForm.ordersFile && !importForm.itemsFile) || (importForm.syncToBoard && (!importForm.boardId || !importForm.ordersFile || !importForm.itemsFile))"
           />
           <q-btn
             v-if="importResult"
@@ -309,14 +355,38 @@
         </q-card-actions>
       </q-card>
     </q-dialog>
+
+    <!-- Sync to Board Dialog -->
+    <q-dialog v-model="showSyncDialog">
+      <q-card style="min-width: 420px; background: var(--erp-bg-elevated); border: 1px solid var(--erp-border);">
+        <q-card-section>
+          <div class="text-h6 text-white">Sync Orders to Board</div>
+          <div class="text-caption text-grey-5">{{ syncableOrders.length }} of {{ selectedOrders.length }} selected orders can be synced (have items, not already synced)</div>
+        </q-card-section>
+        <q-card-section>
+          <q-select
+            v-model="syncBoardId"
+            :options="podOrderBoardOptions"
+            label="POD Order Board *"
+            dense outlined dark
+            emit-value map-options
+          />
+        </q-card-section>
+        <q-card-actions align="right">
+          <q-btn flat label="Cancel" color="grey-5" v-close-popup no-caps />
+          <q-btn unelevated label="Sync" color="teal-7" no-caps @click="handleSync" :loading="syncing" :disable="!syncBoardId || !syncableOrders.length" />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
   </q-page>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useQuasar } from 'quasar'
 import { ecomOrderApi, ecomImportApi, ecomStoreApi } from 'src/api/ecommerce'
+import { boardApi } from 'src/api/tasks'
 
 const router = useRouter()
 const $q = useQuasar()
@@ -326,13 +396,21 @@ const orders = ref([])
 const stores = ref([])
 const storeOptions = ref([])
 
+const selectedOrders = ref([])
+
 const filters = ref({
   storeId: null,
   status: [],
   dateFrom: '',
   dateTo: '',
-  search: ''
+  search: '',
+  syncStatus: null
 })
+
+const syncStatusOptions = [
+  { label: 'Synced', value: 'synced' },
+  { label: 'Not Synced', value: 'not_synced' }
+]
 
 const pagination = ref({
   page: 1,
@@ -351,7 +429,14 @@ const statusOptions = [
   { label: 'Cancelled', value: 'CANCELLED' }
 ]
 
+const filteredOrders = computed(() => {
+  if (!filters.value.syncStatus) return orders.value
+  if (filters.value.syncStatus === 'synced') return orders.value.filter(o => o.cardId)
+  return orders.value.filter(o => !o.cardId)
+})
+
 const columns = [
+  { name: 'synced', label: '', field: 'cardId', align: 'center', style: 'width: 40px' },
   { name: 'orderDate', label: 'Order Date', field: 'orderDate', align: 'left', sortable: true, format: v => v ? new Date(v).toLocaleDateString() : '' },
   { name: 'platformOrderId', label: 'Order ID', field: 'platformOrderId', align: 'left', sortable: true },
   { name: 'productName', label: 'Product', field: row => row.items?.[0]?.productName || row.sku || '', align: 'left' },
@@ -372,8 +457,11 @@ const importResult = ref(null)
 const importForm = ref({
   storeId: null,
   itemsFile: null,
-  ordersFile: null
+  ordersFile: null,
+  syncToBoard: false,
+  boardId: null
 })
+const podOrderBoardOptions = ref([])
 
 const outcomeColumns = [
   { name: 'orderId', label: 'Order / Row', field: 'orderId', align: 'left', style: 'width: 130px' },
@@ -446,8 +534,22 @@ function onRequest (props) {
   loadOrders()
 }
 
+async function loadPodOrderBoards () {
+  try {
+    const res = await boardApi.getAll()
+    const allBoards = res.data.data || []
+    podOrderBoardOptions.value = allBoards
+      .filter(b => b.boardType === 'POD_ORDER')
+      .map(b => ({ label: b.name, value: b.id }))
+  } catch { /* ignore */ }
+}
+
 async function handleImport () {
   if (!importForm.value.storeId || (!importForm.value.ordersFile && !importForm.value.itemsFile)) return
+  if (importForm.value.syncToBoard && !importForm.value.boardId) {
+    $q.notify({ type: 'warning', message: 'Select a POD Order board' })
+    return
+  }
   importing.value = true
   importResult.value = null
   $q.loading.show({ message: 'Importing orders...' })
@@ -455,7 +557,8 @@ async function handleImport () {
     const res = await ecomImportApi.importEtsy(
       importForm.value.storeId,
       importForm.value.ordersFile,
-      importForm.value.itemsFile
+      importForm.value.itemsFile,
+      importForm.value.syncToBoard ? importForm.value.boardId : null
     )
     importResult.value = res.data.data
     const r = importResult.value
@@ -521,14 +624,42 @@ function exportImportReport () {
   URL.revokeObjectURL(url)
 }
 
+// Sync to board
+const showSyncDialog = ref(false)
+const syncBoardId = ref(null)
+const syncing = ref(false)
+
+const syncableOrders = computed(() =>
+  selectedOrders.value.filter(o => !o.cardId && o.items && o.items.length && o.items.some(i => i.productName || i.platformItemId))
+)
+
+async function handleSync () {
+  if (!syncBoardId.value || !syncableOrders.value.length) return
+  syncing.value = true
+  try {
+    const ids = syncableOrders.value.map(o => o.id)
+    const res = await ecomOrderApi.syncToBoard(syncBoardId.value, ids)
+    const r = res.data.data
+    showSyncDialog.value = false
+    selectedOrders.value = []
+    $q.notify({ type: 'positive', message: `Synced ${r.synced} orders, ${r.skipped} skipped` })
+    loadOrders()
+  } catch (e) {
+    $q.notify({ type: 'negative', message: e.response?.data?.message || 'Sync failed' })
+  } finally {
+    syncing.value = false
+  }
+}
+
 function resetImport () {
-  importForm.value = { storeId: null, itemsFile: null, ordersFile: null }
+  importForm.value = { storeId: null, itemsFile: null, ordersFile: null, syncToBoard: false, boardId: null }
   importResult.value = null
 }
 
 onMounted(() => {
   loadStores()
   loadOrders()
+  loadPodOrderBoards()
 })
 </script>
 

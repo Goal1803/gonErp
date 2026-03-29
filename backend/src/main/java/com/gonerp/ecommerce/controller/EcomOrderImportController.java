@@ -19,12 +19,19 @@ public class EcomOrderImportController {
     public ResponseEntity<ApiResponse<EcomOrderImportResult>> importEtsy(
             @PathVariable Long storeId,
             @RequestParam(required = false) MultipartFile ordersFile,
-            @RequestParam(required = false) MultipartFile itemsFile) {
+            @RequestParam(required = false) MultipartFile itemsFile,
+            @RequestParam(required = false) Long boardId) {
         if ((ordersFile == null || ordersFile.isEmpty()) && (itemsFile == null || itemsFile.isEmpty())) {
             return ResponseEntity.badRequest()
                     .body(ApiResponse.error("At least one CSV file (orders or items) is required"));
         }
-        EcomOrderImportResult result = ecomOrderImportService.importEtsyOrders(storeId, ordersFile, itemsFile);
+        if (boardId != null) {
+            if (ordersFile == null || ordersFile.isEmpty() || itemsFile == null || itemsFile.isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.error("Both orders and items CSV files are required when syncing to a board"));
+            }
+        }
+        EcomOrderImportResult result = ecomOrderImportService.importEtsyOrders(storeId, ordersFile, itemsFile, boardId);
         return ResponseEntity.ok(ApiResponse.ok("Import completed", result));
     }
 }

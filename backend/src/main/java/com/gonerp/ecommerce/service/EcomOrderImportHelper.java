@@ -7,9 +7,22 @@ import com.gonerp.ecommerce.model.EcomStore;
 import com.gonerp.ecommerce.model.enums.OrderStatus;
 import com.gonerp.ecommerce.model.enums.SalesChannel;
 import com.gonerp.ecommerce.repository.EcomOrderRepository;
+import com.gonerp.taskmanager.model.Board;
+import com.gonerp.taskmanager.model.BoardColumn;
+import com.gonerp.taskmanager.model.Card;
+import com.gonerp.taskmanager.model.CardMember;
+import com.gonerp.taskmanager.model.enums.BoardType;
+import com.gonerp.taskmanager.model.enums.CardStatus;
+import com.gonerp.taskmanager.repository.BoardColumnRepository;
+import com.gonerp.taskmanager.repository.BoardRepository;
+import com.gonerp.taskmanager.repository.CardMemberRepository;
+import com.gonerp.taskmanager.repository.CardRepository;
+import com.gonerp.usermanager.model.User;
+import com.gonerp.usermanager.repository.UserRepository;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,6 +38,11 @@ public class EcomOrderImportHelper {
 
     private final EcomOrderRepository ecomOrderRepository;
     private final EntityManager entityManager;
+    private final BoardRepository boardRepository;
+    private final BoardColumnRepository boardColumnRepository;
+    private final CardRepository cardRepository;
+    private final CardMemberRepository cardMemberRepository;
+    private final UserRepository userRepository;
 
     /**
      * Process all orders in a single transaction, flushing after each order
@@ -34,12 +52,30 @@ public class EcomOrderImportHelper {
     public BatchResult processAllOrders(EcomStore store,
                                          Set<String> allOrderIds,
                                          Map<String, Map<String, String>> ordersMap,
-                                         Map<String, List<Map<String, String>>> itemsByOrderId) {
+                                         Map<String, List<Map<String, String>>> itemsByOrderId,
+                                         Long boardId) {
         List<RowOutcome> created = new ArrayList<>();
         List<RowOutcome> updated = new ArrayList<>();
         List<RowOutcome> skippedRows = new ArrayList<>();
         List<RowOutcome> errors = new ArrayList<>();
         int itemsImported = 0;
+        int cardsCreated = 0;
+
+        // Resolve board and draft column if sync requested
+        BoardColumn draftColumn = null;
+        User currentUser = null;
+        if (boardId != null) {
+            Board board = boardRepository.findById(boardId).orElse(null);
+            if (board != null && board.getBoardType() == BoardType.POD_ORDER) {
+                List<BoardColumn> columns = boardColumnRepository.findByBoardIdOrderByPositionAsc(boardId);
+                draftColumn = columns.stream()
+                        .filter(c -> "Draft".equalsIgnoreCase(c.getTitle()))
+                        .findFirst()
+                        .orElse(columns.isEmpty() ? null : columns.get(0));
+            }
+            String username = SecurityContextHolder.getContext().getAuthentication().getName();
+            currentUser = userRepository.findByUserName(username).orElse(null);
+        }
 
         for (String orderId : allOrderIds) {
             try {
@@ -105,8 +141,19 @@ public class EcomOrderImportHelper {
                     int itemCount = order.getItems().size();
                     itemsImported += itemCount;
 
+                    // Create card in POD_ORDER board if requested — only if order has real items
+                    if (draftColumn != null && hasRealItems(order)) {
+                        try {
+                            createCardForOrder(order, draftColumn, currentUser);
+                            cardsCreated++;
+                        } catch (Exception cardEx) {
+                            log.warn("Failed to create card for order {}: {}", orderId, cardEx.getMessage());
+                        }
+                    }
+
                     String detail = orderRow != null ? "with financials" : "from items only";
                     if (itemCount > 0) detail += ", " + itemCount + " items";
+                    if (draftColumn != null) detail += ", card created";
                     created.add(RowOutcome.builder()
                             .orderId(orderId)
                             .reason("New order created")
@@ -272,6 +319,102 @@ public class EcomOrderImportHelper {
     }
 
     /**
+     * Create a card in the Draft column linked to the order.
+     */
+    public void createCardForOrder(EcomOrder order, BoardColumn draftColumn, User currentUser) {
+        int position = cardRepository.countByColumnId(draftColumn.getId()) + 1;
+
+        // Build HTML description — SKU + variations
+        StringBuilder desc = new StringBuilder();
+        if (order.getItems() != null) {
+            for (int i = 0; i < order.getItems().size(); i++) {
+                EcomOrderItem item = order.getItems().get(i);
+                if (order.getItems().size() > 1) {
+                    desc.append("<b>Item ").append(i + 1);
+                    if (item.getQuantity() > 1) desc.append(" (x").append(item.getQuantity()).append(")");
+                    desc.append("</b><br>");
+                }
+                // Variations
+                if (item.getVariations() != null && !item.getVariations().isBlank()) {
+                    String vars = item.getVariations()
+                            .replace("&quot;", "\"")
+                            .replace("&amp;", "&")
+                            .replace("&lt;", "<")
+                            .replace("&gt;", ">");
+                    String[] parts = vars.split(",(?=\\s*[A-Za-z][A-Za-z0-9 _-]*:)");
+                    for (String part : parts) {
+                        int colonIdx = part.indexOf(':');
+                        if (colonIdx > 0) {
+                            String key = part.substring(0, colonIdx).trim();
+                            String value = part.substring(colonIdx + 1);
+                            value = value.replaceAll("^\\s*\\n", "").replaceAll("\\n\\s*$", "");
+                            if (!value.isBlank()) {
+                                String htmlValue = escapeHtml(value).replace("\n", "<br>");
+                                boolean isMultiLine = value.contains("\n");
+                                if (isMultiLine) {
+                                    // Multi-line (e.g. Personalization): label on its own line
+                                    desc.append("<b>").append(escapeHtml(key)).append(":</b><br>").append(htmlValue).append("<br>");
+                                } else {
+                                    // Single-line (e.g. Size): inline
+                                    desc.append("<b>").append(escapeHtml(key)).append(":</b> ").append(htmlValue).append("<br>");
+                                }
+                            }
+                        } else {
+                            desc.append(escapeHtml(part.trim())).append("<br>");
+                        }
+                    }
+                }
+                if (order.getItems().size() > 1 && i < order.getItems().size() - 1) {
+                    desc.append("<br>");
+                }
+            }
+        }
+
+        // Build SKU from order items
+        String cardSku = null;
+        if (order.getItems() != null && !order.getItems().isEmpty()) {
+            List<String> skus = order.getItems().stream()
+                    .map(EcomOrderItem::getSku)
+                    .filter(s -> s != null && !s.isBlank())
+                    .distinct()
+                    .toList();
+            if (!skus.isEmpty()) cardSku = String.join(", ", skus);
+        }
+        if (cardSku == null && order.getSku() != null) cardSku = order.getSku();
+
+        Card card = Card.builder()
+                .name(order.getPlatformOrderId())
+                .description(desc.toString().trim())
+                .sku(cardSku)
+                .status(CardStatus.OPEN)
+                .stage(draftColumn.getTitle())
+                .position(position)
+                .column(draftColumn)
+                .build();
+        card = cardRepository.save(card);
+
+        // Link order to card
+        order.setCard(card);
+        ecomOrderRepository.save(order);
+
+        // Auto-add current user as card member
+        if (currentUser != null) {
+            cardMemberRepository.save(CardMember.builder().card(card).user(currentUser).build());
+        }
+
+        entityManager.flush();
+    }
+
+    /**
+     * Order has real items (not just placeholders) — at least one item with platformItemId or productName.
+     */
+    public boolean hasRealItems(EcomOrder order) {
+        if (order.getItems() == null || order.getItems().isEmpty()) return false;
+        return order.getItems().stream().anyMatch(item ->
+                item.getPlatformItemId() != null || item.getProductName() != null);
+    }
+
+    /**
      * A placeholder item is one created from the Orders CSV only — has SKU but no
      * platformItemId and no productName. These should be replaced when real items arrive.
      */
@@ -329,6 +472,11 @@ public class EcomOrderImportHelper {
     String truncate(String s, int maxLen) {
         if (s == null) return "";
         return s.length() <= maxLen ? s : s.substring(0, maxLen) + "...";
+    }
+
+    private String escapeHtml(String s) {
+        if (s == null) return "";
+        return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
     }
 
     // ===================== result holder =====================

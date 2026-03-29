@@ -18,14 +18,16 @@ export const ecomOrderApi = {
   getAll: (params) => api.get('/ecommerce/orders', { params }),
   getById: (id) => api.get(`/ecommerce/orders/${id}`),
   update: (id, data) => api.put(`/ecommerce/orders/${id}`, data),
-  delete: (id) => api.delete(`/ecommerce/orders/${id}`)
+  delete: (id) => api.delete(`/ecommerce/orders/${id}`),
+  syncToBoard: (boardId, orderIds) => api.post(`/ecommerce/orders/sync-to-board/${boardId}`, orderIds)
 }
 
 export const ecomImportApi = {
-  importEtsy: (storeId, ordersFile, itemsFile) => {
+  importEtsy: (storeId, ordersFile, itemsFile, boardId) => {
     const formData = new FormData()
     if (ordersFile) formData.append('ordersFile', ordersFile)
     if (itemsFile) formData.append('itemsFile', itemsFile)
+    if (boardId) formData.append('boardId', boardId)
     return api.post(`/ecommerce/import/etsy/${storeId}`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     })

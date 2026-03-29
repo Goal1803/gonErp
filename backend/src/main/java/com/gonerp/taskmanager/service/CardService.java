@@ -215,6 +215,7 @@ public class CardService {
         if (request.getDescription() != null) card.setDescription(request.getDescription());
         if (request.getStatus() != null) card.setStatus(request.getStatus());
         if (request.getMainImageUrl() != null) card.setMainImageUrl(request.getMainImageUrl());
+        if (request.getSku() != null) card.setSku(request.getSku());
         card = cardRepository.save(card);
         String actor = getCurrentUser().getUserName();
         logActivity(card, actor + " updated this card");
@@ -289,6 +290,14 @@ public class CardService {
         Long boardId = card.getColumn().getBoard().getId();
         Long columnId = card.getColumn().getId();
         String actor = getCurrentUser().getUserName();
+
+        // Unlink any linked order before deleting the card
+        if (card.getColumn().getBoard().getBoardType() == BoardType.POD_ORDER) {
+            ecomOrderRepository.findByCardId(id).ifPresent(order -> {
+                order.setCard(null);
+                ecomOrderRepository.save(order);
+            });
+        }
 
         // Handle design detail before deleting the card
         if (card.getColumn().getBoard().getBoardType() == BoardType.POD_DESIGN) {

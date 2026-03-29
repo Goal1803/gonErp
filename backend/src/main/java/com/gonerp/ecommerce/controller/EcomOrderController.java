@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/ecommerce/orders")
@@ -43,5 +44,13 @@ public class EcomOrderController {
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long id) {
         ecomOrderService.delete(id);
         return ResponseEntity.ok(ApiResponse.ok("Order deleted", null));
+    }
+
+    @PostMapping("/sync-to-board/{boardId}")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> syncOrdersToBoard(
+            @PathVariable Long boardId,
+            @RequestBody List<Long> orderIds) {
+        var result = ecomOrderService.syncOrdersToBoard(orderIds, boardId);
+        return ResponseEntity.ok(ApiResponse.ok("Sync completed", result));
     }
 }

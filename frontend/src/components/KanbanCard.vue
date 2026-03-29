@@ -50,6 +50,8 @@
 
       <!-- Name -->
       <div class="card-name">{{ card.name }}</div>
+      <!-- SKU -->
+      <div v-if="card.sku" class="text-grey-5" style="font-size: 0.7rem; margin-top: 2px;">{{ card.sku }}</div>
 
       <!-- Footer row -->
       <div class="card-footer">

@@ -7,22 +7,36 @@ import com.gonerp.ecommerce.model.enums.OrderStatus;
 import com.gonerp.ecommerce.model.enums.TrackingStatus;
 import com.gonerp.ecommerce.repository.EcomOrderRepository;
 import com.gonerp.organization.model.Organization;
+import com.gonerp.taskmanager.model.Board;
+import com.gonerp.taskmanager.model.BoardColumn;
+import com.gonerp.taskmanager.model.enums.BoardType;
+import com.gonerp.taskmanager.repository.BoardColumnRepository;
+import com.gonerp.taskmanager.repository.BoardRepository;
+import com.gonerp.usermanager.model.User;
+import com.gonerp.usermanager.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
 @Transactional
+@Slf4j
 public class EcomOrderService {
 
     private final EcomOrderRepository ecomOrderRepository;
     private final EcomAccessService ecomAccessService;
+    private final EcomOrderImportHelper importHelper;
+    private final BoardRepository boardRepository;
+    private final BoardColumnRepository boardColumnRepository;
+    private final UserRepository userRepository;
 
     public List<EcomOrderResponse> findAll(Long storeId, String status,
                                             LocalDateTime startDate, LocalDateTime endDate) {
@@ -107,6 +121,49 @@ public class EcomOrderService {
             profit = profit.subtract(order.getOtherCost());
         }
         order.setGrossProfit(profit);
+    }
+
+    public Map<String, Object> syncOrdersToBoard(List<Long> orderIds, Long boardId) {
+        ecomAccessService.requireEcommerceAccess();
+
+        Board board = boardRepository.findById(boardId)
+                .orElseThrow(() -> new EntityNotFoundException("Board not found: " + boardId));
+        if (board.getBoardType() != BoardType.POD_ORDER) {
+            throw new IllegalArgumentException("Board must be a POD_ORDER board");
+        }
+
+        List<BoardColumn> columns = boardColumnRepository.findByBoardIdOrderByPositionAsc(boardId);
+        BoardColumn draftColumn = columns.stream()
+                .filter(c -> "Draft".equalsIgnoreCase(c.getTitle()))
+                .findFirst()
+                .orElse(columns.isEmpty() ? null : columns.get(0));
+
+        if (draftColumn == null) {
+            throw new IllegalStateException("Board has no columns");
+        }
+
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        User currentUser = userRepository.findByUserName(username).orElse(null);
+
+        int synced = 0;
+        int skipped = 0;
+        List<String> errors = new ArrayList<>();
+
+        for (Long orderId : orderIds) {
+            try {
+                EcomOrder order = ecomOrderRepository.findById(orderId).orElse(null);
+                if (order == null) { errors.add("Order " + orderId + " not found"); continue; }
+                if (order.getCard() != null) { skipped++; continue; } // already synced
+                if (!importHelper.hasRealItems(order)) { skipped++; continue; } // no real items
+                importHelper.createCardForOrder(order, draftColumn, currentUser);
+                synced++;
+            } catch (Exception e) {
+                log.warn("Failed to sync order {}: {}", orderId, e.getMessage());
+                errors.add("Order " + orderId + ": " + e.getMessage());
+            }
+        }
+
+        return Map.of("synced", synced, "skipped", skipped, "errors", errors);
     }
 
     private EcomOrder getOrderInOrg(Long id) {

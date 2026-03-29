@@ -784,6 +784,20 @@
           <div class="text-caption text-grey-5 q-mb-xs row items-center gap-2">
             <q-icon name="subject" /> Description
           </div>
+          <!-- SKU field -->
+          <div v-if="detail.sku !== undefined" class="q-mb-sm">
+            <q-input
+              v-model="detail.sku"
+              label="SKU"
+              dense outlined dark
+              @blur="saveField('sku', detail.sku)"
+              style="max-width: 400px;"
+            >
+              <template #prepend>
+                <q-icon name="qr_code" color="grey-5" size="xs" />
+              </template>
+            </q-input>
+          </div>
           <div
             class="desc-editor-wrap"
             :class="{ 'desc-collapsed': !descExpanded }"

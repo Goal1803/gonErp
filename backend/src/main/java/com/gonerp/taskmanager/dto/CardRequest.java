@@ -9,4 +9,5 @@ public class CardRequest {
     private String description;
     private CardStatus status;
     private String mainImageUrl;
+    private String sku;
 }

@@ -25,7 +25,7 @@ public class EcomOrderImportService {
     private final EtsyOrderParser etsyOrderParser;
     private final EcomOrderImportHelper importHelper;
 
-    public EcomOrderImportResult importEtsyOrders(Long storeId, MultipartFile ordersFile, MultipartFile itemsFile) {
+    public EcomOrderImportResult importEtsyOrders(Long storeId, MultipartFile ordersFile, MultipartFile itemsFile, Long boardId) {
         ecomAccessService.requireEcommerceAccess();
         ecomAccessService.requireStoreRole(storeId, StoreRole.STORE_ADMIN, StoreRole.SELLER);
 
@@ -86,7 +86,7 @@ public class EcomOrderImportService {
             allOrderIds.addAll(itemsByOrderId.keySet());
 
             // Process all orders in a single transaction with flush/clear per order
-            BatchResult batch = importHelper.processAllOrders(store, allOrderIds, ordersMap, itemsByOrderId);
+            BatchResult batch = importHelper.processAllOrders(store, allOrderIds, ordersMap, itemsByOrderId, boardId);
 
             return EcomOrderImportResult.builder()
                     .ordersCreated(batch.created().size())
