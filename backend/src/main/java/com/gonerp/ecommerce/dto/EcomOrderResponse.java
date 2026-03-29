@@ -43,6 +43,7 @@ public class EcomOrderResponse {
     private BigDecimal otherCost;
     private BigDecimal grossProfit;
     private String status;
+    private String shippingAgent;
     private String trackingNumber;
     private String trackingStatus;
     private LocalDateTime shippedDate;
@@ -115,6 +116,7 @@ public class EcomOrderResponse {
                 .otherCost(entity.getOtherCost())
                 .grossProfit(entity.getGrossProfit())
                 .status(entity.getStatus() != null ? entity.getStatus().name() : null)
+                .shippingAgent(entity.getShippingAgent())
                 .trackingNumber(entity.getTrackingNumber())
                 .trackingStatus(entity.getTrackingStatus() != null ? entity.getTrackingStatus().name() : null)
                 .shippedDate(entity.getShippedDate())

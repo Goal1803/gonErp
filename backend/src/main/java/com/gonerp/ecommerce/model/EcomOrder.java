@@ -124,6 +124,9 @@ public class EcomOrder extends BaseModel {
     @Builder.Default
     private OrderStatus status = OrderStatus.NEW_ORDER;
 
+    @Column(name = "shipping_agent", length = 200)
+    private String shippingAgent;
+
     @Column(name = "tracking_number", length = 200)
     private String trackingNumber;
 

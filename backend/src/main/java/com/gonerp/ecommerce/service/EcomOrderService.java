@@ -75,6 +75,9 @@ public class EcomOrderService {
         if (request.getStatus() != null) {
             order.setStatus(OrderStatus.valueOf(request.getStatus()));
         }
+        if (request.getShippingAgent() != null) {
+            order.setShippingAgent(request.getShippingAgent());
+        }
         if (request.getTrackingNumber() != null) {
             order.setTrackingNumber(request.getTrackingNumber());
         }

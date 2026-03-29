@@ -7,6 +7,7 @@ import java.math.BigDecimal;
 @Data
 public class EcomOrderRequest {
     private String status;
+    private String shippingAgent;
     private String trackingNumber;
     private String trackingStatus;
     private BigDecimal fulfillmentCost;

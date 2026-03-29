@@ -1089,7 +1089,20 @@
                 </span>
               </div>
               <div class="col-12">
-                <span class="text-grey-5">Tracking:</span>
+                <span class="text-grey-5">Shipping Agent:</span>
+                <div class="row items-center q-gutter-xs q-mt-xs">
+                  <q-input
+                    v-model="orderShippingAgent"
+                    dense outlined dark
+                    placeholder="e.g. DHL, FedEx, USPS..."
+                    class="col"
+                    style="max-width: 260px;"
+                    @keyup.enter="saveShippingFields"
+                  />
+                </div>
+              </div>
+              <div class="col-12">
+                <span class="text-grey-5">Tracking Number:</span>
                 <div class="row items-center q-gutter-xs q-mt-xs">
                   <q-input
                     v-model="orderTrackingNumber"
@@ -1097,10 +1110,10 @@
                     placeholder="Enter tracking number..."
                     class="col"
                     style="max-width: 260px;"
-                    @keyup.enter="saveTrackingNumber"
+                    @keyup.enter="saveShippingFields"
                   />
-                  <q-btn flat dense icon="save" color="cyan-5" size="sm" @click="saveTrackingNumber" :loading="savingTracking">
-                    <q-tooltip>Save tracking</q-tooltip>
+                  <q-btn flat dense icon="save" color="cyan-5" size="sm" @click="saveShippingFields" :loading="savingTracking">
+                    <q-tooltip>Save shipping info</q-tooltip>
                   </q-btn>
                 </div>
               </div>
@@ -1783,6 +1796,7 @@ watch(
         detail.value = res.data.data;
         originalStatus.value = detail.value.status;
         originalColumnId.value = detail.value.columnId;
+        orderShippingAgent.value = detail.value.linkedOrder?.shippingAgent || '';
         orderTrackingNumber.value = detail.value.linkedOrder?.trackingNumber || '';
         scheduleOverflowCheck();
         nextTick(setupDescResizeObserver);
@@ -2007,6 +2021,7 @@ const removeMember = async (user) => {
 // === POD_ORDER: Designer, Order & Tracking ===
 const orderSearch = ref('')
 const orderSearchResults = ref([])
+const orderShippingAgent = ref('')
 const orderTrackingNumber = ref('')
 const savingTracking = ref(false)
 
@@ -2064,16 +2079,20 @@ const unlinkOrder = async () => {
   }
 }
 
-const saveTrackingNumber = async () => {
+const saveShippingFields = async () => {
   if (!detail.value?.linkedOrder?.orderId) return
   savingTracking.value = true
   try {
     const { ecomOrderApi } = await import('src/api/ecommerce')
-    await ecomOrderApi.update(detail.value.linkedOrder.orderId, { trackingNumber: orderTrackingNumber.value })
+    await ecomOrderApi.update(detail.value.linkedOrder.orderId, {
+      shippingAgent: orderShippingAgent.value,
+      trackingNumber: orderTrackingNumber.value
+    })
+    detail.value.linkedOrder.shippingAgent = orderShippingAgent.value
     detail.value.linkedOrder.trackingNumber = orderTrackingNumber.value
-    $q.notify({ type: 'positive', message: 'Tracking number saved', timeout: 1000 })
+    $q.notify({ type: 'positive', message: 'Shipping info saved', timeout: 1000 })
   } catch {
-    $q.notify({ type: 'negative', message: 'Failed to save tracking number' })
+    $q.notify({ type: 'negative', message: 'Failed to save shipping info' })
   } finally {
     savingTracking.value = false
   }
