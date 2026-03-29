@@ -1064,11 +1064,11 @@
           "
         >
           <!-- POD_ORDER: Customer Info (hidden from designers) -->
-          <div v-if="props.boardType === 'POD_ORDER' && detail?.linkedOrder?.customerName" class="q-mb-md" style="background: rgba(0,188,212,0.06); border: 1px solid rgba(0,188,212,0.15); border-radius: 8px; padding: 12px;">
-            <div class="text-grey-4" style="font-size: 0.72rem; font-weight: 600; letter-spacing: 0.05em; margin-bottom: 8px;">CUSTOMER & SHIPPING</div>
+          <div v-if="props.boardType === 'POD_ORDER' && detail?.linkedOrder?.customerName" class="q-mb-sm" style="background: rgba(0,188,212,0.06); border: 1px solid rgba(0,188,212,0.15); border-radius: 8px; padding: 12px;">
+            <div class="text-grey-4" style="font-size: 0.72rem; font-weight: 600; letter-spacing: 0.05em; margin-bottom: 8px;">CUSTOMER</div>
             <div class="row q-col-gutter-sm" style="font-size: 0.82rem;">
               <div class="col-12">
-                <span class="text-grey-5">Customer:</span>
+                <span class="text-grey-5">Name:</span>
                 <span class="text-white q-ml-xs">{{ detail.linkedOrder.customerName }}</span>
               </div>
               <div v-if="detail.linkedOrder.customerEmail" class="col-12">
@@ -1088,35 +1088,6 @@
                   <template v-if="detail.linkedOrder.shipCountry"><br>{{ detail.linkedOrder.shipCountry }}</template>
                 </span>
               </div>
-              <div class="col-12">
-                <span class="text-grey-5">Shipping Agent:</span>
-                <div class="row items-center q-gutter-xs q-mt-xs">
-                  <q-input
-                    v-model="orderShippingAgent"
-                    dense outlined dark
-                    placeholder="e.g. DHL, FedEx, USPS..."
-                    class="col"
-                    style="max-width: 260px;"
-                    @keyup.enter="saveShippingFields"
-                  />
-                </div>
-              </div>
-              <div class="col-12">
-                <span class="text-grey-5">Tracking Number:</span>
-                <div class="row items-center q-gutter-xs q-mt-xs">
-                  <q-input
-                    v-model="orderTrackingNumber"
-                    dense outlined dark
-                    placeholder="Enter tracking number..."
-                    class="col"
-                    style="max-width: 260px;"
-                    @keyup.enter="saveShippingFields"
-                  />
-                  <q-btn flat dense icon="save" color="cyan-5" size="sm" @click="saveShippingFields" :loading="savingTracking">
-                    <q-tooltip>Save shipping info</q-tooltip>
-                  </q-btn>
-                </div>
-              </div>
               <div class="col-6">
                 <span class="text-grey-5">Total:</span>
                 <span class="text-white q-ml-xs">{{ detail.linkedOrder.orderTotal ? Number(detail.linkedOrder.orderTotal).toFixed(2) : '-' }} {{ detail.linkedOrder.currency || '' }}</span>
@@ -1124,6 +1095,37 @@
               <div class="col-6">
                 <span class="text-grey-5">Status:</span>
                 <span class="text-white q-ml-xs">{{ (detail.linkedOrder.orderStatus || '').replace(/_/g, ' ') }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- POD_ORDER: Fulfillment (shipping agent + tracking) -->
+          <div v-if="props.boardType === 'POD_ORDER' && detail?.linkedOrder" class="q-mb-md" style="background: rgba(0,188,212,0.06); border: 1px solid rgba(0,188,212,0.15); border-radius: 8px; padding: 12px;">
+            <div class="row items-center q-mb-sm">
+              <div class="text-grey-4" style="font-size: 0.72rem; font-weight: 600; letter-spacing: 0.05em;">FULFILLMENT</div>
+              <q-space />
+              <q-btn flat dense icon="save" color="cyan-5" size="xs" @click="saveShippingFields" :loading="savingTracking" no-caps label="Save">
+                <q-tooltip>Save shipping info</q-tooltip>
+              </q-btn>
+            </div>
+            <div class="row q-col-gutter-sm" style="font-size: 0.82rem;">
+              <div class="col-12">
+                <q-input
+                  v-model="orderShippingAgent"
+                  label="Shipping Agent"
+                  dense outlined dark
+                  placeholder="e.g. DHL, FedEx, USPS..."
+                  @keyup.enter="saveShippingFields"
+                />
+              </div>
+              <div class="col-12">
+                <q-input
+                  v-model="orderTrackingNumber"
+                  label="Tracking Number"
+                  dense outlined dark
+                  placeholder="Enter tracking number..."
+                  @keyup.enter="saveShippingFields"
+                />
               </div>
             </div>
           </div>
