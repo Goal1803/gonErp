@@ -22,6 +22,14 @@ export const ecomOrderApi = {
   syncToBoard: (boardId, orderIds) => api.post(`/ecommerce/orders/sync-to-board/${boardId}`, orderIds)
 }
 
+export const ecomSupplierApi = {
+  getAll: () => api.get('/ecommerce/suppliers'),
+  getById: (id) => api.get(`/ecommerce/suppliers/${id}`),
+  create: (data) => api.post('/ecommerce/suppliers', data),
+  update: (id, data) => api.put(`/ecommerce/suppliers/${id}`, data),
+  delete: (id) => api.delete(`/ecommerce/suppliers/${id}`)
+}
+
 export const ecomImportApi = {
   importEtsy: (storeId, ordersFile, itemsFile, boardId) => {
     const formData = new FormData()

@@ -6,6 +6,7 @@ import com.gonerp.ecommerce.model.EcomOrder;
 import com.gonerp.ecommerce.model.enums.OrderStatus;
 import com.gonerp.ecommerce.model.enums.TrackingStatus;
 import com.gonerp.ecommerce.repository.EcomOrderRepository;
+import com.gonerp.ecommerce.repository.EcomSupplierRepository;
 import com.gonerp.organization.model.Organization;
 import com.gonerp.taskmanager.model.Board;
 import com.gonerp.taskmanager.model.BoardColumn;
@@ -32,6 +33,7 @@ import java.util.*;
 public class EcomOrderService {
 
     private final EcomOrderRepository ecomOrderRepository;
+    private final EcomSupplierRepository ecomSupplierRepository;
     private final EcomAccessService ecomAccessService;
     private final EcomOrderImportHelper importHelper;
     private final BoardRepository boardRepository;
@@ -95,6 +97,14 @@ public class EcomOrderService {
         }
         if (request.getRefunded() != null) {
             order.setRefunded(request.getRefunded());
+        }
+        if (request.getSupplierId() != null) {
+            if (request.getSupplierId() == 0) {
+                order.setSupplier(null);
+            } else {
+                order.setSupplier(ecomSupplierRepository.findById(request.getSupplierId())
+                        .orElseThrow(() -> new EntityNotFoundException("Supplier not found")));
+            }
         }
 
         // Auto-calculate gross profit whenever costs change

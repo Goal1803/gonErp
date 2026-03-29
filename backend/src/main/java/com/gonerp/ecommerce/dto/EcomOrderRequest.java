@@ -14,4 +14,5 @@ public class EcomOrderRequest {
     private BigDecimal otherCost;
     private String notes;
     private Boolean refunded;
+    private Long supplierId;
 }

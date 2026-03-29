@@ -62,6 +62,8 @@ public class CardDetailResponse {
         private String shipState;
         private String shipZipcode;
         private String shipCountry;
+        private Long supplierId;
+        private String supplierName;
         private String shippingAgent;
         private String trackingNumber;
     }

@@ -190,11 +190,37 @@
           </q-card-section>
         </q-card>
 
+        <!-- Supplier -->
+        <q-card flat class="detail-card q-mb-md">
+          <q-card-section>
+            <div class="text-overline text-grey-5 q-mb-sm">Supplier</div>
+            <q-select
+              v-model="editForm.supplierId"
+              :options="supplierOptions"
+              label="Select supplier"
+              dense outlined dark
+              emit-value map-options
+              clearable
+              @update:model-value="updateField('supplierId', editForm.supplierId || 0)"
+            />
+          </q-card-section>
+        </q-card>
+
         <!-- Fulfillment -->
         <q-card flat class="detail-card q-mb-md">
           <q-card-section>
             <div class="text-overline text-grey-5 q-mb-sm">Fulfillment</div>
             <div class="detail-grid">
+              <div class="detail-label">Shipping Agent</div>
+              <div class="detail-value">
+                <q-input
+                  v-model="editForm.shippingAgent"
+                  dense outlined dark
+                  placeholder="e.g. DHL, FedEx..."
+                  style="max-width: 220px"
+                  @blur="updateField('shippingAgent', editForm.shippingAgent)"
+                />
+              </div>
               <div class="detail-label">Tracking Number</div>
               <div class="detail-value">
                 <q-input
@@ -284,7 +310,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useQuasar } from 'quasar'
-import { ecomOrderApi } from 'src/api/ecommerce'
+import { ecomOrderApi, ecomSupplierApi } from 'src/api/ecommerce'
 
 const route = useRoute()
 const router = useRouter()
@@ -292,13 +318,16 @@ const $q = useQuasar()
 
 const loading = ref(true)
 const order = ref({})
+const supplierOptions = ref([])
 const editForm = ref({
   fulfillmentCost: 0,
   otherCost: 0,
   notes: '',
+  shippingAgent: '',
   trackingNumber: '',
   trackingStatus: null,
-  refunded: false
+  refunded: false,
+  supplierId: null
 })
 
 const statusOptions = [
@@ -416,9 +445,11 @@ async function loadOrder () {
       fulfillmentCost: order.value.fulfillmentCost || 0,
       otherCost: order.value.otherCost || 0,
       notes: order.value.notes || '',
+      shippingAgent: order.value.shippingAgent || '',
       trackingNumber: order.value.trackingNumber || '',
       trackingStatus: order.value.trackingStatus || null,
-      refunded: order.value.refunded || false
+      refunded: order.value.refunded || false,
+      supplierId: order.value.supplierId || null
     }
   } catch (e) {
     $q.notify({ type: 'negative', message: 'Failed to load order' })
@@ -438,8 +469,18 @@ async function updateField (field, value) {
   }
 }
 
+async function loadSuppliers () {
+  try {
+    const res = await ecomSupplierApi.getAll()
+    supplierOptions.value = (res.data.data || [])
+      .filter(s => s.active)
+      .map(s => ({ label: s.name, value: s.id }))
+  } catch { /* ignore */ }
+}
+
 onMounted(() => {
   loadOrder()
+  loadSuppliers()
 })
 </script>
 

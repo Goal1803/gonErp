@@ -1099,6 +1099,23 @@
             </div>
           </div>
 
+          <!-- POD_ORDER: Supplier -->
+          <div v-if="props.boardType === 'POD_ORDER' && detail?.linkedOrder" class="q-mb-sm" style="background: rgba(0,188,212,0.06); border: 1px solid rgba(0,188,212,0.15); border-radius: 8px; padding: 12px;">
+            <div class="row items-center q-mb-sm">
+              <div class="text-grey-4" style="font-size: 0.72rem; font-weight: 600; letter-spacing: 0.05em;">SUPPLIER</div>
+              <q-space />
+              <q-btn flat dense icon="save" color="cyan-5" size="xs" no-caps label="Save" @click="saveSupplier" :loading="savingSupplier" />
+            </div>
+            <q-select
+              v-model="orderSupplierId"
+              :options="supplierOptions"
+              label="Select supplier"
+              dense outlined dark
+              emit-value map-options
+              clearable
+            />
+          </div>
+
           <!-- POD_ORDER: Fulfillment (shipping agent + tracking) -->
           <div v-if="props.boardType === 'POD_ORDER' && detail?.linkedOrder" class="q-mb-md" style="background: rgba(0,188,212,0.06); border: 1px solid rgba(0,188,212,0.15); border-radius: 8px; padding: 12px;">
             <div class="row items-center q-mb-sm">
@@ -1798,8 +1815,10 @@ watch(
         detail.value = res.data.data;
         originalStatus.value = detail.value.status;
         originalColumnId.value = detail.value.columnId;
+        orderSupplierId.value = detail.value.linkedOrder?.supplierId || null;
         orderShippingAgent.value = detail.value.linkedOrder?.shippingAgent || '';
         orderTrackingNumber.value = detail.value.linkedOrder?.trackingNumber || '';
+        if (detail.value.linkedOrder) loadSuppliers();
         scheduleOverflowCheck();
         nextTick(setupDescResizeObserver);
       } catch {
@@ -2023,6 +2042,9 @@ const removeMember = async (user) => {
 // === POD_ORDER: Designer, Order & Tracking ===
 const orderSearch = ref('')
 const orderSearchResults = ref([])
+const orderSupplierId = ref(null)
+const supplierOptions = ref([])
+const savingSupplier = ref(false)
 const orderShippingAgent = ref('')
 const orderTrackingNumber = ref('')
 const savingTracking = ref(false)
@@ -2097,6 +2119,35 @@ const saveShippingFields = async () => {
     $q.notify({ type: 'negative', message: 'Failed to save shipping info' })
   } finally {
     savingTracking.value = false
+  }
+}
+
+const loadSuppliers = async () => {
+  try {
+    const { ecomSupplierApi } = await import('src/api/ecommerce')
+    const res = await ecomSupplierApi.getAll()
+    supplierOptions.value = (res.data.data || [])
+      .filter(s => s.active)
+      .map(s => ({ label: s.name, value: s.id }))
+  } catch { /* ignore */ }
+}
+
+const saveSupplier = async () => {
+  if (!detail.value?.linkedOrder?.orderId) return
+  savingSupplier.value = true
+  try {
+    const { ecomOrderApi } = await import('src/api/ecommerce')
+    await ecomOrderApi.update(detail.value.linkedOrder.orderId, {
+      supplierId: orderSupplierId.value || 0
+    })
+    detail.value.linkedOrder.supplierId = orderSupplierId.value
+    const selected = supplierOptions.value.find(s => s.value === orderSupplierId.value)
+    detail.value.linkedOrder.supplierName = selected ? selected.label : null
+    $q.notify({ type: 'positive', message: 'Supplier saved', timeout: 1000 })
+  } catch {
+    $q.notify({ type: 'negative', message: 'Failed to save supplier' })
+  } finally {
+    savingSupplier.value = false
   }
 }
 

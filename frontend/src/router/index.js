@@ -169,6 +169,7 @@ const routes = [
       { path: 'ecommerce/stores/:id', name: 'ecomStoreDetail', component: () => import('pages/EcomStoreDetailPage.vue'), meta: { title: 'Store Detail', requiresModule: 'hasEcommerce' } },
       { path: 'ecommerce/orders', name: 'ecomOrders', component: () => import('pages/EcomOrdersPage.vue'), meta: { title: 'Orders', requiresModule: 'hasEcommerce' } },
       { path: 'ecommerce/orders/:id', name: 'ecomOrderDetail', component: () => import('pages/EcomOrderDetailPage.vue'), meta: { title: 'Order Detail', requiresModule: 'hasEcommerce' } },
+      { path: 'ecommerce/suppliers', name: 'ecomSuppliers', component: () => import('pages/EcomSuppliersPage.vue'), meta: { title: 'Suppliers', requiresModule: 'hasEcommerce' } },
       // ─── Working Time Management ─────────────────────────────────────
       {
         path: 'worktime',

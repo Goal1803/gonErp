@@ -53,6 +53,8 @@ public class EcomOrderResponse {
     private List<OrderItemResponse> items;
     private Map<String, String> rawData;
     private Map<String, Object> platformData;
+    private Long supplierId;
+    private String supplierName;
     private Long cardId;
     private LocalDateTime createdAt;
     private String createdBy;
@@ -128,6 +130,8 @@ public class EcomOrderResponse {
                         : Collections.emptyList())
                 .rawData(entity.getRawData())
                 .platformData(entity.getPlatformData())
+                .supplierId(entity.getSupplier() != null ? entity.getSupplier().getId() : null)
+                .supplierName(entity.getSupplier() != null ? entity.getSupplier().getName() : null)
                 .cardId(entity.getCard() != null ? entity.getCard().getId() : null)
                 .createdAt(entity.getCreatedAt())
                 .createdBy(entity.getCreatedBy())

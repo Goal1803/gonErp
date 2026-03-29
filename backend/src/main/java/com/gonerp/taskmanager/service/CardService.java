@@ -157,6 +157,8 @@ public class CardService {
                 .sku(order.getSku())
                 .orderTotal(order.getOrderTotal())
                 .currency(order.getCurrency())
+                .supplierId(order.getSupplier() != null ? order.getSupplier().getId() : null)
+                .supplierName(order.getSupplier() != null ? order.getSupplier().getName() : null)
                 .shippingAgent(order.getShippingAgent())
                 .trackingNumber(order.getTrackingNumber());
         if (!hideCustomerInfo) {

@@ -162,6 +162,11 @@ public class EcomOrder extends BaseModel {
     @Column(name = "platform_data", columnDefinition = "jsonb")
     private Map<String, Object> platformData;
 
+    // === Supplier ===
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "supplier_id")
+    private EcomSupplier supplier;
+
     // === Board link ===
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "card_id")

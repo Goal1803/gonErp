@@ -36,14 +36,13 @@
           </q-card>
         </div>
 
-        <!-- Future: Products -->
-        <div class="home-card-link" style="opacity: 0.4; cursor: not-allowed">
+        <div class="home-card-link" @click="router.push('/ecommerce/suppliers')">
           <q-card class="home-card" flat>
             <q-card-section class="column items-center q-pa-lg">
-              <q-icon name="inventory" size="56px" color="grey-6" />
-              <div class="text-h6 text-white q-mt-md">Products</div>
+              <q-icon name="local_shipping" size="56px" color="cyan-5" />
+              <div class="text-h6 text-white q-mt-md">Suppliers</div>
               <div class="text-caption text-grey-5 q-mt-xs text-center">
-                Coming soon
+                POD supplier management
               </div>
             </q-card-section>
           </q-card>
