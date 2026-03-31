@@ -123,10 +123,12 @@ public class EcomOrderService {
      * Calculate gross profit: orderNet - fulfillmentCost - otherCost
      */
     public void calculateGrossProfit(EcomOrder order) {
-        BigDecimal net = order.getOrderNet();
-        if (net == null) return;
+        // Use earningAfterPlatformFee if available (from statement matching), otherwise orderNet
+        BigDecimal base = order.getEarningAfterPlatformFee();
+        if (base == null) base = order.getOrderNet();
+        if (base == null) return;
 
-        BigDecimal profit = net;
+        BigDecimal profit = base;
         if (order.getFulfillmentCost() != null) {
             profit = profit.subtract(order.getFulfillmentCost());
         }

@@ -8,6 +8,12 @@
         </div>
         <div class="text-caption text-grey-5">{{ order.storeName || '' }} &middot; {{ order.salesChannel || '' }}</div>
       </div>
+      <q-chip v-if="order.cardId" dense color="teal-9" text-color="teal-2" size="sm" icon="link" class="q-mr-sm">
+        Synced
+      </q-chip>
+      <q-chip v-else dense color="grey-8" text-color="grey-4" size="sm" icon="link_off" class="q-mr-sm">
+        Not Synced
+      </q-chip>
       <q-space />
       <q-badge
         :color="statusColor(order.status)"
@@ -120,6 +126,23 @@
               <div class="detail-value text-weight-medium">{{ formatCurrency(order.orderNet) }}</div>
             </div>
             <q-separator dark class="q-my-md" />
+            <div class="text-caption text-grey-5 q-mb-sm">Platform Fees (from statement)</div>
+            <div class="detail-grid q-mb-md">
+              <div class="detail-label">Platform Fee</div>
+              <div class="detail-value" :class="order.platformFee ? 'text-red-4' : ''">
+                {{ order.platformFee != null ? '-' + formatCurrency(order.platformFee) : 'Not matched' }}
+              </div>
+              <div v-if="order.refundAmount" class="detail-label">Refund</div>
+              <div v-if="order.refundAmount" class="detail-value text-red-4 text-weight-medium">
+                -{{ formatCurrency(order.refundAmount) }}
+              </div>
+              <div class="detail-label text-weight-medium">Earning After Fees</div>
+              <div class="detail-value text-weight-medium" :class="order.earningAfterPlatformFee != null ? 'text-cyan-4' : ''">
+                {{ formatCurrency(order.earningAfterPlatformFee) }}
+              </div>
+            </div>
+            <q-separator dark class="q-my-md" />
+            <div class="text-caption text-grey-5 q-mb-sm">Costs</div>
             <div class="detail-grid">
               <div class="detail-label">Fulfillment Cost</div>
               <div class="detail-value">
@@ -203,6 +226,10 @@
               clearable
               @update:model-value="updateField('supplierId', editForm.supplierId || 0)"
             />
+            <div v-if="order.supplierTransactionId" class="q-mt-sm">
+              <span class="text-grey-5" style="font-size: 12px;">Supplier Order ID:</span>
+              <span class="text-white q-ml-xs" style="font-size: 12px;">{{ order.supplierTransactionId }}</span>
+            </div>
           </q-card-section>
         </q-card>
 
@@ -357,10 +384,13 @@ const trackingStatusOptions = [
 ]
 
 const grossProfit = computed(() => {
-  const net = Number(order.value.orderNet) || 0
+  // Use earningAfterPlatformFee if available (from statement), otherwise orderNet
+  const base = order.value.earningAfterPlatformFee != null
+    ? Number(order.value.earningAfterPlatformFee)
+    : (Number(order.value.orderNet) || 0)
   const fc = Number(editForm.value.fulfillmentCost) || 0
   const oc = Number(editForm.value.otherCost) || 0
-  return net - fc - oc
+  return base - fc - oc
 })
 
 const formattedAddress = computed(() => {

@@ -1114,6 +1114,10 @@
               emit-value map-options
               clearable
             />
+            <div v-if="detail.linkedOrder.supplierTransactionId" class="q-mt-xs" style="font-size: 0.78rem;">
+              <span class="text-grey-5">Supplier Order ID:</span>
+              <span class="text-white q-ml-xs">{{ detail.linkedOrder.supplierTransactionId }}</span>
+            </div>
           </div>
 
           <!-- POD_ORDER: Fulfillment (shipping agent + tracking) -->

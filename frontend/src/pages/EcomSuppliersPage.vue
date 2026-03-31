@@ -18,6 +18,7 @@
       :loading="loading"
       class="erp-table"
       :pagination="{ rowsPerPage: 20 }"
+      @row-click="(evt, row) => $router.push(`/ecommerce/suppliers/${row.id}`)"
     >
       <template v-slot:body-cell-countries="props">
         <q-td :props="props">

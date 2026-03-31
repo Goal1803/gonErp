@@ -30,6 +30,37 @@ export const ecomSupplierApi = {
   delete: (id) => api.delete(`/ecommerce/suppliers/${id}`)
 }
 
+export const ecomSupplierTxnApi = {
+  getAll: (supplierId) => api.get(`/ecommerce/suppliers/${supplierId}/transactions`),
+  upload: (supplierId, file) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return api.post(`/ecommerce/suppliers/${supplierId}/transactions/upload`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+  },
+  match: (supplierId, exchangeRate) => {
+    const params = exchangeRate ? { exchangeRate } : {}
+    return api.post(`/ecommerce/suppliers/${supplierId}/transactions/match`, null, { params })
+  },
+  manualMatch: (supplierId, transactionId, orderId, exchangeRate) => {
+    const params = exchangeRate ? { exchangeRate } : {}
+    return api.post(`/ecommerce/suppliers/${supplierId}/transactions/${transactionId}/match-to/${orderId}`, null, { params })
+  }
+}
+
+export const ecomTransactionApi = {
+  getAll: (storeId) => api.get(`/ecommerce/stores/${storeId}/transactions`),
+  upload: (storeId, file) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return api.post(`/ecommerce/stores/${storeId}/transactions/upload`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+  },
+  matchFees: (storeId) => api.post(`/ecommerce/stores/${storeId}/transactions/match-fees`)
+}
+
 export const ecomImportApi = {
   importEtsy: (storeId, ordersFile, itemsFile, boardId) => {
     const formData = new FormData()

@@ -39,6 +39,8 @@ public class EcomOrderResponse {
     private BigDecimal processingFees;
     private BigDecimal orderTotal;
     private BigDecimal orderNet;
+    private BigDecimal platformFee;
+    private BigDecimal earningAfterPlatformFee;
     private BigDecimal fulfillmentCost;
     private BigDecimal otherCost;
     private BigDecimal grossProfit;
@@ -48,6 +50,7 @@ public class EcomOrderResponse {
     private String trackingStatus;
     private LocalDateTime shippedDate;
     private boolean refunded;
+    private BigDecimal refundAmount;
     private String notes;
     private String sku;
     private List<OrderItemResponse> items;
@@ -55,6 +58,7 @@ public class EcomOrderResponse {
     private Map<String, Object> platformData;
     private Long supplierId;
     private String supplierName;
+    private String supplierTransactionId;
     private Long cardId;
     private LocalDateTime createdAt;
     private String createdBy;
@@ -114,6 +118,8 @@ public class EcomOrderResponse {
                 .processingFees(entity.getProcessingFees())
                 .orderTotal(entity.getOrderTotal())
                 .orderNet(entity.getOrderNet())
+                .platformFee(entity.getPlatformFee())
+                .earningAfterPlatformFee(entity.getEarningAfterPlatformFee())
                 .fulfillmentCost(entity.getFulfillmentCost())
                 .otherCost(entity.getOtherCost())
                 .grossProfit(entity.getGrossProfit())
@@ -123,6 +129,7 @@ public class EcomOrderResponse {
                 .trackingStatus(entity.getTrackingStatus() != null ? entity.getTrackingStatus().name() : null)
                 .shippedDate(entity.getShippedDate())
                 .refunded(entity.isRefunded())
+                .refundAmount(entity.getRefundAmount())
                 .notes(entity.getNotes())
                 .sku(entity.getSku())
                 .items(entity.getItems() != null
@@ -132,6 +139,7 @@ public class EcomOrderResponse {
                 .platformData(entity.getPlatformData())
                 .supplierId(entity.getSupplier() != null ? entity.getSupplier().getId() : null)
                 .supplierName(entity.getSupplier() != null ? entity.getSupplier().getName() : null)
+                .supplierTransactionId(entity.getSupplierTransactionId())
                 .cardId(entity.getCard() != null ? entity.getCard().getId() : null)
                 .createdAt(entity.getCreatedAt())
                 .createdBy(entity.getCreatedBy())

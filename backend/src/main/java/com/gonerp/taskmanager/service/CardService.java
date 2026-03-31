@@ -159,6 +159,7 @@ public class CardService {
                 .currency(order.getCurrency())
                 .supplierId(order.getSupplier() != null ? order.getSupplier().getId() : null)
                 .supplierName(order.getSupplier() != null ? order.getSupplier().getName() : null)
+                .supplierTransactionId(order.getSupplierTransactionId())
                 .shippingAgent(order.getShippingAgent())
                 .trackingNumber(order.getTrackingNumber());
         if (!hideCustomerInfo) {

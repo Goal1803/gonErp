@@ -108,6 +108,13 @@ public class EcomOrder extends BaseModel {
     @Column(name = "order_net", precision = 12, scale = 2)
     private BigDecimal orderNet;
 
+    // === Platform fees (auto-calculated from statement) ===
+    @Column(name = "platform_fee", precision = 12, scale = 2)
+    private BigDecimal platformFee;
+
+    @Column(name = "earning_after_platform_fee", precision = 12, scale = 2)
+    private BigDecimal earningAfterPlatformFee;
+
     // === Costs & Profit (manually entered) ===
     @Column(name = "fulfillment_cost", precision = 12, scale = 2)
     private BigDecimal fulfillmentCost;
@@ -141,6 +148,9 @@ public class EcomOrder extends BaseModel {
     @Builder.Default
     private boolean refunded = false;
 
+    @Column(name = "refund_amount", precision = 12, scale = 2)
+    private BigDecimal refundAmount;
+
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
 
@@ -166,6 +176,9 @@ public class EcomOrder extends BaseModel {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "supplier_id")
     private EcomSupplier supplier;
+
+    @Column(name = "supplier_transaction_id", length = 100)
+    private String supplierTransactionId;
 
     // === Board link ===
     @OneToOne(fetch = FetchType.LAZY)
