@@ -90,6 +90,22 @@ public class DatabaseMigrationRunner implements ApplicationRunner {
             addColumnIfNotExists(conn, "fin_transactions", "inter_account",
                     "ALTER TABLE fin_transactions ADD COLUMN inter_account BOOLEAN NOT NULL DEFAULT FALSE");
 
+            // ── tm_cards: card archive support ──
+
+            addColumnIfNotExists(conn, "tm_cards", "archived",
+                    "ALTER TABLE tm_cards ADD COLUMN archived BOOLEAN NOT NULL DEFAULT FALSE");
+
+            addColumnIfNotExists(conn, "tm_cards", "archived_at",
+                    "ALTER TABLE tm_cards ADD COLUMN archived_at TIMESTAMP");
+
+            // ── tm_boards: auto-archive settings ──
+
+            addColumnIfNotExists(conn, "tm_boards", "auto_archive_days",
+                    "ALTER TABLE tm_boards ADD COLUMN auto_archive_days INTEGER");
+
+            addColumnIfNotExists(conn, "tm_boards", "archive_column_ids",
+                    "ALTER TABLE tm_boards ADD COLUMN archive_column_ids TEXT");
+
             log.info("Database migration check completed");
         } catch (Exception e) {
             log.warn("Database migration runner failed (non-fatal, Hibernate ddl-auto may handle it): {}", e.getMessage());
