@@ -24,4 +24,7 @@ public interface EcomOrderRepository extends JpaRepository<EcomOrder, Long> {
 
     List<EcomOrder> findByOrganizationIdAndOrderDateBetweenOrderByOrderDateDesc(
             Long orgId, LocalDateTime start, LocalDateTime end);
+
+    List<EcomOrder> findByStoreIdAndOrderDateBetweenOrderByOrderDateDesc(
+            Long storeId, LocalDateTime start, LocalDateTime end);
 }

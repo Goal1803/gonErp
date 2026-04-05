@@ -7,6 +7,7 @@
         <div class="text-caption text-grey-5">Store details and member management</div>
       </div>
       <q-space />
+      <q-btn v-if="canSeeDashboard" unelevated color="cyan-7" icon="bar_chart" label="Dashboard" no-caps :to="`/ecommerce/stores/${$route.params.id}/dashboard`" />
     </div>
 
     <q-inner-loading :showing="loadingStore" color="cyan-5" />
@@ -429,6 +430,13 @@ const assigning = ref(false)
 const assignForm = ref({ userId: null, storeRole: 'MEMBER' })
 const allUsers = ref([])
 const availableUsers = ref([])
+
+const DASHBOARD_ROLES = ['STORE_ADMIN', 'SELLER', 'SELLER_SUPPORT', 'FULFILLMENT_STAFF']
+const canSeeDashboard = computed(() => {
+  if (authStore.isSuperAdmin || authStore.isAdmin) return true
+  const me = members.value.find(m => m.userId === authStore.currentUser?.userId)
+  return me && DASHBOARD_ROLES.includes(me.storeRole)
+})
 
 const salesChannelOptions = [
   { label: 'Etsy', value: 'Etsy' },

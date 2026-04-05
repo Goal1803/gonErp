@@ -28,4 +28,12 @@ public interface EcomEtsyTransactionRepository extends JpaRepository<EcomEtsyTra
     @Query("SELECT DISTINCT t.orderIdRef FROM EcomEtsyTransaction t " +
             "WHERE t.store.id = :storeId AND t.orderIdRef IS NOT NULL AND t.matched = false")
     List<String> findUnmatchedOrderIds(@Param("storeId") Long storeId);
+
+    List<EcomEtsyTransaction> findByStoreIdAndTxnDateBetweenOrderByTxnDateDesc(
+            Long storeId, LocalDate start, LocalDate end);
+
+    @Query("SELECT t FROM EcomEtsyTransaction t WHERE t.store.id IN :storeIds " +
+            "AND t.txnDate >= :start AND t.txnDate <= :end ORDER BY t.txnDate DESC")
+    List<EcomEtsyTransaction> findByStoreIdsAndDateRange(@Param("storeIds") List<Long> storeIds,
+            @Param("start") LocalDate start, @Param("end") LocalDate end);
 }

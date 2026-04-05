@@ -17,4 +17,6 @@ public interface EcomStoreMemberRepository extends JpaRepository<EcomStoreMember
     boolean existsByStoreOrganizationIdAndUserId(Long organizationId, Long userId);
 
     void deleteByStoreIdAndUserId(Long storeId, Long userId);
+
+    List<EcomStoreMember> findByStoreOrganizationIdAndUserId(Long organizationId, Long userId);
 }

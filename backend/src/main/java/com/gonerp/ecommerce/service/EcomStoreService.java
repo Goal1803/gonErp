@@ -1,11 +1,17 @@
 package com.gonerp.ecommerce.service;
 
+import com.gonerp.common.OrgContext;
 import com.gonerp.ecommerce.dto.EcomStoreRequest;
 import com.gonerp.ecommerce.dto.EcomStoreResponse;
 import com.gonerp.ecommerce.model.EcomStore;
+import com.gonerp.ecommerce.model.EcomStoreMember;
 import com.gonerp.ecommerce.model.enums.SalesChannel;
+import com.gonerp.ecommerce.repository.EcomStoreMemberRepository;
 import com.gonerp.ecommerce.repository.EcomStoreRepository;
 import com.gonerp.organization.model.Organization;
+import com.gonerp.usermanager.model.User;
+import com.gonerp.usermanager.model.enums.RoleName;
+import com.gonerp.usermanager.repository.UserRepository;
 
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +19,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -20,14 +28,27 @@ import java.util.List;
 public class EcomStoreService {
 
     private final EcomStoreRepository ecomStoreRepository;
+    private final EcomStoreMemberRepository ecomStoreMemberRepository;
+    private final UserRepository userRepository;
     private final EcomAccessService ecomAccessService;
 
     public List<EcomStoreResponse> findAll() {
         ecomAccessService.requireEcommerceAccess();
         Organization org = ecomAccessService.resolveOrganization();
-        return ecomStoreRepository.findByOrganizationIdOrderByNameAsc(org.getId()).stream()
-                .map(EcomStoreResponse::from)
-                .toList();
+        List<EcomStore> stores = ecomStoreRepository.findByOrganizationIdOrderByNameAsc(org.getId());
+
+        // Regular users only see stores they're assigned to
+        if (!OrgContext.isSuperAdmin()) {
+            User user = OrgContext.getCurrentUser(userRepository);
+            if (user.getRole() == null || user.getRole().getName() != RoleName.ADMIN) {
+                Set<Long> assignedStoreIds = ecomStoreMemberRepository
+                        .findByStoreOrganizationIdAndUserId(org.getId(), user.getId())
+                        .stream().map(m -> m.getStore().getId()).collect(Collectors.toSet());
+                stores = stores.stream().filter(s -> assignedStoreIds.contains(s.getId())).toList();
+            }
+        }
+
+        return stores.stream().map(EcomStoreResponse::from).toList();
     }
 
     public EcomStoreResponse findById(Long id) {

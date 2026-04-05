@@ -12,6 +12,18 @@
       <!-- Apps -->
       <div class="text-overline text-grey-5 q-mb-sm">Apps</div>
       <div class="row justify-center q-gutter-lg q-mb-xl">
+        <div class="home-card-link" @click="router.push('/ecommerce/dashboard')">
+          <q-card class="home-card" flat>
+            <q-card-section class="column items-center q-pa-lg">
+              <q-icon name="bar_chart" size="56px" color="cyan-5" />
+              <div class="text-h6 text-white q-mt-md">Dashboard</div>
+              <div class="text-caption text-grey-5 q-mt-xs text-center">
+                Revenue, profit &amp; analytics
+              </div>
+            </q-card-section>
+          </q-card>
+        </div>
+
         <div class="home-card-link" @click="router.push('/ecommerce/stores')">
           <q-card class="home-card" flat>
             <q-card-section class="column items-center q-pa-lg">
@@ -31,6 +43,18 @@
               <div class="text-h6 text-white q-mt-md">Orders</div>
               <div class="text-caption text-grey-5 q-mt-xs text-center">
                 Manage orders &amp; fulfillment
+              </div>
+            </q-card-section>
+          </q-card>
+        </div>
+
+        <div class="home-card-link" @click="router.push('/ecommerce/transactions')">
+          <q-card class="home-card" flat>
+            <q-card-section class="column items-center q-pa-lg">
+              <q-icon name="receipt_long" size="56px" color="cyan-5" />
+              <div class="text-h6 text-white q-mt-md">Transactions</div>
+              <div class="text-caption text-grey-5 q-mt-xs text-center">
+                Etsy statements &amp; fee matching
               </div>
             </q-card-section>
           </q-card>

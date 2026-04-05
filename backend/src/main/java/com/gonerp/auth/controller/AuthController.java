@@ -4,7 +4,8 @@ import com.gonerp.auth.dto.AuthResponse;
 import com.gonerp.auth.dto.LoginRequest;
 import com.gonerp.common.ApiResponse;
 import com.gonerp.config.JwtTokenProvider;
-import com.gonerp.finance.model.FinanceUserRole;
+import com.gonerp.ecommerce.model.EcomStoreMember;
+import com.gonerp.ecommerce.model.enums.StoreRole;
 import com.gonerp.ecommerce.repository.EcomStoreMemberRepository;
 import com.gonerp.finance.repository.FinanceUserRoleRepository;
 import com.gonerp.organization.model.Organization;
@@ -12,6 +13,7 @@ import com.gonerp.usermanager.model.User;
 import com.gonerp.usermanager.model.enums.RoleName;
 import com.gonerp.usermanager.repository.UserRepository;
 import jakarta.validation.Valid;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -81,7 +83,8 @@ public class AuthController {
                     .moduleWorkTime(true)
                     .moduleFinance(true)
                     .moduleEcommerce(true)
-                    .financeRole("FINANCE_CFO");
+                    .financeRole("FINANCE_CFO")
+                    .ecommerceRole("STORE_ADMIN");
         } else if (org != null) {
             builder.organizationId(org.getId())
                     .organizationName(org.getName())
@@ -95,6 +98,19 @@ public class AuthController {
             if (org.isModuleFinance()) {
                 financeUserRoleRepository.findByOrganizationIdAndUserId(org.getId(), user.getId())
                         .ifPresent(fur -> builder.financeRole(fur.getFinanceRole().name()));
+            }
+            if (org.isModuleEcommerce()) {
+                // Find the highest store role for this user across all stores in the org
+                List<EcomStoreMember> memberships = ecomStoreMemberRepository
+                        .findByStoreOrganizationIdAndUserId(org.getId(), user.getId());
+                if (!memberships.isEmpty()) {
+                    // Pick the highest-priority role
+                    StoreRole best = memberships.stream()
+                            .map(EcomStoreMember::getStoreRole)
+                            .min((a, b) -> a.ordinal() - b.ordinal())
+                            .orElse(StoreRole.MEMBER);
+                    builder.ecommerceRole(best.name());
+                }
             }
         }
 

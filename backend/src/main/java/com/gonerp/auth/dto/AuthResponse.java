@@ -29,4 +29,5 @@ public class AuthResponse {
     private boolean moduleFinance;
     private boolean moduleEcommerce;
     private String financeRole;
+    private String ecommerceRole;
 }
