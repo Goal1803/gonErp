@@ -244,18 +244,17 @@ const onCardDragStart = () => {
   emit('drag-start')
 }
 
-const onDragEnd = async (evt) => {
+const onDragEnd = (evt) => {
   globalCardDragging = false
   vDragScrollSpeed = 0
   detachDragListeners()
   emit('drag-end')
 
+  // Fire API calls in background — optimistic update already applied by vuedraggable
   if (evt.from === evt.to) {
-    // Same-column reorder
     const newOrder = displayCards.value.map(c => c.id)
-    await boardStore.reorderCards(props.column.id, newOrder)
+    boardStore.reorderCards(props.column.id, newOrder)
   } else {
-    // Cross-column move: read card id from the dragged element's data attribute
     const movedCardId = Number(evt.item.dataset.cardId)
     const targetColumnId = Number(evt.to.dataset.columnId)
     if (!movedCardId || !targetColumnId) {
@@ -263,17 +262,13 @@ const onDragEnd = async (evt) => {
       return
     }
     const position = evt.newIndex + 1
-    try {
-      await cardApi.move(movedCardId, { targetColumnId, position })
-      // Persist remaining order in source column
-      const sourceOrder = displayCards.value.map(c => c.id)
-      if (sourceOrder.length > 0) {
-        await cardApi.reorder(props.column.id, sourceOrder)
-      }
-    } catch {
-      $q.notify({ type: 'negative', message: 'Failed to move card' })
-      emit('refresh') // revert optimistic update
-    }
+    const sourceOrder = displayCards.value.map(c => c.id)
+    cardApi.move(movedCardId, { targetColumnId, position })
+      .then(() => sourceOrder.length > 0 ? cardApi.reorder(props.column.id, sourceOrder) : null)
+      .catch(() => {
+        $q.notify({ type: 'negative', message: 'Failed to move card' })
+        emit('refresh')
+      })
   }
 }
 
