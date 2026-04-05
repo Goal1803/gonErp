@@ -42,6 +42,14 @@ public class Board extends BaseModel {
     @Builder.Default
     private boolean active = true;
 
+    @Column(name = "auto_archive_days")
+    private Integer autoArchiveDays;
+
+    @Column(name = "archive_column_ids", columnDefinition = "TEXT")
+    @Convert(converter = LongListConverter.class)
+    @Builder.Default
+    private List<Long> archiveColumnIds = new ArrayList<>();
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "owner_id", nullable = false)
     private User owner;

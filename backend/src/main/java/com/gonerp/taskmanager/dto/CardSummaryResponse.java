@@ -24,6 +24,8 @@ public class CardSummaryResponse {
     private int commentCount;
     private int attachmentCount;
     private LocalDateTime createdAt;
+    private boolean archived;
+    private LocalDateTime archivedAt;
 
     public static CardSummaryResponse from(Card card) {
         return CardSummaryResponse.builder()
@@ -41,6 +43,8 @@ public class CardSummaryResponse {
                 .commentCount(card.getComments().size())
                 .attachmentCount(card.getAttachments().size())
                 .createdAt(card.getCreatedAt())
+                .archived(card.isArchived())
+                .archivedAt(card.getArchivedAt())
                 .build();
     }
 }

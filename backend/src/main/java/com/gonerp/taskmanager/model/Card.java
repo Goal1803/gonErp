@@ -7,6 +7,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.BatchSize;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -45,6 +46,13 @@ public class Card extends BaseModel {
 
     @Column(name = "sku", length = 500)
     private String sku;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean archived = false;
+
+    @Column(name = "archived_at")
+    private LocalDateTime archivedAt;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "column_id", nullable = false)

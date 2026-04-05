@@ -15,6 +15,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -202,6 +203,26 @@ public class CardController {
     @DeleteMapping("/cards/{id}/link-order")
     public ResponseEntity<ApiResponse<CardDetailResponse>> unlinkOrder(@PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.ok("Order unlinked", cardService.unlinkOrder(id)));
+    }
+
+    // === Archive ===
+
+    @PatchMapping("/cards/{id}/archive")
+    public ResponseEntity<ApiResponse<CardDetailResponse>> archiveCard(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.ok("Card archived", cardService.archiveCard(id)));
+    }
+
+    @PatchMapping("/cards/{id}/unarchive")
+    public ResponseEntity<ApiResponse<CardDetailResponse>> unarchiveCard(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.ok("Card unarchived", cardService.unarchiveCard(id)));
+    }
+
+    @GetMapping("/boards/{boardId}/cards/search")
+    public ResponseEntity<ApiResponse<List<CardSummaryResponse>>> searchCards(
+            @PathVariable Long boardId,
+            @RequestParam String q,
+            @RequestParam(defaultValue = "false") boolean includeArchived) {
+        return ResponseEntity.ok(ApiResponse.ok(cardService.searchCards(boardId, q, includeArchived)));
     }
 
     @GetMapping("/files/{filename:.+}")

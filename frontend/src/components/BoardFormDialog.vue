@@ -47,6 +47,33 @@
             />
           </div>
         </div>
+
+        <!-- Auto-Archive Settings (edit mode only) -->
+        <div v-if="isEdit && boardColumns.length > 0"
+          style="border-top: 1px solid rgba(255,255,255,0.08); padding-top: 12px; margin-top: 8px;">
+          <div class="text-subtitle2 text-grey-4 q-mb-sm">Auto-Archive</div>
+          <q-input
+            v-model.number="form.autoArchiveDays"
+            label="Archive cards after N days (empty = disabled)"
+            outlined color="teal-5" dense type="number" min="1"
+            clearable
+          >
+            <template #prepend><q-icon name="archive" color="grey-5" /></template>
+          </q-input>
+          <div v-if="form.autoArchiveDays" class="q-mt-sm">
+            <div class="text-caption text-grey-5 q-mb-xs">Archive from these columns:</div>
+            <div class="column q-gutter-xs">
+              <q-checkbox
+                v-for="col in boardColumns" :key="col.id"
+                :model-value="(form.archiveColumnIds || []).includes(col.id)"
+                @update:model-value="toggleArchiveColumn(col.id, $event)"
+                :label="col.title"
+                color="teal-5"
+                dense
+              />
+            </div>
+          </div>
+        </div>
       </q-card-section>
 
       <q-card-actions align="right" style="border-top: 1px solid rgba(46,125,50,0.2)" class="q-pa-md">
@@ -66,7 +93,8 @@ import { boardApi } from 'src/api/tasks'
 const props = defineProps({
   modelValue: Boolean,
   board: { type: Object, default: null },
-  forceBoardType: { type: String, default: null }
+  forceBoardType: { type: String, default: null },
+  columns: { type: Array, default: () => [] }
 })
 const emit = defineEmits(['update:modelValue', 'saved'])
 const $q = useQuasar()
@@ -81,12 +109,23 @@ const boardTypeOptions = [
 const show = computed({ get: () => props.modelValue, set: v => emit('update:modelValue', v) })
 const isEdit = computed(() => !!props.board)
 const saving = ref(false)
-const form = ref({ name: '', description: '', coverColor: '#2E7D32', boardType: 'GENERAL' })
+const form = ref({ name: '', description: '', coverColor: '#2E7D32', boardType: 'GENERAL', autoArchiveDays: null, archiveColumnIds: [] })
+
+const boardColumns = computed(() => props.columns || [])
+
+function toggleArchiveColumn (colId, checked) {
+  const ids = form.value.archiveColumnIds || []
+  if (checked) {
+    if (!ids.includes(colId)) form.value.archiveColumnIds = [...ids, colId]
+  } else {
+    form.value.archiveColumnIds = ids.filter(id => id !== colId)
+  }
+}
 
 watch(() => props.board, b => {
   const defaultType = props.forceBoardType || 'GENERAL'
-  if (b) form.value = { name: b.name || '', description: b.description || '', coverColor: b.coverColor || '#2E7D32', boardType: b.boardType || defaultType }
-  else form.value = { name: '', description: '', coverColor: '#2E7D32', boardType: defaultType }
+  if (b) form.value = { name: b.name || '', description: b.description || '', coverColor: b.coverColor || '#2E7D32', boardType: b.boardType || defaultType, autoArchiveDays: b.autoArchiveDays || null, archiveColumnIds: b.archiveColumnIds || [] }
+  else form.value = { name: '', description: '', coverColor: '#2E7D32', boardType: defaultType, autoArchiveDays: null, archiveColumnIds: [] }
 }, { immediate: true })
 
 const handleSubmit = async () => {

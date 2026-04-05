@@ -32,7 +32,7 @@
     <!-- Cards scroll container -->
     <div class="col-cards" ref="colCardsEl">
       <draggable
-        v-model="localCards"
+        v-model="displayCards"
         group="cards"
         item-key="id"
         handle=".kanban-card"
@@ -45,7 +45,6 @@
       >
         <template #item="{ element }">
           <kanban-card
-            v-show="cardVisible(element)"
             :card="element"
             :selectable="selectable"
             :selected="selectedIds.has(element.id)"
@@ -87,7 +86,7 @@ let globalCardDragging = false
 </script>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onUnmounted } from 'vue'
 import { useQuasar } from 'quasar'
 import draggable from 'vuedraggable'
 import KanbanCard from './KanbanCard.vue'
@@ -116,8 +115,27 @@ const localCards = computed({
   set: (newCards) => { props.column.cards = newCards }
 })
 
-const cardVisible = (card) => !props.cardFilter || props.cardFilter(card)
-const visibleCount = computed(() => localCards.value.filter(cardVisible).length)
+// Display only filtered cards in the draggable — avoids v-show inside sortable
+// which corrupts SortableJS internal state and loses cards on unfilter.
+const displayCards = computed({
+  get: () => {
+    const all = localCards.value
+    if (!props.cardFilter) return all
+    return all.filter(props.cardFilter)
+  },
+  set: (newVisible) => {
+    if (!props.cardFilter) {
+      // No filter active — direct pass-through
+      props.column.cards = newVisible
+    } else {
+      // Merge: keep hidden (filtered-out) cards, replace visible subset with new order
+      const hidden = localCards.value.filter(c => !props.cardFilter(c))
+      props.column.cards = [...newVisible, ...hidden]
+    }
+  }
+})
+
+const visibleCount = computed(() => displayCards.value.length)
 
 const startEdit = () => {
   editTitle.value = props.column.title
@@ -155,6 +173,7 @@ const addCard = async () => {
 
 let vDragScrollSpeed = 0
 let vScrollRaf = null
+let vDragMoveRafPending = false
 
 const vScrollLoop = () => {
   if (vDragScrollSpeed !== 0 && colCardsEl.value) {
@@ -169,50 +188,71 @@ const vScrollLoop = () => {
 
 const onVDragMove = (e) => {
   if (!globalCardDragging || !colCardsEl.value) return
+  // Throttle to one computation per animation frame
+  if (vDragMoveRafPending) return
+  vDragMoveRafPending = true
   const clientX = e.clientX ?? e.touches?.[0]?.clientX
   const clientY = e.clientY ?? e.touches?.[0]?.clientY
-  if (clientY == null) return
+  requestAnimationFrame(() => {
+    vDragMoveRafPending = false
+    if (!globalCardDragging || !colCardsEl.value || clientY == null) return
 
-  const rect = colCardsEl.value.getBoundingClientRect()
+    const rect = colCardsEl.value.getBoundingClientRect()
 
-  // Only activate for the column the cursor is currently over
-  if (clientX != null && (clientX < rect.left || clientX > rect.right)) {
-    vDragScrollSpeed = 0
-    return
-  }
+    // Only activate for the column the cursor is currently over
+    if (clientX != null && (clientX < rect.left || clientX > rect.right)) {
+      vDragScrollSpeed = 0
+      return
+    }
 
-  const EDGE = 60      // px from top/bottom edge to start scrolling
-  const MAX_SPEED = 12 // max scroll speed (px per frame)
-  const distBottom = rect.bottom - clientY
-  const distTop    = clientY - rect.top
+    const EDGE = 60      // px from top/bottom edge to start scrolling
+    const MAX_SPEED = 12 // max scroll speed (px per frame)
+    const distBottom = rect.bottom - clientY
+    const distTop    = clientY - rect.top
 
-  if (distBottom < EDGE) {
-    vDragScrollSpeed = Math.ceil(MAX_SPEED * (1 - Math.max(0, distBottom) / EDGE))
-  } else if (distTop < EDGE) {
-    vDragScrollSpeed = -Math.ceil(MAX_SPEED * (1 - Math.max(0, distTop) / EDGE))
-  } else {
-    vDragScrollSpeed = 0
-  }
+    if (distBottom < EDGE) {
+      vDragScrollSpeed = Math.ceil(MAX_SPEED * (1 - Math.max(0, distBottom) / EDGE))
+    } else if (distTop < EDGE) {
+      vDragScrollSpeed = -Math.ceil(MAX_SPEED * (1 - Math.max(0, distTop) / EDGE))
+    } else {
+      vDragScrollSpeed = 0
+    }
 
-  if (vDragScrollSpeed !== 0 && !vScrollRaf) {
-    vScrollRaf = requestAnimationFrame(vScrollLoop)
-  }
+    if (vDragScrollSpeed !== 0 && !vScrollRaf) {
+      vScrollRaf = requestAnimationFrame(vScrollLoop)
+    }
+  })
+}
+
+// Only attach listeners during drag — avoids N columns × 2 listeners firing on every mousemove
+const attachDragListeners = () => {
+  document.addEventListener('mousemove', onVDragMove)
+  document.addEventListener('dragover',  onVDragMove)
+  document.addEventListener('touchmove', onVDragMove, { passive: true })
+}
+
+const detachDragListeners = () => {
+  document.removeEventListener('mousemove', onVDragMove)
+  document.removeEventListener('dragover',  onVDragMove)
+  document.removeEventListener('touchmove', onVDragMove)
 }
 
 const onCardDragStart = () => {
   globalCardDragging = true
   vDragScrollSpeed = 0
+  attachDragListeners()
   emit('drag-start')
 }
 
 const onDragEnd = async (evt) => {
   globalCardDragging = false
   vDragScrollSpeed = 0
+  detachDragListeners()
   emit('drag-end')
 
   if (evt.from === evt.to) {
     // Same-column reorder
-    const newOrder = localCards.value.map(c => c.id)
+    const newOrder = displayCards.value.map(c => c.id)
     await boardStore.reorderCards(props.column.id, newOrder)
   } else {
     // Cross-column move: read card id from the dragged element's data attribute
@@ -226,7 +266,7 @@ const onDragEnd = async (evt) => {
     try {
       await cardApi.move(movedCardId, { targetColumnId, position })
       // Persist remaining order in source column
-      const sourceOrder = localCards.value.map(c => c.id)
+      const sourceOrder = displayCards.value.map(c => c.id)
       if (sourceOrder.length > 0) {
         await cardApi.reorder(props.column.id, sourceOrder)
       }
@@ -237,14 +277,8 @@ const onDragEnd = async (evt) => {
   }
 }
 
-onMounted(() => {
-  document.addEventListener('mousemove', onVDragMove)
-  document.addEventListener('dragover',  onVDragMove)
-})
-
 onUnmounted(() => {
-  document.removeEventListener('mousemove', onVDragMove)
-  document.removeEventListener('dragover',  onVDragMove)
+  detachDragListeners()
   if (vScrollRaf) cancelAnimationFrame(vScrollRaf)
 })
 </script>

@@ -39,11 +39,12 @@
           <q-item v-for="card in searchResults" :key="card.id"
             clickable v-ripple dense @mousedown.prevent="openSearchResult(card)">
             <q-item-section avatar style="min-width:32px">
-              <q-icon name="credit_card" size="xs" color="grey-6" />
+              <q-icon :name="card.archived ? 'inventory_2' : 'credit_card'" size="xs" :color="card.archived ? 'orange-4' : 'grey-6'" />
             </q-item-section>
             <q-item-section>
               <q-item-label :class="{ 'text-teal-4 text-weight-bold': card._exact }">
                 {{ card.name }}
+                <q-badge v-if="card.archived" color="orange-8" label="Archived" class="q-ml-xs" style="font-size:9px" />
               </q-item-label>
               <q-item-label caption class="text-grey-6 ellipsis">
                 {{ card._colName }}
@@ -274,6 +275,7 @@
     <board-form-dialog
       v-model="showEditBoard"
       :board="boardStore.board"
+      :columns="boardStore.board?.columns || []"
       @saved="onBoardSaved"
     />
 
@@ -526,26 +528,24 @@ const openCard = (card) => {
   showCard.value = true
 }
 
-const searchResults = computed(() => {
-  const q = searchQuery.value?.trim().toLowerCase()
-  if (!q) return []
-  const results = []
-  for (const col of (boardStore.board?.columns || [])) {
-    for (const card of (col.cards || [])) {
-      const nameMatch = card.name?.toLowerCase().includes(q)
-      const descMatch = card.description?.toLowerCase().includes(q)
-      if (nameMatch || descMatch) {
-        results.push({
-          ...card,
-          _colName: col.title,
-          _exact: card.name?.toLowerCase() === q
-        })
-      }
-    }
-  }
-  // Exact title matches first, then by name
-  results.sort((a, b) => (b._exact ? 1 : 0) - (a._exact ? 1 : 0))
-  return results.slice(0, 8)
+const searchResults = ref([])
+let searchDebounce = null
+
+watch(searchQuery, (q) => {
+  clearTimeout(searchDebounce)
+  if (!q || !q.trim()) { searchResults.value = []; return }
+  searchDebounce = setTimeout(async () => {
+    try {
+      const res = await cardApi.search(boardId.value, q.trim(), true)
+      const results = (res.data.data || []).map(card => {
+        // Find column name from board data, or use stage
+        const col = boardStore.board?.columns?.find(c => (c.cards || []).some(cc => cc.id === card.id))
+        return { ...card, _colName: col?.title || card.stage || '', _exact: card.name?.toLowerCase() === q.trim().toLowerCase() }
+      })
+      results.sort((a, b) => (b._exact ? 1 : 0) - (a._exact ? 1 : 0))
+      searchResults.value = results.slice(0, 12)
+    } catch { searchResults.value = [] }
+  }, 300)
 })
 
 const openSearchResult = (card) => {
@@ -638,6 +638,7 @@ const onBoardSaved = () => {
 let isDragging = false
 let dragScrollSpeed = 0
 let scrollRaf = null
+let dragMoveRafPending = false
 
 const scrollLoop = () => {
   if (dragScrollSpeed !== 0 && kanbanScrollEl.value) {
@@ -652,37 +653,54 @@ const scrollLoop = () => {
 
 const onDragMove = (e) => {
   if (!isDragging || !kanbanScrollEl.value) return
+  // Throttle to one computation per animation frame
+  if (dragMoveRafPending) return
+  dragMoveRafPending = true
   const clientX = e.touches ? e.touches[0]?.clientX : e.clientX
-  if (clientX == null) return
+  requestAnimationFrame(() => {
+    dragMoveRafPending = false
+    if (!isDragging || !kanbanScrollEl.value || clientX == null) return
 
-  const EDGE = 120     // activation zone width in px
-  const MAX_SPEED = 18 // max scroll speed (px per frame)
-  const rect = kanbanScrollEl.value.getBoundingClientRect()
+    const EDGE = 120     // activation zone width in px
+    const MAX_SPEED = 18 // max scroll speed (px per frame)
+    const rect = kanbanScrollEl.value.getBoundingClientRect()
 
-  // Use the kanban container's own edges for both directions
-  const distRight = rect.right - clientX
-  const distLeft  = clientX - rect.left
+    const distRight = rect.right - clientX
+    const distLeft  = clientX - rect.left
 
-  if (distRight < EDGE) {
-    // Clamp so going past the right edge gives max speed, not > max
-    dragScrollSpeed = Math.ceil(MAX_SPEED * (1 - Math.max(0, distRight) / EDGE))
-  } else if (distLeft < EDGE) {
-    // Clamp so going into the sidebar (distLeft < 0) gives max speed, not > max
-    dragScrollSpeed = -Math.ceil(MAX_SPEED * (1 - Math.max(0, distLeft) / EDGE))
-  } else {
-    dragScrollSpeed = 0
-  }
+    if (distRight < EDGE) {
+      dragScrollSpeed = Math.ceil(MAX_SPEED * (1 - Math.max(0, distRight) / EDGE))
+    } else if (distLeft < EDGE) {
+      dragScrollSpeed = -Math.ceil(MAX_SPEED * (1 - Math.max(0, distLeft) / EDGE))
+    } else {
+      dragScrollSpeed = 0
+    }
+  })
+}
+
+const attachHScrollListeners = () => {
+  document.addEventListener('mousemove', onDragMove)
+  document.addEventListener('dragover',  onDragMove)
+  document.addEventListener('touchmove', onDragMove, { passive: true })
+}
+
+const detachHScrollListeners = () => {
+  document.removeEventListener('mousemove', onDragMove)
+  document.removeEventListener('dragover',  onDragMove)
+  document.removeEventListener('touchmove', onDragMove)
 }
 
 const onDragStart = () => {
   isDragging = true
   dragScrollSpeed = 0
+  attachHScrollListeners()
   if (!scrollRaf) scrollRaf = requestAnimationFrame(scrollLoop)
 }
 
 const onDragEnd = () => {
   isDragging = false
   dragScrollSpeed = 0
+  detachHScrollListeners()
 }
 
 // ─── WebSocket real-time updates ────────────────────────────────────────────
@@ -759,6 +777,29 @@ const handleBoardEvent = (event) => {
         const cardMap = new Map((col.cards || []).map(c => [c.id, c]))
         col.cards = payload.map(id => cardMap.get(id)).filter(Boolean)
       }
+      break
+    }
+    case 'CARD_ARCHIVED': {
+      const found = findCardInBoard(cardId)
+      if (found) {
+        found.column.cards.splice(found.cardIndex, 1)
+      }
+      break
+    }
+    case 'CARD_UNARCHIVED': {
+      if (payload) {
+        const col = findColumn(columnId)
+        if (col) {
+          if (!col.cards) col.cards = []
+          if (!col.cards.some(c => c.id === payload.id)) {
+            col.cards.push(payload)
+          }
+        }
+      }
+      break
+    }
+    case 'CARDS_AUTO_ARCHIVED': {
+      refreshBoard()
       break
     }
     case 'COLUMN_CREATED': {
@@ -891,15 +932,10 @@ onMounted(async () => {
     router.replace({ query: {} })
   }
 
-  document.addEventListener('mousemove', onDragMove)
-  document.addEventListener('dragover',  onDragMove)   // fires during HTML5 drag (mousemove is suppressed)
-  document.addEventListener('touchmove', onDragMove, { passive: true })
 })
 
 onUnmounted(() => {
-  document.removeEventListener('mousemove', onDragMove)
-  document.removeEventListener('dragover',  onDragMove)
-  document.removeEventListener('touchmove', onDragMove)
+  detachHScrollListeners()
   if (scrollRaf) cancelAnimationFrame(scrollRaf)
 })
 </script>

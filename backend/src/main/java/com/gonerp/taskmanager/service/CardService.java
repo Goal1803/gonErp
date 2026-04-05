@@ -30,6 +30,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -752,6 +753,40 @@ public class CardService {
             logActivity(card, getCurrentUser().getUserName() + " unlinked order #" + order.getPlatformOrderId());
         });
         return findById(cardId);
+    }
+
+    // === Archive / Unarchive ===
+
+    public CardDetailResponse archiveCard(Long cardId) {
+        Card card = getCardOrThrow(cardId);
+        checkBoardAccess(card.getColumn());
+        card.setArchived(true);
+        card.setArchivedAt(LocalDateTime.now());
+        cardRepository.save(card);
+        logActivity(card, getCurrentUser().getUserName() + " archived this card");
+        Long boardId = card.getColumn().getBoard().getId();
+        eventPublisher.publish(boardId, "CARD_ARCHIVED", cardId, card.getColumn().getId(),
+                getCurrentUser().getUserName(), Map.of("cardId", cardId));
+        return CardDetailResponse.from(card);
+    }
+
+    public CardDetailResponse unarchiveCard(Long cardId) {
+        Card card = getCardOrThrow(cardId);
+        checkBoardAccess(card.getColumn());
+        card.setArchived(false);
+        card.setArchivedAt(null);
+        cardRepository.save(card);
+        logActivity(card, getCurrentUser().getUserName() + " unarchived this card");
+        Long boardId = card.getColumn().getBoard().getId();
+        eventPublisher.publish(boardId, "CARD_UNARCHIVED", cardId, card.getColumn().getId(),
+                getCurrentUser().getUserName(), CardSummaryResponse.from(card));
+        return CardDetailResponse.from(card);
+    }
+
+    public List<CardSummaryResponse> searchCards(Long boardId, String query, boolean includeArchived) {
+        return cardRepository.searchByBoardAndName(boardId, query, includeArchived).stream()
+                .map(CardSummaryResponse::from)
+                .toList();
     }
 
     private void logActivity(Card card, String action) {

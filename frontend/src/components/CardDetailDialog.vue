@@ -25,7 +25,12 @@
           class="q-ml-sm"
           >{{ detail?.stage }}</q-chip
         >
+        <q-badge v-if="detail?.archived" color="orange-8" label="Archived" class="q-ml-sm" />
         <q-space />
+        <q-btn v-if="detail?.archived" flat dense icon="unarchive" label="Unarchive" color="orange-4" no-caps class="q-mr-sm" @click="handleUnarchive" />
+        <q-btn v-else flat round dense icon="inventory_2" color="grey-5" @click="handleArchive">
+          <q-tooltip>Archive card</q-tooltip>
+        </q-btn>
         <q-btn flat round dense icon="content_copy" color="blue-4" @click="copyCard">
           <q-tooltip>Copy card</q-tooltip>
         </q-btn>
@@ -1854,6 +1859,28 @@ watch(() => props.activityEvent, (event) => {
     detail.value.activities.push(event);
   }
 });
+
+const handleArchive = async () => {
+  try {
+    await cardApi.archive(detail.value.id);
+    $q.notify({ type: "positive", message: "Card archived" });
+    show.value = false;
+    emit("deleted"); // triggers board refresh
+  } catch {
+    $q.notify({ type: "negative", message: "Failed to archive card" });
+  }
+};
+
+const handleUnarchive = async () => {
+  try {
+    const res = await cardApi.unarchive(detail.value.id);
+    detail.value = res.data?.data || detail.value;
+    $q.notify({ type: "positive", message: "Card restored to board" });
+    emit("deleted"); // triggers board refresh
+  } catch {
+    $q.notify({ type: "negative", message: "Failed to unarchive card" });
+  }
+};
 
 const copyCard = async () => {
   try {

@@ -20,6 +20,8 @@ public class BoardResponse {
     private List<ColumnResponse> columns;
     private List<LabelResponse> labels;
     private List<TypeResponse> types;
+    private Integer autoArchiveDays;
+    private List<Long> archiveColumnIds;
 
     public static BoardResponse from(Board board, List<LabelResponse> labels, List<TypeResponse> types) {
         return BoardResponse.builder()
@@ -33,6 +35,8 @@ public class BoardResponse {
                 .columns(board.getColumns().stream().map(ColumnResponse::from).toList())
                 .labels(labels)
                 .types(types)
+                .autoArchiveDays(board.getAutoArchiveDays())
+                .archiveColumnIds(board.getArchiveColumnIds())
                 .build();
     }
 }

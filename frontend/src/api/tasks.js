@@ -56,7 +56,10 @@ export const cardApi = {
   setDesigner: (id, userId) => api.patch(`/tasks/cards/${id}/designer/${userId}`),
   removeDesigner: (id) => api.delete(`/tasks/cards/${id}/designer`),
   linkOrder: (id, orderId) => api.patch(`/tasks/cards/${id}/link-order/${orderId}`),
-  unlinkOrder: (id) => api.delete(`/tasks/cards/${id}/link-order`)
+  unlinkOrder: (id) => api.delete(`/tasks/cards/${id}/link-order`),
+  archive: (id) => api.patch(`/tasks/cards/${id}/archive`),
+  unarchive: (id) => api.patch(`/tasks/cards/${id}/unarchive`),
+  search: (boardId, q, includeArchived = true) => api.get(`/tasks/boards/${boardId}/cards/search`, { params: { q, includeArchived } })
 }
 
 export const designApi = {

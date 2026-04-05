@@ -101,4 +101,19 @@ public interface CardRepository extends JpaRepository<Card, Long> {
     // Count cards per column across multiple boards (snapshot)
     @Query("SELECT c.column.title, COUNT(c) FROM Card c WHERE c.column.board.id IN :boardIds GROUP BY c.column.title")
     List<Object[]> countByColumnForBoards(@Param("boardIds") List<Long> boardIds);
+
+    // Search cards in a board by name (includes archived if requested)
+    @Query("SELECT c FROM Card c WHERE c.column.board.id = :boardId " +
+            "AND LOWER(c.name) LIKE LOWER(CONCAT('%', :query, '%')) " +
+            "AND (:includeArchived = true OR c.archived = false) " +
+            "ORDER BY c.archived ASC, c.lastUpdatedAt DESC")
+    List<Card> searchByBoardAndName(@Param("boardId") Long boardId,
+                                    @Param("query") String query,
+                                    @Param("includeArchived") boolean includeArchived);
+
+    // Find non-archived cards in specific columns older than a cutoff date (for auto-archive)
+    @Query("SELECT c FROM Card c WHERE c.column.id IN :columnIds " +
+            "AND c.archived = false AND c.lastUpdatedAt < :cutoff")
+    List<Card> findArchiveCandidates(@Param("columnIds") List<Long> columnIds,
+                                     @Param("cutoff") LocalDateTime cutoff);
 }

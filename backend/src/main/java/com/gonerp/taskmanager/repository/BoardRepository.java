@@ -26,4 +26,7 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
 
     @Query("SELECT b FROM Board b WHERE b.active = true AND b.organization.id = :orgId AND b.boardType = :boardType")
     List<Board> findByOrganizationIdAndBoardType(@Param("orgId") Long orgId, @Param("boardType") BoardType boardType);
+
+    @Query("SELECT b FROM Board b WHERE b.active = true AND b.autoArchiveDays IS NOT NULL")
+    List<Board> findBoardsWithAutoArchive();
 }

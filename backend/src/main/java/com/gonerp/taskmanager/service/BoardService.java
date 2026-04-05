@@ -105,6 +105,11 @@ public class BoardService {
 
         BoardResponse response = BoardResponse.from(board, labels, types);
 
+        // Filter out archived cards from board view
+        for (ColumnResponse col : response.getColumns()) {
+            col.setCards(col.getCards().stream().filter(c -> !c.isArchived()).toList());
+        }
+
         // Regular members only see cards they are a member of;
         // system admins, board owners, and board admins see all cards.
         if (!isSystemAdmin()) {
@@ -175,6 +180,8 @@ public class BoardService {
         if (request.getName() != null) board.setName(request.getName());
         if (request.getDescription() != null) board.setDescription(request.getDescription());
         if (request.getCoverColor() != null) board.setCoverColor(request.getCoverColor());
+        if (request.getAutoArchiveDays() != null) board.setAutoArchiveDays(request.getAutoArchiveDays() <= 0 ? null : request.getAutoArchiveDays());
+        if (request.getArchiveColumnIds() != null) board.setArchiveColumnIds(request.getArchiveColumnIds());
         return BoardSummaryResponse.from(boardRepository.save(board));
     }
 

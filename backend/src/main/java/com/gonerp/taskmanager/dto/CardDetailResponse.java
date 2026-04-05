@@ -37,6 +37,8 @@ public class CardDetailResponse {
     private DesignDetailResponse designDetail;
     private UserSummaryResponse designer;
     private LinkedOrderInfo linkedOrder;
+    private boolean archived;
+    private LocalDateTime archivedAt;
 
     @Data
     @Builder
@@ -103,6 +105,8 @@ public class CardDetailResponse {
                 .lastUpdatedAt(card.getLastUpdatedAt())
                 .lastUpdatedBy(card.getLastUpdatedBy())
                 .designer(card.getDesigner() != null ? UserSummaryResponse.from(card.getDesigner()) : null)
+                .archived(card.isArchived())
+                .archivedAt(card.getArchivedAt())
                 .build();
     }
 }
