@@ -1,12 +1,9 @@
 package com.gonerp.config;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.ApplicationArguments;
-import org.springframework.boot.ApplicationRunner;
-import org.springframework.core.Ordered;
-import org.springframework.core.annotation.Order;
-import org.springframework.stereotype.Component;
+import org.springframework.boot.autoconfigure.orm.jpa.EntityManagerFactoryDependsOnPostProcessor;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
@@ -15,19 +12,21 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 
 /**
- * Runs safe schema migrations on startup before Hibernate and scheduled tasks.
- * Each migration checks if the column/table already exists to be idempotent.
+ * Runs safe schema migrations on startup BEFORE Hibernate validates the schema.
+ * The EntityManagerFactoryDependsOnPostProcessor ensures JPA waits for the
+ * "databaseMigration" bean to be fully initialized before creating EntityManagerFactory.
  */
 @Slf4j
-@Component
-@Order(Ordered.HIGHEST_PRECEDENCE)
-@RequiredArgsConstructor
-public class DatabaseMigrationRunner implements ApplicationRunner {
+@Configuration
+public class DatabaseMigrationRunner {
 
-    private final DataSource dataSource;
+    @Bean
+    public static EntityManagerFactoryDependsOnPostProcessor emfDependsOnMigration() {
+        return new EntityManagerFactoryDependsOnPostProcessor("databaseMigration");
+    }
 
-    @Override
-    public void run(ApplicationArguments args) {
+    @Bean(name = "databaseMigration")
+    public Object runMigrations(DataSource dataSource) {
         try (Connection conn = dataSource.getConnection()) {
 
             // ── wt_settings migrations ──
@@ -57,7 +56,6 @@ public class DatabaseMigrationRunner implements ApplicationRunner {
                 addColumnIfNotExists(conn, "user_user_groups", "group_role",
                         "ALTER TABLE user_user_groups ADD COLUMN group_role VARCHAR(20) NOT NULL DEFAULT 'MEMBER'");
 
-                // Migrate old group_admin boolean to group_role enum
                 if (columnExists(conn, "user_user_groups", "group_admin")) {
                     try (Statement stmt = conn.createStatement()) {
                         stmt.executeUpdate("UPDATE user_user_groups SET group_role = 'ADMIN' WHERE group_admin = TRUE");
@@ -110,6 +108,7 @@ public class DatabaseMigrationRunner implements ApplicationRunner {
         } catch (Exception e) {
             log.warn("Database migration runner failed (non-fatal, Hibernate ddl-auto may handle it): {}", e.getMessage());
         }
+        return new Object(); // marker bean
     }
 
     private void addColumnIfNotExists(Connection conn, String table, String column, String alterSql) throws Exception {
@@ -121,21 +120,16 @@ public class DatabaseMigrationRunner implements ApplicationRunner {
         }
     }
 
-    /**
-     * Convert a TIMESTAMP column to TIMESTAMP WITH TIME ZONE if it isn't already.
-     * Existing values are treated as Asia/Ho_Chi_Minh timezone.
-     */
     private void convertColumnToTimestampTZ(Connection conn, String table, String column) throws Exception {
         if (!tableExists(conn, table)) return;
         if (!columnExists(conn, table, column)) return;
 
-        // Check if column is already timestamptz
         DatabaseMetaData meta = conn.getMetaData();
         try (ResultSet rs = meta.getColumns(null, null, table, column)) {
             if (rs.next()) {
                 String typeName = rs.getString("TYPE_NAME").toLowerCase();
                 if (typeName.contains("timestamptz") || typeName.contains("timestamp with time zone")) {
-                    return; // already correct type
+                    return;
                 }
             }
         }
