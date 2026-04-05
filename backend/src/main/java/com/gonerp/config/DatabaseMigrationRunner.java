@@ -1,9 +1,12 @@
 package com.gonerp.config;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.autoconfigure.orm.jpa.EntityManagerFactoryDependsOnPostProcessor;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.ApplicationArguments;
+import org.springframework.boot.ApplicationRunner;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
+import org.springframework.stereotype.Component;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
@@ -12,21 +15,20 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 
 /**
- * Runs safe schema migrations on startup BEFORE Hibernate validates the schema.
- * The EntityManagerFactoryDependsOnPostProcessor ensures JPA waits for the
- * "databaseMigration" bean to be fully initialized before creating EntityManagerFactory.
+ * Runs complex schema migrations on startup (after Hibernate).
+ * Simple column additions go in schema.sql (runs before Hibernate).
+ * Each migration checks if the column/table already exists to be idempotent.
  */
 @Slf4j
-@Configuration
-public class DatabaseMigrationRunner {
+@Component
+@Order(Ordered.HIGHEST_PRECEDENCE)
+@RequiredArgsConstructor
+public class DatabaseMigrationRunner implements ApplicationRunner {
 
-    @Bean
-    public static EntityManagerFactoryDependsOnPostProcessor emfDependsOnMigration() {
-        return new EntityManagerFactoryDependsOnPostProcessor("databaseMigration");
-    }
+    private final DataSource dataSource;
 
-    @Bean(name = "databaseMigration")
-    public Object runMigrations(DataSource dataSource) {
+    @Override
+    public void run(ApplicationArguments args) {
         try (Connection conn = dataSource.getConnection()) {
 
             // ── wt_settings migrations ──
@@ -88,27 +90,10 @@ public class DatabaseMigrationRunner {
             addColumnIfNotExists(conn, "fin_transactions", "inter_account",
                     "ALTER TABLE fin_transactions ADD COLUMN inter_account BOOLEAN NOT NULL DEFAULT FALSE");
 
-            // ── tm_cards: card archive support ──
-
-            addColumnIfNotExists(conn, "tm_cards", "archived",
-                    "ALTER TABLE tm_cards ADD COLUMN archived BOOLEAN NOT NULL DEFAULT FALSE");
-
-            addColumnIfNotExists(conn, "tm_cards", "archived_at",
-                    "ALTER TABLE tm_cards ADD COLUMN archived_at TIMESTAMP");
-
-            // ── tm_boards: auto-archive settings ──
-
-            addColumnIfNotExists(conn, "tm_boards", "auto_archive_days",
-                    "ALTER TABLE tm_boards ADD COLUMN auto_archive_days INTEGER");
-
-            addColumnIfNotExists(conn, "tm_boards", "archive_column_ids",
-                    "ALTER TABLE tm_boards ADD COLUMN archive_column_ids TEXT");
-
             log.info("Database migration check completed");
         } catch (Exception e) {
-            log.warn("Database migration runner failed (non-fatal, Hibernate ddl-auto may handle it): {}", e.getMessage());
+            log.warn("Database migration runner failed (non-fatal): {}", e.getMessage());
         }
-        return new Object(); // marker bean
     }
 
     private void addColumnIfNotExists(Connection conn, String table, String column, String alterSql) throws Exception {
