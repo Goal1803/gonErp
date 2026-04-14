@@ -794,6 +794,41 @@ public class CardService {
                 .toList();
     }
 
+    // === Comment images ZIP download (any board) ===
+
+    @Transactional(readOnly = true)
+    public MockupZipPayload prepareCommentImagesZip(Long cardId, Long commentId) {
+        Card card = getCardOrThrow(cardId);
+        checkBoardAccess(card.getColumn());
+        CardComment comment = cardCommentRepository.findById(commentId)
+                .orElseThrow(() -> new EntityNotFoundException("Comment not found: " + commentId));
+        if (!comment.getCard().getId().equals(cardId)) {
+            throw new IllegalArgumentException("Comment does not belong to this card");
+        }
+        List<String> urls = comment.getImageUrls() != null ? comment.getImageUrls() : List.of();
+        String filename = "comment-" + commentId + "-images.zip";
+        return new MockupZipPayload(filename, out -> {
+            try (ZipOutputStream zos = new ZipOutputStream(out)) {
+                Set<String> usedNames = new HashSet<>();
+                for (String url : urls) {
+                    String key = extractR2Key(url);
+                    if (key == null) continue;
+                    Resource resource = fileStorageService.loadFromR2(key);
+                    if (resource == null) continue;
+                    String name = key.substring(key.lastIndexOf('/') + 1);
+                    name = dedupName(name, usedNames);
+                    zos.putNextEntry(new ZipEntry(name));
+                    try (InputStream in = resource.getInputStream()) {
+                        in.transferTo(zos);
+                    } catch (IOException ignored) { }
+                    zos.closeEntry();
+                }
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to write comment images zip", e);
+            }
+        });
+    }
+
     // === Mockup ZIP download (POD_DESIGN) ===
 
     public record MockupZipPayload(String filename, java.util.function.Consumer<OutputStream> writer) {}

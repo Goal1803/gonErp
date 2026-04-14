@@ -225,6 +225,17 @@ public class CardController {
         return ResponseEntity.ok(ApiResponse.ok(cardService.searchCards(boardId, q, includeArchived)));
     }
 
+    @GetMapping("/cards/{cardId}/comments/{commentId}/images/zip")
+    public ResponseEntity<org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody>
+            downloadCommentImages(@PathVariable Long cardId, @PathVariable Long commentId) {
+        var payload = cardService.prepareCommentImagesZip(cardId, commentId);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("application/zip"))
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"" + payload.filename() + "\"")
+                .body(payload.writer()::accept);
+    }
+
     // === Mockup ZIP download (POD_DESIGN) ===
 
     @GetMapping("/cards/{id}/mockups/zip")

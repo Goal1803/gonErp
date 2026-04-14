@@ -7,6 +7,7 @@
       v-for="c in localComments"
       :key="c.id"
       :comment="c"
+      :card-id="entityId"
       :current-user="currentUser"
       :is-admin="isAdmin"
       :members="members"
