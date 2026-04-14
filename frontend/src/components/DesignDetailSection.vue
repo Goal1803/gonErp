@@ -55,7 +55,12 @@
 
       <!-- Mockups -->
       <div class="q-mb-md">
-        <div class="sidebar-label"><q-icon name="photo_library" size="xs" /> Mockups</div>
+        <div class="sidebar-label row items-center justify-between no-wrap">
+          <span><q-icon name="photo_library" size="xs" /> Mockups</span>
+          <q-btn v-if="designDetail.mockups?.length" flat dense no-caps size="xs" color="teal-4"
+            :icon="downloadingZip ? undefined : 'download'" :loading="downloadingZip"
+            label="Download all" @click="downloadAllMockups" />
+        </div>
         <div v-if="designDetail.mockups?.length" class="mockup-grid q-mb-sm">
           <div v-for="m in designDetail.mockups" :key="m.id" class="mockup-thumb-wrap"
             :class="{ 'mockup-main': m.mainMockup }">
@@ -148,10 +153,11 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { useQuasar } from 'quasar'
 import { designApi, lookupApi } from 'src/api/tasks'
-import { thumbUrl, downloadUrl } from 'src/utils/fileUrl'
+import { thumbUrl, downloadUrl, saveBlob } from 'src/utils/fileUrl'
 
 const props = defineProps({
   cardId: { type: Number, required: true },
+  cardName: { type: String, default: '' },
   boardMembers: { type: Array, default: () => [] }
 })
 const emit = defineEmits(['updated', 'view-images', 'members-changed'])
@@ -164,6 +170,21 @@ const mockupFile = ref(null)
 const uploadingPng = ref(false)
 const uploadingPsd = ref(false)
 const uploadingMockup = ref(false)
+const downloadingZip = ref(false)
+
+const sanitizeFilename = (s) => (s || 'mockups').replace(/[\\/:*?"<>|\r\n\t]/g, '_').trim() || 'mockups'
+
+const downloadAllMockups = async () => {
+  downloadingZip.value = true
+  try {
+    const res = await designApi.downloadMockupsZip(props.cardId)
+    saveBlob(res.data, sanitizeFilename(props.cardName) + '.zip')
+  } catch {
+    $q.notify({ type: 'negative', message: 'Failed to download mockups' })
+  } finally {
+    downloadingZip.value = false
+  }
+}
 
 // Form state
 const ideaCreatorId = ref(null)

@@ -15,6 +15,13 @@
     <!-- Action buttons (visible on hover) -->
     <div class="card-action-btns">
       <q-btn
+        v-if="boardType === 'POD_DESIGN'"
+        flat round dense icon="download" color="teal-3" size="xs"
+        @click.stop="$emit('download-mockups', card)"
+      >
+        <q-tooltip>Download mockups</q-tooltip>
+      </q-btn>
+      <q-btn
         flat round dense icon="content_copy" color="grey-6" size="xs"
         @click.stop="$emit('copy', card)"
       >
@@ -100,7 +107,7 @@ defineProps({
   selected: { type: Boolean, default: false },
   boardType: { type: String, default: 'GENERAL' }
 })
-defineEmits(['open', 'delete', 'copy', 'assign', 'toggle-select'])
+defineEmits(['open', 'delete', 'copy', 'assign', 'toggle-select', 'download-mockups'])
 
 const statusColor = (s) => ({
   OPEN: 'grey-7', IN_PROGRESS: 'blue-7', DONE: 'green-8', BLOCKED: 'red-8', CANCELLED: 'grey-9'

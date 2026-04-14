@@ -79,7 +79,13 @@ export const designApi = {
   deleteMockup: (cardId, mockupId) => api.delete(`/tasks/cards/${cardId}/design/mockups/${mockupId}`),
   setMainMockup: (cardId, mockupId) => api.patch(`/tasks/cards/${cardId}/design/mockups/${mockupId}/main`),
   addDesigner: (cardId, userId) => api.post(`/tasks/cards/${cardId}/design/designers/${userId}`),
-  removeDesigner: (cardId, userId) => api.delete(`/tasks/cards/${cardId}/design/designers/${userId}`)
+  removeDesigner: (cardId, userId) => api.delete(`/tasks/cards/${cardId}/design/designers/${userId}`),
+  downloadMockupsZip: (cardId) => api.get(`/tasks/cards/${cardId}/mockups/zip`, {
+    responseType: 'blob', timeout: 600000
+  }),
+  downloadMockupsZipBulk: (cardIds) => api.post('/tasks/cards/mockups/zip', { cardIds }, {
+    responseType: 'blob', timeout: 600000
+  })
 }
 
 export const lookupApi = {

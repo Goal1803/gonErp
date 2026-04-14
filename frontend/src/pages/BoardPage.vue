@@ -136,6 +136,7 @@
             @drag-end="onDragEnd"
             @assign-card="onAssignCard"
             @toggle-select-card="onToggleSelectCard"
+            @download-mockups-card="onDownloadMockupsCard"
           />
         </template>
       </draggable>
@@ -163,6 +164,7 @@
       <span class="text-white">{{ selectedCardIds.size }} card(s) selected</span>
       <q-btn flat color="blue-4" icon="person_add" label="Assign Member" no-caps @click="showBulkMemberAssign = true" />
       <q-btn v-if="isPodDesign" flat color="purple-4" icon="brush" label="Assign Designer" no-caps @click="showBulkDesignerAssign = true" />
+      <q-btn v-if="isPodDesign" flat color="teal-3" icon="download" label="Download Mockups" no-caps :loading="bulkDownloading" @click="doBulkDownloadMockups" />
       <q-btn flat color="grey-5" icon="close" label="Clear" no-caps @click="selectedCardIds.clear()" />
     </div>
 
@@ -300,6 +302,7 @@ import { useBoardStore } from 'src/stores/boardStore'
 import { useAuthStore } from 'src/stores/authStore'
 import { useBoardSocket } from 'src/composables/useBoardSocket'
 import { columnApi, cardApi, designApi } from 'src/api/tasks'
+import { saveBlob } from 'src/utils/fileUrl'
 import { TAB_ID } from 'src/boot/axios'
 import KanbanColumn from 'src/components/KanbanColumn.vue'
 import CardDetailDialog from 'src/components/CardDetailDialog.vue'
@@ -371,6 +374,34 @@ const doBulkMemberAssign = async () => {
     $q.notify({ type: 'negative', message: 'Failed to assign member to some cards' })
   } finally {
     bulkAssigning.value = false
+  }
+}
+
+const bulkDownloading = ref(false)
+const sanitizeFilename = (s) => (s || 'mockups').replace(/[\\/:*?"<>|\r\n\t]/g, '_').trim() || 'mockups'
+
+const onDownloadMockupsCard = async (card) => {
+  try {
+    $q.notify({ type: 'info', message: `Preparing zip for "${card.name}"...`, timeout: 1500 })
+    const res = await designApi.downloadMockupsZip(card.id)
+    saveBlob(res.data, sanitizeFilename(card.name) + '.zip')
+  } catch {
+    $q.notify({ type: 'negative', message: 'Failed to download mockups' })
+  }
+}
+
+const doBulkDownloadMockups = async () => {
+  if (!selectedCardIds.size) return
+  bulkDownloading.value = true
+  try {
+    const ids = [...selectedCardIds]
+    const res = await designApi.downloadMockupsZipBulk(ids)
+    saveBlob(res.data, `mockups-${ids.length}-cards.zip`)
+    $q.notify({ type: 'positive', message: `Downloaded mockups for ${ids.length} card(s)` })
+  } catch {
+    $q.notify({ type: 'negative', message: 'Failed to download mockups' })
+  } finally {
+    bulkDownloading.value = false
   }
 }
 
