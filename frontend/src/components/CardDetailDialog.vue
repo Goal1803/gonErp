@@ -779,6 +779,7 @@
           <DesignDetailSection
             v-if="props.boardType === 'POD_DESIGN' && detail?.id"
             :card-id="detail.id"
+            :card-name="detail.name"
             :board-members="props.boardMembers"
             @updated="emit('updated')"
             @members-changed="refreshDetail(); emit('updated')"

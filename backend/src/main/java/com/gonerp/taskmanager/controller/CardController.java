@@ -225,6 +225,30 @@ public class CardController {
         return ResponseEntity.ok(ApiResponse.ok(cardService.searchCards(boardId, q, includeArchived)));
     }
 
+    // === Mockup ZIP download (POD_DESIGN) ===
+
+    @GetMapping("/cards/{id}/mockups/zip")
+    public ResponseEntity<org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody>
+            downloadCardMockups(@PathVariable Long id) {
+        var payload = cardService.prepareMockupZip(id);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("application/zip"))
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"" + payload.filename() + "\"")
+                .body(payload.writer()::accept);
+    }
+
+    @PostMapping("/cards/mockups/zip")
+    public ResponseEntity<org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody>
+            downloadBulkMockups(@RequestBody Map<String, List<Long>> body) {
+        var payload = cardService.prepareMockupZipBulk(body.get("cardIds"));
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("application/zip"))
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"" + payload.filename() + "\"")
+                .body(payload.writer()::accept);
+    }
+
     @GetMapping("/files/{filename:.+}")
     public ResponseEntity<?> serveFile(
             @PathVariable String filename,

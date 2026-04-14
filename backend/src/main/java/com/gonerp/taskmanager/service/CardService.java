@@ -28,11 +28,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 @Service
 @RequiredArgsConstructor
@@ -787,6 +792,115 @@ public class CardService {
         return cardRepository.searchByBoardAndName(boardId, query, includeArchived).stream()
                 .map(CardSummaryResponse::from)
                 .toList();
+    }
+
+    // === Mockup ZIP download (POD_DESIGN) ===
+
+    public record MockupZipPayload(String filename, java.util.function.Consumer<OutputStream> writer) {}
+
+    @Transactional(readOnly = true)
+    public MockupZipPayload prepareMockupZip(Long cardId) {
+        Card card = getCardOrThrow(cardId);
+        checkBoardAccess(card.getColumn());
+        if (card.getColumn().getBoard().getBoardType() != BoardType.POD_DESIGN) {
+            throw new IllegalStateException("Mockup download is only available for POD_DESIGN boards");
+        }
+        List<DesignMockup> mockups = designDetailRepository.findByCardId(cardId)
+                .map(DesignDetail::getMockups).orElse(List.of());
+        String filename = sanitizeFilename(card.getName()) + ".zip";
+        return new MockupZipPayload(filename, out -> {
+            try (ZipOutputStream zos = new ZipOutputStream(out)) {
+                writeMockupEntries(zos, mockups, null);
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to write mockup zip", e);
+            }
+        });
+    }
+
+    @Transactional(readOnly = true)
+    public MockupZipPayload prepareMockupZipBulk(List<Long> cardIds) {
+        if (cardIds == null || cardIds.isEmpty()) {
+            throw new IllegalArgumentException("No card IDs provided");
+        }
+        Map<String, List<DesignMockup>> folders = new LinkedHashMap<>();
+        Set<String> usedFolders = new HashSet<>();
+        for (Long id : cardIds) {
+            Card card = getCardOrThrow(id);
+            checkBoardAccess(card.getColumn());
+            if (card.getColumn().getBoard().getBoardType() != BoardType.POD_DESIGN) continue;
+            List<DesignMockup> mockups = designDetailRepository.findByCardId(id)
+                    .map(DesignDetail::getMockups).orElse(List.of());
+            if (mockups.isEmpty()) continue;
+            String folder = dedupName(sanitizeFilename(card.getName()), usedFolders);
+            folders.put(folder, mockups);
+        }
+        String filename = "mockups-" + System.currentTimeMillis() + ".zip";
+        return new MockupZipPayload(filename, out -> {
+            try (ZipOutputStream zos = new ZipOutputStream(out)) {
+                for (Map.Entry<String, List<DesignMockup>> e : folders.entrySet()) {
+                    writeMockupEntries(zos, e.getValue(), e.getKey());
+                }
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to write mockup zip", e);
+            }
+        });
+    }
+
+    private void writeMockupEntries(ZipOutputStream zos, List<DesignMockup> mockups, String folder) throws IOException {
+        Set<String> usedNames = new HashSet<>();
+        for (DesignMockup m : mockups) {
+            String key = extractR2Key(m.getUrl());
+            if (key == null) continue;
+            Resource resource = fileStorageService.loadFromR2(key);
+            if (resource == null) continue;
+            String name = pickMockupFilename(m, key);
+            name = dedupName(name, usedNames);
+            String entryName = (folder != null ? folder + "/" : "") + name;
+            zos.putNextEntry(new ZipEntry(entryName));
+            try (InputStream in = resource.getInputStream()) {
+                in.transferTo(zos);
+            } catch (IOException ex) {
+                // skip unreadable mockup but continue with others
+            }
+            zos.closeEntry();
+        }
+    }
+
+    private String extractR2Key(String url) {
+        if (url == null) return null;
+        String publicUrl = r2Props.getPublicUrl();
+        if (publicUrl != null && url.startsWith(publicUrl)) {
+            return url.substring(publicUrl.length() + 1);
+        }
+        return null;
+    }
+
+    private String pickMockupFilename(DesignMockup m, String key) {
+        String ext = "";
+        int dot = key.lastIndexOf('.');
+        if (dot >= 0) ext = key.substring(dot);
+        String base = (m.getName() != null && !m.getName().isBlank())
+                ? sanitizeFilename(m.getName())
+                : "mockup-" + m.getId();
+        if (!base.toLowerCase().endsWith(ext.toLowerCase())) base = base + ext;
+        return base;
+    }
+
+    private String sanitizeFilename(String s) {
+        if (s == null || s.isBlank()) return "unnamed";
+        return s.replaceAll("[\\\\/:*?\"<>|\\r\\n\\t]", "_").trim();
+    }
+
+    private String dedupName(String name, Set<String> used) {
+        if (used.add(name)) return name;
+        int dot = name.lastIndexOf('.');
+        String base = dot > 0 ? name.substring(0, dot) : name;
+        String ext = dot > 0 ? name.substring(dot) : "";
+        for (int i = 2; i < 10000; i++) {
+            String candidate = base + " (" + i + ")" + ext;
+            if (used.add(candidate)) return candidate;
+        }
+        return name + "-" + UUID.randomUUID();
     }
 
     private void logActivity(Card card, String action) {

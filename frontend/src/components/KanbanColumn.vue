@@ -54,6 +54,7 @@
             @copy="$emit('copy-card', $event)"
             @assign="$emit('assign-card', $event)"
             @toggle-select="$emit('toggle-select-card', $event)"
+            @download-mockups="$emit('download-mockups-card', $event)"
           />
         </template>
       </draggable>
@@ -100,7 +101,7 @@ const props = defineProps({
   selectedIds: { type: Set, default: () => new Set() },
   boardType: { type: String, default: 'GENERAL' },
 })
-const emit = defineEmits(['open-card', 'delete', 'delete-card', 'copy-card', 'refresh', 'drag-start', 'drag-end', 'assign-card', 'toggle-select-card'])
+const emit = defineEmits(['open-card', 'delete', 'delete-card', 'copy-card', 'refresh', 'drag-start', 'drag-end', 'assign-card', 'toggle-select-card', 'download-mockups-card'])
 const $q = useQuasar()
 const boardStore = useBoardStore()
 
