@@ -71,9 +71,15 @@
       <!-- Image grid -->
       <div
         v-if="comment.imageUrls?.length"
-        class="comment-image-grid"
         style="margin-left: 32px; margin-top: 6px"
       >
+        <div v-if="comment.imageUrls.length > 1" class="row justify-end q-mb-xs">
+          <q-btn flat dense no-caps size="xs" color="teal-4"
+            :icon="downloadingZip ? undefined : 'download'" :loading="downloadingZip"
+            :label="`Download all (${comment.imageUrls.length})`"
+            @click="downloadAllImages" />
+        </div>
+        <div class="comment-image-grid">
         <div
           v-for="(url, i) in comment.imageUrls" :key="i"
           class="comment-img-wrap"
@@ -90,6 +96,7 @@
               @click.stop="downloadFile(url)"
             />
           </div>
+        </div>
         </div>
       </div>
 
@@ -133,6 +140,7 @@
         v-for="reply in comment.replies"
         :key="reply.id"
         :comment="reply"
+        :card-id="cardId"
         :is-reply="true"
         :current-user="currentUser"
         :is-admin="isAdmin"
@@ -150,10 +158,12 @@
 import { ref, computed, nextTick } from 'vue'
 import { useQuasar } from 'quasar'
 import UserAvatar from 'src/components/UserAvatar.vue'
-import { thumbUrl, downloadUrl } from 'src/utils/fileUrl'
+import { thumbUrl, downloadUrl, saveBlob } from 'src/utils/fileUrl'
+import { cardApi } from 'src/api/tasks'
 
 const props = defineProps({
   comment: { type: Object, required: true },
+  cardId: { type: Number, default: null },
   isReply: { type: Boolean, default: false },
   currentUser: { type: Object, default: null },
   isAdmin: { type: Boolean, default: false },
@@ -263,6 +273,20 @@ const keepTooltip = () => clearTimeout(tooltipTimer)
 const hideTooltip = () => { hoveredMention.value = null }
 
 const formatDate = (d) => (d ? new Date(d).toLocaleString() : '')
+
+const downloadingZip = ref(false)
+const downloadAllImages = async () => {
+  if (!props.cardId) return
+  downloadingZip.value = true
+  try {
+    const res = await cardApi.downloadCommentImagesZip(props.cardId, props.comment.id)
+    saveBlob(res.data, `comment-${props.comment.id}-images.zip`)
+  } catch {
+    $q.notify({ type: 'negative', message: 'Failed to download images' })
+  } finally {
+    downloadingZip.value = false
+  }
+}
 
 const downloadFile = async (url) => {
   try {
