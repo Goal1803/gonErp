@@ -39,13 +39,20 @@ public class DayOffQuotaService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<DayOffQuotaResponse> getOrgQuotas(Long orgId, int year) {
+        return quotaRepository.findByDayOffTypeOrganizationIdAndYear(orgId, year).stream()
+                .map(DayOffQuotaResponse::from)
+                .toList();
+    }
+
     public DayOffQuotaResponse setQuota(Long userId, Long typeId, DayOffQuotaUpdateRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException("User not found: " + userId));
         DayOffType dayOffType = dayOffTypeRepository.findById(typeId)
                 .orElseThrow(() -> new EntityNotFoundException("Day-off type not found: " + typeId));
 
-        int year = java.time.LocalDate.now().getYear();
+        int year = request.getYear() != null ? request.getYear() : java.time.LocalDate.now().getYear();
 
         DayOffQuota quota = quotaRepository.findByUserIdAndDayOffTypeIdAndYear(userId, typeId, year)
                 .orElseGet(() -> DayOffQuota.builder()

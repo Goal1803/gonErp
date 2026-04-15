@@ -26,6 +26,7 @@ export const worktimeDayOffTypeApi = {
 export const worktimeDayOffQuotaApi = {
   getMyQuotas: (year) => api.get('/worktime/quotas/my', { params: { year } }),
   getUserQuotas: (userId, year) => api.get(`/worktime/quotas/user/${userId}`, { params: { year } }),
+  getOrgQuotas: (year) => api.get('/worktime/quotas/org', { params: { year } }),
   setQuota: (userId, typeId, data) => api.put(`/worktime/quotas/user/${userId}/type/${typeId}`, data),
   bulkAssign: (data) => api.post('/worktime/quotas/bulk-assign', data)
 }
@@ -34,9 +35,21 @@ export const worktimeDayOffRequestApi = {
   getMyRequests: () => api.get('/worktime/day-off-requests/my'),
   create: (data) => api.post('/worktime/day-off-requests', data),
   cancel: (id) => api.delete(`/worktime/day-off-requests/${id}`),
+  previewDays: (startDate, endDate, halfDay) => api.get('/worktime/day-off-requests/preview-days', {
+    params: { startDate, endDate, halfDay }
+  }),
+  overlappingPeers: (startDate, endDate) => api.get('/worktime/day-off-requests/overlapping-peers', {
+    params: { startDate, endDate }
+  }),
   getPending: () => api.get('/worktime/day-off-requests/pending'),
   approve: (id, comment) => api.patch(`/worktime/day-off-requests/${id}/approve`, { comment }),
-  deny: (id, comment) => api.patch(`/worktime/day-off-requests/${id}/deny`, { comment })
+  deny: (id, comment) => api.patch(`/worktime/day-off-requests/${id}/deny`, { comment }),
+  bulkApprove: (ids, comment) => api.post('/worktime/day-off-requests/bulk-approve', { ids, comment }),
+  bulkDeny: (ids, comment) => api.post('/worktime/day-off-requests/bulk-deny', { ids, comment }),
+  adminRevoke: (id, comment) => api.patch(`/worktime/day-off-requests/${id}/revoke`, { comment }),
+  adminList: (params) => api.get('/worktime/day-off-requests/admin', { params }),
+  exportCsv: (params) => api.get('/worktime/day-off-requests/admin/export', { params, responseType: 'blob' }),
+  reportSummary: (params) => api.get('/worktime/day-off-requests/admin/report', { params })
 }
 
 // Phase 3: Team Calendar & Public Holidays

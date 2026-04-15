@@ -36,6 +36,32 @@
           </q-card>
         </div>
 
+        <!-- Day Off Admin (admin only) -->
+        <div v-if="authStore.isAdmin" class="home-card-link" @click="router.push('/worktime/day-off/admin')">
+          <q-card class="home-card" flat>
+            <q-card-section class="column items-center q-pa-lg">
+              <q-icon name="admin_panel_settings" size="56px" color="orange-5" />
+              <div class="text-h6 text-white q-mt-md">Day Off Admin</div>
+              <div class="text-caption text-grey-5 q-mt-xs text-center">
+                Review requests, manage quotas
+              </div>
+            </q-card-section>
+          </q-card>
+        </div>
+
+        <!-- Day Off Reports (admin only) -->
+        <div v-if="authStore.isAdmin" class="home-card-link" @click="router.push('/worktime/day-off/reports')">
+          <q-card class="home-card" flat>
+            <q-card-section class="column items-center q-pa-lg">
+              <q-icon name="insights" size="56px" color="blue-6" />
+              <div class="text-h6 text-white q-mt-md">Day Off Reports</div>
+              <div class="text-caption text-grey-5 q-mt-xs text-center">
+                Utilization &amp; top users
+              </div>
+            </q-card-section>
+          </q-card>
+        </div>
+
         <!-- Team Calendar -->
         <div class="home-card-link" @click="router.push('/worktime/calendar')">
           <q-card class="home-card" flat>

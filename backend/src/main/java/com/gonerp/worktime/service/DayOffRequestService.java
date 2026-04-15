@@ -9,11 +9,13 @@ import com.gonerp.worktime.event.WorkTimeNotificationEvent;
 import com.gonerp.worktime.model.DayOffQuota;
 import com.gonerp.worktime.model.DayOffRequest;
 import com.gonerp.worktime.model.DayOffType;
+import com.gonerp.worktime.model.PublicHoliday;
 import com.gonerp.worktime.model.enums.DayOffRequestStatus;
 import com.gonerp.worktime.model.enums.HalfDayType;
 import com.gonerp.worktime.repository.DayOffQuotaRepository;
 import com.gonerp.worktime.repository.DayOffRequestRepository;
 import com.gonerp.worktime.repository.DayOffTypeRepository;
+import com.gonerp.worktime.repository.PublicHolidayRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -23,6 +25,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.MonthDay;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -35,6 +39,7 @@ public class DayOffRequestService {
     private final DayOffRequestRepository requestRepository;
     private final DayOffQuotaRepository quotaRepository;
     private final DayOffTypeRepository dayOffTypeRepository;
+    private final PublicHolidayRepository publicHolidayRepository;
     private final UserRepository userRepository;
     private final ApplicationEventPublisher eventPublisher;
 
@@ -66,8 +71,9 @@ public class DayOffRequestService {
             }
         }
 
-        // Compute total days
-        double totalDays = computeTotalDays(dto.getStartDate(), dto.getEndDate(), halfDayType);
+        // Compute total days (excludes weekends and public holidays)
+        Long orgId = user.getOrganization() != null ? user.getOrganization().getId() : null;
+        double totalDays = computeTotalDays(orgId, dto.getStartDate(), dto.getEndDate(), halfDayType);
 
         // Check quota availability
         int year = dto.getStartDate().getYear();
@@ -182,6 +188,153 @@ public class DayOffRequestService {
         return DayOffRequestResponse.from(savedApproved);
     }
 
+    public List<DayOffRequestResponse> bulkApprove(List<Long> ids, Long reviewerId, String comment) {
+        return ids.stream().map(id -> {
+            try { return approve(id, reviewerId, comment); }
+            catch (Exception e) { return null; }
+        }).filter(x -> x != null).toList();
+    }
+
+    public List<DayOffRequestResponse> bulkDeny(List<Long> ids, Long reviewerId, String comment) {
+        return ids.stream().map(id -> {
+            try { return deny(id, reviewerId, comment); }
+            catch (Exception e) { return null; }
+        }).filter(x -> x != null).toList();
+    }
+
+    public DayOffRequestResponse adminRevoke(Long id, Long reviewerId, String comment) {
+        DayOffRequest request = requestRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Day-off request not found: " + id));
+        if (request.getStatus() != DayOffRequestStatus.APPROVED) {
+            throw new IllegalStateException("Only approved requests can be revoked");
+        }
+        User reviewer = userRepository.findById(reviewerId)
+                .orElseThrow(() -> new EntityNotFoundException("Reviewer not found: " + reviewerId));
+
+        // Restore used days
+        int year = request.getStartDate().getYear();
+        quotaRepository.findByUserIdAndDayOffTypeIdAndYear(
+                request.getUser().getId(), request.getDayOffType().getId(), year)
+                .ifPresent(q -> {
+                    q.setUsedDays(Math.max(0, q.getUsedDays() - request.getTotalDays()));
+                    quotaRepository.save(q);
+                });
+
+        request.setStatus(DayOffRequestStatus.CANCELLED);
+        request.setReviewedBy(reviewer);
+        request.setReviewedAt(LocalDateTime.now());
+        String prev = request.getReviewComment();
+        request.setReviewComment("[Revoked] " + (comment != null ? comment : "") + (prev != null ? " | prev: " + prev : ""));
+
+        DayOffRequest saved = requestRepository.save(request);
+        eventPublisher.publishEvent(new WorkTimeNotificationEvent(
+                reviewerId,
+                Set.of(request.getUser().getId()),
+                "DAY_OFF_DENIED",
+                "Your approved day-off (" + request.getDayOffType().getName() + ") from "
+                        + request.getStartDate() + " to " + request.getEndDate() + " was revoked by admin"
+                        + (comment != null && !comment.isBlank() ? ": " + comment : "")
+        ));
+        return DayOffRequestResponse.from(saved);
+    }
+
+    @Transactional(readOnly = true)
+    public List<java.util.Map<String, Object>> overlappingPeers(Long userId, LocalDate start, LocalDate end) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException("User not found: " + userId));
+        if (user.getOrganization() == null) return List.of();
+        List<DayOffRequest> rows = requestRepository.findOverlappingRequests(
+                user.getOrganization().getId(),
+                List.of(DayOffRequestStatus.PENDING, DayOffRequestStatus.APPROVED),
+                start, end);
+        return rows.stream()
+                .filter(r -> r.getUser() != null && !r.getUser().getId().equals(userId))
+                .map(r -> {
+                    java.util.Map<String, Object> m = new java.util.HashMap<>();
+                    m.put("userId", r.getUser().getId());
+                    m.put("userName", r.getUser().getUserName());
+                    m.put("firstName", r.getUser().getFirstName());
+                    m.put("lastName", r.getUser().getLastName());
+                    m.put("status", r.getStatus().name());
+                    m.put("startDate", r.getStartDate());
+                    m.put("endDate", r.getEndDate());
+                    m.put("dayOffTypeName", r.getDayOffType() != null ? r.getDayOffType().getName() : null);
+                    m.put("dayOffTypeColor", r.getDayOffType() != null ? r.getDayOffType().getColor() : null);
+                    return m;
+                })
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.Map<String, Object> reportSummary(Long orgId, LocalDate from, LocalDate to) {
+        List<DayOffRequest> approved = requestRepository.searchByOrgFilters(
+                orgId, DayOffRequestStatus.APPROVED, null, null, from, to);
+        List<DayOffRequest> pending = requestRepository.searchByOrgFilters(
+                orgId, DayOffRequestStatus.PENDING, null, null, from, to);
+        List<DayOffRequest> denied = requestRepository.searchByOrgFilters(
+                orgId, DayOffRequestStatus.DENIED, null, null, from, to);
+
+        double totalApprovedDays = approved.stream().mapToDouble(DayOffRequest::getTotalDays).sum();
+
+        // days per type (approved only)
+        java.util.Map<String, Double> daysByType = new java.util.LinkedHashMap<>();
+        java.util.Map<String, String> colorByType = new java.util.HashMap<>();
+        for (DayOffRequest r : approved) {
+            String name = r.getDayOffType() != null ? r.getDayOffType().getName() : "Unknown";
+            daysByType.merge(name, r.getTotalDays(), Double::sum);
+            if (r.getDayOffType() != null && r.getDayOffType().getColor() != null)
+                colorByType.putIfAbsent(name, r.getDayOffType().getColor());
+        }
+
+        // top users by approved days
+        java.util.Map<Long, Double> daysByUser = new java.util.HashMap<>();
+        java.util.Map<Long, String> userNames = new java.util.HashMap<>();
+        for (DayOffRequest r : approved) {
+            if (r.getUser() == null) continue;
+            Long uid = r.getUser().getId();
+            daysByUser.merge(uid, r.getTotalDays(), Double::sum);
+            userNames.putIfAbsent(uid, r.getUser().getUserName());
+        }
+        List<java.util.Map<String, Object>> topUsers = daysByUser.entrySet().stream()
+                .sorted((a, b) -> Double.compare(b.getValue(), a.getValue()))
+                .limit(10)
+                .map(e -> {
+                    java.util.Map<String, Object> m = new java.util.HashMap<>();
+                    m.put("userId", e.getKey());
+                    m.put("userName", userNames.get(e.getKey()));
+                    m.put("days", e.getValue());
+                    return m;
+                })
+                .toList();
+
+        java.util.Map<String, Object> out = new java.util.HashMap<>();
+        out.put("approvedCount", approved.size());
+        out.put("pendingCount", pending.size());
+        out.put("deniedCount", denied.size());
+        out.put("totalApprovedDays", totalApprovedDays);
+        out.put("daysByType", daysByType.entrySet().stream().map(e -> {
+            java.util.Map<String, Object> m = new java.util.HashMap<>();
+            m.put("name", e.getKey());
+            m.put("days", e.getValue());
+            m.put("color", colorByType.get(e.getKey()));
+            return m;
+        }).toList());
+        out.put("topUsers", topUsers);
+        return out;
+    }
+
+    @Transactional(readOnly = true)
+    public List<DayOffRequestResponse> adminList(Long orgId, String status, Long userId, Long typeId,
+                                                  LocalDate from, LocalDate to) {
+        DayOffRequestStatus st = null;
+        if (status != null && !status.isBlank() && !"ALL".equalsIgnoreCase(status)) {
+            try { st = DayOffRequestStatus.valueOf(status.toUpperCase()); } catch (IllegalArgumentException ignored) { }
+        }
+        return requestRepository.searchByOrgFilters(orgId, st, userId, typeId, from, to).stream()
+                .map(DayOffRequestResponse::from)
+                .toList();
+    }
+
     public DayOffRequestResponse deny(Long id, Long reviewerId, String comment) {
         DayOffRequest request = requestRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Day-off request not found: " + id));
@@ -215,21 +368,60 @@ public class DayOffRequestService {
 
     // ── Helpers ─────────────────────────────────────────────────────────────────
 
-    private double computeTotalDays(LocalDate startDate, LocalDate endDate, HalfDayType halfDayType) {
+    private double computeTotalDays(Long orgId, LocalDate startDate, LocalDate endDate, HalfDayType halfDayType) {
+        Set<LocalDate> holidays = resolveHolidayDates(orgId, startDate, endDate);
+
         if (halfDayType == HalfDayType.MORNING || halfDayType == HalfDayType.AFTERNOON) {
+            // Half day only meaningful for single-day requests; if it falls on a weekend/holiday → 0
+            DayOfWeek dow = startDate.getDayOfWeek();
+            if (dow == DayOfWeek.SATURDAY || dow == DayOfWeek.SUNDAY || holidays.contains(startDate)) return 0;
             return 0.5;
         }
 
-        // Count weekdays between start and end (inclusive)
         double days = 0;
         LocalDate current = startDate;
         while (!current.isAfter(endDate)) {
             DayOfWeek dow = current.getDayOfWeek();
-            if (dow != DayOfWeek.SATURDAY && dow != DayOfWeek.SUNDAY) {
+            if (dow != DayOfWeek.SATURDAY && dow != DayOfWeek.SUNDAY && !holidays.contains(current)) {
                 days += 1.0;
             }
             current = current.plusDays(1);
         }
         return days;
+    }
+
+    private Set<LocalDate> resolveHolidayDates(Long orgId, LocalDate start, LocalDate end) {
+        Set<LocalDate> dates = new HashSet<>();
+        if (orgId == null) return dates;
+        // Fixed-date holidays within the range
+        publicHolidayRepository.findByOrganizationIdAndHolidayDateBetween(orgId, start, end)
+                .forEach(h -> dates.add(h.getHolidayDate()));
+        // Recurring holidays: match by month/day for each year in the range
+        List<PublicHoliday> recurring = publicHolidayRepository.findByOrganizationIdAndIsRecurring(orgId, true);
+        if (recurring.isEmpty()) return dates;
+        for (PublicHoliday h : recurring) {
+            MonthDay md = MonthDay.from(h.getHolidayDate());
+            for (int year = start.getYear(); year <= end.getYear(); year++) {
+                LocalDate candidate;
+                try {
+                    candidate = md.atYear(year);
+                } catch (Exception e) { continue; }
+                if (!candidate.isBefore(start) && !candidate.isAfter(end)) dates.add(candidate);
+            }
+        }
+        return dates;
+    }
+
+    /** Public helper so callers (dialog preview) can compute days without creating a request. */
+    @Transactional(readOnly = true)
+    public double previewTotalDays(Long userId, LocalDate startDate, LocalDate endDate, String halfDay) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException("User not found: " + userId));
+        HalfDayType hd = HalfDayType.FULL_DAY;
+        if (halfDay != null && !halfDay.isBlank()) {
+            try { hd = HalfDayType.valueOf(halfDay.toUpperCase()); } catch (IllegalArgumentException ignored) { }
+        }
+        Long orgId = user.getOrganization() != null ? user.getOrganization().getId() : null;
+        return computeTotalDays(orgId, startDate, endDate, hd);
     }
 }

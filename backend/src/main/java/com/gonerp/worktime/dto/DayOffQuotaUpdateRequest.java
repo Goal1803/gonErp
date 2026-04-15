@@ -6,4 +6,5 @@ import lombok.Data;
 public class DayOffQuotaUpdateRequest {
     private Double totalDays;
     private Double carriedOverDays;
+    private Integer year;
 }

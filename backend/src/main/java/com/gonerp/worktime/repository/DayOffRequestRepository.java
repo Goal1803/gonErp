@@ -32,4 +32,19 @@ public interface DayOffRequestRepository extends JpaRepository<DayOffRequest, Lo
             @Param("statuses") List<DayOffRequestStatus> statuses,
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate);
+
+    @Query("SELECT r FROM DayOffRequest r WHERE r.organization.id = :orgId " +
+           "AND (:status IS NULL OR r.status = :status) " +
+           "AND (:userId IS NULL OR r.user.id = :userId) " +
+           "AND (:typeId IS NULL OR r.dayOffType.id = :typeId) " +
+           "AND (CAST(:fromDate AS date) IS NULL OR r.endDate >= :fromDate) " +
+           "AND (CAST(:toDate AS date) IS NULL OR r.startDate <= :toDate) " +
+           "ORDER BY r.createdAt DESC")
+    List<DayOffRequest> searchByOrgFilters(
+            @Param("orgId") Long orgId,
+            @Param("status") DayOffRequestStatus status,
+            @Param("userId") Long userId,
+            @Param("typeId") Long typeId,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate);
 }

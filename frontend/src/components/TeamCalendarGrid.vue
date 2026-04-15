@@ -41,7 +41,7 @@
       <!-- User rows -->
       <div class="calendar-body">
         <div
-          v-for="user in users"
+          v-for="user in visibleUsers"
           :key="user.userId"
           class="calendar-row"
         >
@@ -94,7 +94,13 @@ import CalendarDayOffBar from 'src/components/CalendarDayOffBar.vue'
 
 const props = defineProps({
   /** ISO date string yyyy-MM-dd for the center/focus date */
-  focusDate: { type: String, default: '' }
+  focusDate: { type: String, default: '' },
+  /** If non-empty, only show entries whose dayOffTypeId is in this list. */
+  typeIds: { type: Array, default: () => [] },
+  /** If non-empty, only show users whose id is in this list. */
+  userIds: { type: Array, default: () => [] },
+  /** Hide entries with status PENDING. */
+  hidePending: { type: Boolean, default: false }
 })
 
 const emit = defineEmits(['cell-click', 'range-changed'])
@@ -122,6 +128,12 @@ const rightSentinelRef = ref(null)
 let leftObserver = null
 let rightObserver = null
 let isExtending = false
+
+const visibleUsers = computed(() => {
+  if (!props.userIds?.length) return users.value
+  const set = new Set(props.userIds)
+  return users.value.filter(u => set.has(u.userId))
+})
 
 // Today
 const todayStr = computed(() => {
@@ -180,7 +192,11 @@ function isWeekendDate(dateStr) {
 }
 
 function getEntry(userId, dateStr) {
-  return dayEntryMap.value.get(`${userId}-${dateStr}`) || null
+  const e = dayEntryMap.value.get(`${userId}-${dateStr}`) || null
+  if (!e) return null
+  if (props.hidePending && e.status === 'PENDING') return null
+  if (props.typeIds?.length && !props.typeIds.includes(e.dayOffTypeId)) return null
+  return e
 }
 
 function onCellClick(user, dateStr) {
