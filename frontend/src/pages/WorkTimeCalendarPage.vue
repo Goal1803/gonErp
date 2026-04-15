@@ -78,10 +78,32 @@
       </div>
     </div>
 
+    <!-- Filters -->
+    <div class="row q-col-gutter-sm q-mb-md items-center">
+      <div class="col-12 col-md-4">
+        <q-select v-model="filterTypeIds" :options="typeOptions" label="Type"
+          outlined dense color="green-5" emit-value map-options multiple use-chips clearable>
+          <template #option="{ opt, itemProps }">
+            <q-item v-bind="itemProps">
+              <q-item-section avatar>
+                <div class="color-dot" :style="{ background: opt.color || '#4CAF50' }" />
+              </q-item-section>
+              <q-item-section>{{ opt.label }}</q-item-section>
+            </q-item>
+          </template>
+        </q-select>
+      </div>
+      <div class="col-12 col-md-2">
+        <q-toggle v-model="hidePending" color="amber-7" label="Hide pending" />
+      </div>
+    </div>
+
     <!-- Calendar Grid -->
     <TeamCalendarGrid
       ref="calendarGridRef"
       :focus-date="focusDate"
+      :type-ids="filterTypeIds || []"
+      :hide-pending="hidePending"
       @cell-click="onCellClick"
       @range-changed="onRangeChanged"
     />
@@ -102,13 +124,26 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useAuthStore } from 'src/stores/authStore'
+import { worktimeDayOffTypeApi } from 'src/api/worktime'
 import TeamCalendarGrid from 'src/components/TeamCalendarGrid.vue'
 import DayOffRequestDialog from 'src/components/DayOffRequestDialog.vue'
 import PublicHolidaySettingsDialog from 'src/components/PublicHolidaySettingsDialog.vue'
 
 const authStore = useAuthStore()
+
+// Filters
+const filterTypeIds = ref([])
+const hidePending = ref(false)
+const typeOptions = ref([])
+
+onMounted(async () => {
+  try {
+    const res = await worktimeDayOffTypeApi.getActive()
+    typeOptions.value = (res.data.data || []).map(t => ({ label: t.name, value: t.id, color: t.color }))
+  } catch { /* silent */ }
+})
 
 const calendarGridRef = ref(null)
 
@@ -187,5 +222,10 @@ function onHolidaysChanged() {
 <style scoped>
 .page-header {
   margin-bottom: 16px;
+}
+.color-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
 }
 </style>

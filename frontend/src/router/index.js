@@ -200,6 +200,12 @@ const routes = [
         meta: { title: 'Day Off Admin', requiresModule: 'hasWorkTime', requiresAdmin: true }
       },
       {
+        path: 'worktime/day-off/reports',
+        name: 'worktimeDayOffReports',
+        component: () => import('pages/WorkTimeDayOffReportsPage.vue'),
+        meta: { title: 'Day Off Reports', requiresModule: 'hasWorkTime', requiresAdmin: true }
+      },
+      {
         path: 'worktime/calendar',
         name: 'worktimeCalendar',
         component: () => import('pages/WorkTimeCalendarPage.vue'),

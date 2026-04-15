@@ -141,6 +141,20 @@ public class DayOffRequestController {
                 requestService.adminList(orgId, status, userId, typeId, fromDate, toDate)));
     }
 
+    @GetMapping("/admin/report")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> reportSummary(
+            Authentication auth,
+            @RequestParam(required = false) String from,
+            @RequestParam(required = false) String to) {
+        User user = userRepository.findByUserName(auth.getName()).orElseThrow();
+        Long orgId = user.getOrganization() != null ? user.getOrganization().getId() : null;
+        if (orgId == null) return ResponseEntity.badRequest().body(ApiResponse.error("No organization"));
+        java.time.LocalDate fromDate = (from != null && !from.isBlank()) ? java.time.LocalDate.parse(from) : null;
+        java.time.LocalDate toDate = (to != null && !to.isBlank()) ? java.time.LocalDate.parse(to) : null;
+        return ResponseEntity.ok(ApiResponse.ok(requestService.reportSummary(orgId, fromDate, toDate)));
+    }
+
     @GetMapping("/admin/export")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<byte[]> exportCsv(

@@ -45,7 +45,8 @@ export const worktimeDayOffRequestApi = {
   bulkDeny: (ids, comment) => api.post('/worktime/day-off-requests/bulk-deny', { ids, comment }),
   adminRevoke: (id, comment) => api.patch(`/worktime/day-off-requests/${id}/revoke`, { comment }),
   adminList: (params) => api.get('/worktime/day-off-requests/admin', { params }),
-  exportCsv: (params) => api.get('/worktime/day-off-requests/admin/export', { params, responseType: 'blob' })
+  exportCsv: (params) => api.get('/worktime/day-off-requests/admin/export', { params, responseType: 'blob' }),
+  reportSummary: (params) => api.get('/worktime/day-off-requests/admin/report', { params })
 }
 
 // Phase 3: Team Calendar & Public Holidays

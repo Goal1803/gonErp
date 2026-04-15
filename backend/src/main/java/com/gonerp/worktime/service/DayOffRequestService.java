@@ -239,6 +239,64 @@ public class DayOffRequestService {
     }
 
     @Transactional(readOnly = true)
+    public java.util.Map<String, Object> reportSummary(Long orgId, LocalDate from, LocalDate to) {
+        List<DayOffRequest> approved = requestRepository.searchByOrgFilters(
+                orgId, DayOffRequestStatus.APPROVED, null, null, from, to);
+        List<DayOffRequest> pending = requestRepository.searchByOrgFilters(
+                orgId, DayOffRequestStatus.PENDING, null, null, from, to);
+        List<DayOffRequest> denied = requestRepository.searchByOrgFilters(
+                orgId, DayOffRequestStatus.DENIED, null, null, from, to);
+
+        double totalApprovedDays = approved.stream().mapToDouble(DayOffRequest::getTotalDays).sum();
+
+        // days per type (approved only)
+        java.util.Map<String, Double> daysByType = new java.util.LinkedHashMap<>();
+        java.util.Map<String, String> colorByType = new java.util.HashMap<>();
+        for (DayOffRequest r : approved) {
+            String name = r.getDayOffType() != null ? r.getDayOffType().getName() : "Unknown";
+            daysByType.merge(name, r.getTotalDays(), Double::sum);
+            if (r.getDayOffType() != null && r.getDayOffType().getColor() != null)
+                colorByType.putIfAbsent(name, r.getDayOffType().getColor());
+        }
+
+        // top users by approved days
+        java.util.Map<Long, Double> daysByUser = new java.util.HashMap<>();
+        java.util.Map<Long, String> userNames = new java.util.HashMap<>();
+        for (DayOffRequest r : approved) {
+            if (r.getUser() == null) continue;
+            Long uid = r.getUser().getId();
+            daysByUser.merge(uid, r.getTotalDays(), Double::sum);
+            userNames.putIfAbsent(uid, r.getUser().getUserName());
+        }
+        List<java.util.Map<String, Object>> topUsers = daysByUser.entrySet().stream()
+                .sorted((a, b) -> Double.compare(b.getValue(), a.getValue()))
+                .limit(10)
+                .map(e -> {
+                    java.util.Map<String, Object> m = new java.util.HashMap<>();
+                    m.put("userId", e.getKey());
+                    m.put("userName", userNames.get(e.getKey()));
+                    m.put("days", e.getValue());
+                    return m;
+                })
+                .toList();
+
+        java.util.Map<String, Object> out = new java.util.HashMap<>();
+        out.put("approvedCount", approved.size());
+        out.put("pendingCount", pending.size());
+        out.put("deniedCount", denied.size());
+        out.put("totalApprovedDays", totalApprovedDays);
+        out.put("daysByType", daysByType.entrySet().stream().map(e -> {
+            java.util.Map<String, Object> m = new java.util.HashMap<>();
+            m.put("name", e.getKey());
+            m.put("days", e.getValue());
+            m.put("color", colorByType.get(e.getKey()));
+            return m;
+        }).toList());
+        out.put("topUsers", topUsers);
+        return out;
+    }
+
+    @Transactional(readOnly = true)
     public List<DayOffRequestResponse> adminList(Long orgId, String status, Long userId, Long typeId,
                                                   LocalDate from, LocalDate to) {
         DayOffRequestStatus st = null;
