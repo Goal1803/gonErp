@@ -31,6 +31,17 @@ public class DayOffRequestController {
         return ResponseEntity.ok(ApiResponse.ok(requestService.getMyRequests(user.getId())));
     }
 
+    @GetMapping("/overlapping-peers")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> overlappingPeers(
+            Authentication auth,
+            @RequestParam("startDate") String startDate,
+            @RequestParam("endDate") String endDate) {
+        User user = userRepository.findByUserName(auth.getName()).orElseThrow();
+        return ResponseEntity.ok(ApiResponse.ok(
+                requestService.overlappingPeers(user.getId(),
+                        java.time.LocalDate.parse(startDate), java.time.LocalDate.parse(endDate))));
+    }
+
     @GetMapping("/preview-days")
     public ResponseEntity<ApiResponse<Map<String, Double>>> previewDays(
             Authentication auth,

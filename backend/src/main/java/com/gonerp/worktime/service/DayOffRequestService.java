@@ -239,6 +239,33 @@ public class DayOffRequestService {
     }
 
     @Transactional(readOnly = true)
+    public List<java.util.Map<String, Object>> overlappingPeers(Long userId, LocalDate start, LocalDate end) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException("User not found: " + userId));
+        if (user.getOrganization() == null) return List.of();
+        List<DayOffRequest> rows = requestRepository.findOverlappingRequests(
+                user.getOrganization().getId(),
+                List.of(DayOffRequestStatus.PENDING, DayOffRequestStatus.APPROVED),
+                start, end);
+        return rows.stream()
+                .filter(r -> r.getUser() != null && !r.getUser().getId().equals(userId))
+                .map(r -> {
+                    java.util.Map<String, Object> m = new java.util.HashMap<>();
+                    m.put("userId", r.getUser().getId());
+                    m.put("userName", r.getUser().getUserName());
+                    m.put("firstName", r.getUser().getFirstName());
+                    m.put("lastName", r.getUser().getLastName());
+                    m.put("status", r.getStatus().name());
+                    m.put("startDate", r.getStartDate());
+                    m.put("endDate", r.getEndDate());
+                    m.put("dayOffTypeName", r.getDayOffType() != null ? r.getDayOffType().getName() : null);
+                    m.put("dayOffTypeColor", r.getDayOffType() != null ? r.getDayOffType().getColor() : null);
+                    return m;
+                })
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public java.util.Map<String, Object> reportSummary(Long orgId, LocalDate from, LocalDate to) {
         List<DayOffRequest> approved = requestRepository.searchByOrgFilters(
                 orgId, DayOffRequestStatus.APPROVED, null, null, from, to);

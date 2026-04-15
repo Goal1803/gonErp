@@ -90,6 +90,26 @@
             map-options
           />
 
+          <!-- Overlap warning -->
+          <div v-if="overlappingPeers.length" class="text-caption q-pa-sm"
+               style="background: rgba(255,167,38,0.08); border-radius: 6px; border: 1px solid rgba(255,167,38,0.4);">
+            <q-icon name="group" color="amber-7" class="q-mr-xs" />
+            <span class="text-adaptive-secondary">
+              <strong>{{ overlappingPeers.length }}</strong> teammate(s) already off during this range:
+            </span>
+            <div class="q-mt-xs">
+              <q-chip v-for="p in overlappingPeers.slice(0, 6)" :key="p.userId + '-' + p.startDate"
+                dense square size="sm"
+                :style="{ background: p.dayOffTypeColor || '#ffa726', color: '#fff' }">
+                {{ (p.firstName || p.userName) + (p.lastName ? ' ' + p.lastName : '') }}
+                <span class="text-caption q-ml-xs">({{ p.status }})</span>
+              </q-chip>
+              <span v-if="overlappingPeers.length > 6" class="text-caption text-adaptive-caption q-ml-xs">
+                +{{ overlappingPeers.length - 6 }} more
+              </span>
+            </div>
+          </div>
+
           <!-- Computed Days -->
           <div v-if="computedDays > 0" class="text-caption q-pa-sm" style="background: var(--erp-bg-tertiary); border-radius: 6px; border: 1px solid var(--erp-border-subtle);">
             <q-icon name="calculate" color="green-5" class="q-mr-xs" />
@@ -185,18 +205,27 @@ watch(isSingleDay, (val) => {
 
 // Server-computed days (excludes weekends and public holidays)
 const computedDays = ref(0)
+const overlappingPeers = ref([])
 let previewTimer = null
 watch(() => [form.value.startDate, form.value.endDate, form.value.halfDayType], () => {
-  if (!form.value.startDate || !form.value.endDate) { computedDays.value = 0; return }
-  if (form.value.endDate < form.value.startDate) { computedDays.value = 0; return }
+  if (!form.value.startDate || !form.value.endDate) {
+    computedDays.value = 0; overlappingPeers.value = []; return
+  }
+  if (form.value.endDate < form.value.startDate) {
+    computedDays.value = 0; overlappingPeers.value = []; return
+  }
   clearTimeout(previewTimer)
   previewTimer = setTimeout(async () => {
     try {
-      const res = await worktimeDayOffRequestApi.previewDays(
-        form.value.startDate, form.value.endDate, form.value.halfDayType)
-      computedDays.value = res.data.data?.days ?? 0
+      const [preview, peers] = await Promise.all([
+        worktimeDayOffRequestApi.previewDays(form.value.startDate, form.value.endDate, form.value.halfDayType),
+        worktimeDayOffRequestApi.overlappingPeers(form.value.startDate, form.value.endDate)
+      ])
+      computedDays.value = preview.data.data?.days ?? 0
+      overlappingPeers.value = peers.data.data || []
     } catch {
       computedDays.value = 0
+      overlappingPeers.value = []
     }
   }, 200)
 }, { immediate: true })

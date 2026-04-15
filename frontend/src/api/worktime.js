@@ -38,6 +38,9 @@ export const worktimeDayOffRequestApi = {
   previewDays: (startDate, endDate, halfDay) => api.get('/worktime/day-off-requests/preview-days', {
     params: { startDate, endDate, halfDay }
   }),
+  overlappingPeers: (startDate, endDate) => api.get('/worktime/day-off-requests/overlapping-peers', {
+    params: { startDate, endDate }
+  }),
   getPending: () => api.get('/worktime/day-off-requests/pending'),
   approve: (id, comment) => api.patch(`/worktime/day-off-requests/${id}/approve`, { comment }),
   deny: (id, comment) => api.patch(`/worktime/day-off-requests/${id}/deny`, { comment }),
