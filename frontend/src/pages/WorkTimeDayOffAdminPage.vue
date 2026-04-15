@@ -23,6 +23,7 @@
       <q-tab name="pending" icon="pending_actions" label="Pending Requests">
         <q-badge v-if="pendingRequests.length" color="red-7" floating>{{ pendingRequests.length }}</q-badge>
       </q-tab>
+      <q-tab name="all-requests" icon="list_alt" label="All Requests" />
       <q-tab name="quotas" icon="pie_chart" label="All Quotas" />
       <q-tab name="types" icon="category" label="Day Off Types" />
     </q-tabs>
@@ -42,13 +43,27 @@
           <div class="text-caption text-adaptive-caption">All caught up!</div>
         </div>
 
-        <q-card v-else class="premium-card" flat>
+        <template v-else>
+        <div v-if="selectedPending.length" class="row items-center q-pa-sm q-mb-sm"
+             style="background: var(--erp-bg-tertiary); border: 1px solid var(--erp-border-subtle); border-radius: 6px;">
+          <span class="text-adaptive q-mr-md">{{ selectedPending.length }} selected</span>
+          <q-btn color="green-7" icon="check_circle" label="Bulk Approve" no-caps unelevated
+            :loading="processing" class="q-mr-sm" @click="showBulkApproveDialog = true" />
+          <q-btn color="red-7" icon="block" label="Bulk Deny" no-caps unelevated
+            :loading="processing" @click="showBulkDenyDialog = true" />
+          <q-space />
+          <q-btn flat color="grey-5" icon="close" label="Clear" no-caps @click="selectedPending = []" />
+        </div>
+
+        <q-card class="premium-card" flat>
           <q-card-section class="q-pa-none">
             <q-table
               :rows="pendingRequests"
               :columns="pendingColumns"
               row-key="id"
               flat
+              selection="multiple"
+              v-model:selected="selectedPending"
               :rows-per-page-options="[10, 25, 50]"
               class="admin-table"
             >
@@ -127,6 +142,79 @@
             </q-table>
           </q-card-section>
         </q-card>
+        </template>
+      </q-tab-panel>
+
+      <!-- ============ ALL REQUESTS TAB ============ -->
+      <q-tab-panel name="all-requests" class="q-pa-none">
+        <div class="row q-col-gutter-sm items-end q-mb-md">
+          <div class="col-6 col-md-2">
+            <q-select v-model="reqFilters.status" :options="statusFilterOptions" label="Status" outlined dense
+              color="green-5" emit-value map-options clearable />
+          </div>
+          <div class="col-6 col-md-3">
+            <q-select v-model="reqFilters.userId" :options="userOptions" label="User" outlined dense color="green-5"
+              emit-value map-options use-input clearable @filter="filterUserOptions" />
+          </div>
+          <div class="col-6 col-md-2">
+            <q-select v-model="reqFilters.typeId" :options="typeFilterOptions" label="Type" outlined dense
+              color="green-5" emit-value map-options clearable />
+          </div>
+          <div class="col-6 col-md-2">
+            <q-input v-model="reqFilters.from" label="From" type="date" outlined dense color="green-5" />
+          </div>
+          <div class="col-6 col-md-2">
+            <q-input v-model="reqFilters.to" label="To" type="date" outlined dense color="green-5" />
+          </div>
+          <div class="col-12 col-md-1 row q-gutter-xs">
+            <q-btn color="green-7" icon="search" label="Apply" no-caps unelevated dense @click="loadAllRequests" />
+            <q-btn flat color="grey-5" icon="download" label="CSV" no-caps dense @click="exportRequestsCsv" />
+          </div>
+        </div>
+
+        <q-card class="premium-card" flat>
+          <q-card-section class="q-pa-none">
+            <q-table
+              :rows="allRequests"
+              :columns="allRequestsColumns"
+              row-key="id"
+              flat
+              :loading="loadingAllRequests"
+              :rows-per-page-options="[15, 30, 50, 100]"
+              class="admin-table"
+            >
+              <template #body-cell-status="props">
+                <q-td :props="props">
+                  <q-badge :color="statusColor(props.row.status)" :label="props.row.status" />
+                </q-td>
+              </template>
+              <template #body-cell-dayOffTypeName="props">
+                <q-td :props="props">
+                  <div class="flex items-center no-wrap">
+                    <div class="color-dot q-mr-sm" :style="{ background: props.row.dayOffTypeColor || '#4CAF50' }" />
+                    <span class="text-adaptive">{{ props.row.dayOffTypeName }}</span>
+                  </div>
+                </q-td>
+              </template>
+              <template #body-cell-dates="props">
+                <q-td :props="props">
+                  <span class="text-adaptive">{{ formatDate(props.row.startDate) }}</span>
+                  <span v-if="props.row.startDate !== props.row.endDate" class="text-adaptive-caption">
+                    &mdash; {{ formatDate(props.row.endDate) }}
+                  </span>
+                </q-td>
+              </template>
+              <template #body-cell-actions="props">
+                <q-td :props="props">
+                  <q-btn v-if="props.row.status === 'APPROVED'" flat dense size="sm" color="orange-5"
+                    icon="undo" @click="revokeRequest(props.row)">
+                    <q-tooltip>Revoke approval</q-tooltip>
+                  </q-btn>
+                </q-td>
+              </template>
+            </q-table>
+          </q-card-section>
+        </q-card>
       </q-tab-panel>
 
       <!-- ============ ALL QUOTAS TAB ============ -->
@@ -156,6 +244,8 @@
               <q-icon name="search" color="grey-5" />
             </template>
           </q-input>
+          <q-btn color="green-7" icon="groups" label="Bulk Assign" no-caps unelevated class="q-ml-sm"
+            @click="openBulkAssign" />
         </div>
 
         <div v-if="loadingQuotas" class="text-center q-pa-xl">
@@ -434,6 +524,61 @@
       :day-off-type="selectedType"
       @saved="onTypeSaved"
     />
+
+    <!-- Bulk Approve Dialog -->
+    <q-dialog v-model="showBulkApproveDialog" persistent>
+      <q-card style="min-width: 400px" class="premium-card">
+        <q-card-section>
+          <div class="text-h6 text-adaptive">Approve {{ selectedPending.length }} request(s)</div>
+        </q-card-section>
+        <q-card-section>
+          <q-input v-model="bulkComment" label="Comment (optional)" outlined color="green-5" type="textarea" rows="2" autogrow />
+        </q-card-section>
+        <q-card-actions align="right">
+          <q-btn flat label="Cancel" color="grey-5" v-close-popup />
+          <q-btn label="Approve All" color="green-7" unelevated :loading="processing" @click="confirmBulkApprove" />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
+
+    <!-- Bulk Deny Dialog -->
+    <q-dialog v-model="showBulkDenyDialog" persistent>
+      <q-card style="min-width: 400px" class="premium-card">
+        <q-card-section>
+          <div class="text-h6 text-adaptive">Deny {{ selectedPending.length }} request(s)</div>
+        </q-card-section>
+        <q-card-section>
+          <q-input v-model="bulkComment" label="Reason *" outlined color="green-5" type="textarea" rows="2" autogrow />
+        </q-card-section>
+        <q-card-actions align="right">
+          <q-btn flat label="Cancel" color="grey-5" v-close-popup />
+          <q-btn label="Deny All" color="red-7" unelevated :loading="processing"
+            :disable="!bulkComment?.trim()" @click="confirmBulkDeny" />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
+
+    <!-- Bulk Assign Quota Dialog -->
+    <q-dialog v-model="showBulkAssignDialog" persistent>
+      <q-card style="min-width: 420px" class="premium-card">
+        <q-card-section>
+          <div class="text-h6 text-adaptive">Bulk Assign Quota</div>
+          <div class="text-caption text-adaptive-caption">Sets the total days for every user in the org for the selected type and year.</div>
+        </q-card-section>
+        <q-card-section class="q-gutter-y-md">
+          <q-select v-model="bulkAssign.dayOffTypeId" :options="typeFilterOptions" label="Day Off Type *"
+            outlined color="green-5" emit-value map-options />
+          <q-select v-model="bulkAssign.year" :options="yearOptions" label="Year *" outlined color="green-5" />
+          <q-input v-model.number="bulkAssign.totalDays" label="Total Days *" type="number" step="0.5" min="0"
+            outlined color="green-5" />
+        </q-card-section>
+        <q-card-actions align="right">
+          <q-btn flat label="Cancel" color="grey-5" v-close-popup />
+          <q-btn label="Assign" color="green-7" unelevated :loading="processing"
+            :disable="!bulkAssign.dayOffTypeId || bulkAssign.totalDays == null" @click="confirmBulkAssign" />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
   </q-page>
 </template>
 
@@ -462,6 +607,26 @@ const selectedRequest = ref(null)
 const approveComment = ref('')
 const denyComment = ref('')
 const processing = ref(false)
+const selectedPending = ref([])
+const showBulkApproveDialog = ref(false)
+const showBulkDenyDialog = ref(false)
+const bulkComment = ref('')
+
+// All Requests (filtered list)
+const loadingAllRequests = ref(false)
+const allRequests = ref([])
+const reqFilters = ref({ status: null, userId: null, typeId: null, from: '', to: '' })
+const statusFilterOptions = [
+  { label: 'All', value: null },
+  { label: 'Pending', value: 'PENDING' },
+  { label: 'Approved', value: 'APPROVED' },
+  { label: 'Denied', value: 'DENIED' },
+  { label: 'Cancelled', value: 'CANCELLED' }
+]
+
+// Bulk Assign
+const showBulkAssignDialog = ref(false)
+const bulkAssign = ref({ dayOffTypeId: null, year: new Date().getFullYear(), totalDays: null })
 
 // Quotas
 const loadingQuotas = ref(false)
@@ -491,6 +656,17 @@ const pendingColumns = [
   { name: 'actions', label: '', field: 'actions', align: 'right' }
 ]
 
+const allRequestsColumns = [
+  { name: 'status', label: 'Status', field: 'status', align: 'left', sortable: true },
+  { name: 'userName', label: 'User', field: 'userName', align: 'left', sortable: true },
+  { name: 'dayOffTypeName', label: 'Type', field: 'dayOffTypeName', align: 'left', sortable: true },
+  { name: 'dates', label: 'Dates', field: 'startDate', align: 'left', sortable: true },
+  { name: 'totalDays', label: 'Days', field: 'totalDays', align: 'center', sortable: true },
+  { name: 'reason', label: 'Reason', field: 'reason', align: 'left' },
+  { name: 'reviewedByName', label: 'Reviewer', field: 'reviewedByName', align: 'left' },
+  { name: 'actions', label: '', field: 'actions', align: 'right' }
+]
+
 const quotaColumns = [
   { name: 'userName', label: 'User', field: 'userName', align: 'left', sortable: true },
   { name: 'dayOffTypeName', label: 'Type', field: 'dayOffTypeName', align: 'left', sortable: true },
@@ -510,6 +686,22 @@ const filteredQuotas = computed(() => {
     (q.dayOffTypeName || '').toLowerCase().includes(needle)
   )
 })
+
+const userOptions = computed(() => {
+  const seen = new Map()
+  for (const q of allQuotas.value) {
+    if (q.userId && !seen.has(q.userId)) seen.set(q.userId, { label: q.userName || ('User #' + q.userId), value: q.userId })
+  }
+  return [...seen.values()]
+})
+const typeFilterOptions = computed(() => dayOffTypes.value.map(t => ({ label: t.name, value: t.id })))
+// Placeholder for q-select filter UX
+function filterUserOptions(val, update) { update(() => {}) }
+
+function statusColor(status) {
+  const map = { PENDING: 'amber-8', APPROVED: 'green-7', DENIED: 'red-7', CANCELLED: 'grey-7' }
+  return map[status] || 'grey-7'
+}
 
 // --- Helpers ---
 function formatDate(dateStr) {
@@ -545,14 +737,127 @@ async function loadPendingRequests() {
 async function loadAllQuotas() {
   loadingQuotas.value = true
   try {
-    const res = await worktimeDayOffQuotaApi.bulkAssign({ year: quotaYear.value, fetchOnly: true })
+    const res = await worktimeDayOffQuotaApi.getOrgQuotas(quotaYear.value)
     allQuotas.value = res.data.data || []
   } catch (e) {
-    // Fallback: the API might not support fetchOnly, try alternative
-    console.error('Failed to load all quotas', e)
+    console.error('Failed to load org quotas', e)
     allQuotas.value = []
   } finally {
     loadingQuotas.value = false
+  }
+}
+
+async function loadAllRequests() {
+  loadingAllRequests.value = true
+  try {
+    const params = {}
+    if (reqFilters.value.status) params.status = reqFilters.value.status
+    if (reqFilters.value.userId) params.userId = reqFilters.value.userId
+    if (reqFilters.value.typeId) params.typeId = reqFilters.value.typeId
+    if (reqFilters.value.from) params.from = reqFilters.value.from
+    if (reqFilters.value.to) params.to = reqFilters.value.to
+    const res = await worktimeDayOffRequestApi.adminList(params)
+    allRequests.value = res.data.data || []
+  } catch (e) {
+    $q.notify({ type: 'negative', message: 'Failed to load requests' })
+  } finally {
+    loadingAllRequests.value = false
+  }
+}
+
+async function exportRequestsCsv() {
+  try {
+    const params = {}
+    if (reqFilters.value.status) params.status = reqFilters.value.status
+    if (reqFilters.value.userId) params.userId = reqFilters.value.userId
+    if (reqFilters.value.typeId) params.typeId = reqFilters.value.typeId
+    if (reqFilters.value.from) params.from = reqFilters.value.from
+    if (reqFilters.value.to) params.to = reqFilters.value.to
+    const res = await worktimeDayOffRequestApi.exportCsv(params)
+    const url = URL.createObjectURL(res.data)
+    const a = document.createElement('a')
+    a.href = url; a.download = 'day-off-requests.csv'
+    document.body.appendChild(a); a.click(); a.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+  } catch {
+    $q.notify({ type: 'negative', message: 'Failed to export CSV' })
+  }
+}
+
+async function confirmBulkApprove() {
+  processing.value = true
+  try {
+    const ids = selectedPending.value.map(r => r.id)
+    await worktimeDayOffRequestApi.bulkApprove(ids, bulkComment.value || null)
+    $q.notify({ type: 'positive', message: `Approved ${ids.length} request(s)` })
+    showBulkApproveDialog.value = false
+    selectedPending.value = []
+    bulkComment.value = ''
+    await loadPendingRequests()
+  } catch (e) {
+    $q.notify({ type: 'negative', message: e.response?.data?.message || 'Bulk approve failed' })
+  } finally {
+    processing.value = false
+  }
+}
+
+async function confirmBulkDeny() {
+  if (!bulkComment.value?.trim()) return
+  processing.value = true
+  try {
+    const ids = selectedPending.value.map(r => r.id)
+    await worktimeDayOffRequestApi.bulkDeny(ids, bulkComment.value)
+    $q.notify({ type: 'positive', message: `Denied ${ids.length} request(s)` })
+    showBulkDenyDialog.value = false
+    selectedPending.value = []
+    bulkComment.value = ''
+    await loadPendingRequests()
+  } catch (e) {
+    $q.notify({ type: 'negative', message: e.response?.data?.message || 'Bulk deny failed' })
+  } finally {
+    processing.value = false
+  }
+}
+
+function revokeRequest(request) {
+  $q.dialog({
+    title: 'Revoke approved request',
+    message: `Revoke "${request.dayOffTypeName}" approval for ${request.userName}? Used days will be returned to their quota.`,
+    prompt: { model: '', type: 'text', label: 'Reason (optional)' },
+    cancel: true,
+    persistent: true
+  }).onOk(async (comment) => {
+    try {
+      await worktimeDayOffRequestApi.adminRevoke(request.id, comment || null)
+      $q.notify({ type: 'positive', message: 'Approval revoked' })
+      await loadAllRequests()
+      await loadAllQuotas()
+    } catch (e) {
+      $q.notify({ type: 'negative', message: e.response?.data?.message || 'Failed to revoke' })
+    }
+  })
+}
+
+function openBulkAssign() {
+  bulkAssign.value = { dayOffTypeId: null, year: quotaYear.value, totalDays: null }
+  showBulkAssignDialog.value = true
+}
+
+async function confirmBulkAssign() {
+  processing.value = true
+  try {
+    await worktimeDayOffQuotaApi.bulkAssign({
+      dayOffTypeId: bulkAssign.value.dayOffTypeId,
+      year: bulkAssign.value.year,
+      totalDays: bulkAssign.value.totalDays
+    })
+    $q.notify({ type: 'positive', message: 'Quotas assigned' })
+    showBulkAssignDialog.value = false
+    await loadAllQuotas()
+  } catch (e) {
+    $q.notify({ type: 'negative', message: e.response?.data?.message || 'Bulk assign failed' })
+  } finally {
+    processing.value = false
   }
 }
 
@@ -673,6 +978,7 @@ onMounted(() => {
   loadPendingRequests()
   loadAllQuotas()
   loadDayOffTypes()
+  loadAllRequests()
 })
 </script>
 

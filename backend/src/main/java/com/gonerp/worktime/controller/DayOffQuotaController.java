@@ -42,6 +42,17 @@ public class DayOffQuotaController {
         return ResponseEntity.ok(ApiResponse.ok(quotaService.getUserQuotas(userId, resolvedYear)));
     }
 
+    @GetMapping("/org")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<List<DayOffQuotaResponse>>> getOrgQuotas(
+            Authentication auth, @RequestParam(required = false) Integer year) {
+        User user = userRepository.findByUserName(auth.getName()).orElseThrow();
+        Long orgId = user.getOrganization() != null ? user.getOrganization().getId() : null;
+        if (orgId == null) return ResponseEntity.badRequest().body(ApiResponse.error("No organization"));
+        int resolvedYear = year != null ? year : LocalDate.now().getYear();
+        return ResponseEntity.ok(ApiResponse.ok(quotaService.getOrgQuotas(orgId, resolvedYear)));
+    }
+
     @PutMapping("/user/{userId}/type/{typeId}")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public ResponseEntity<ApiResponse<DayOffQuotaResponse>> setQuota(

@@ -188,6 +188,68 @@ public class DayOffRequestService {
         return DayOffRequestResponse.from(savedApproved);
     }
 
+    public List<DayOffRequestResponse> bulkApprove(List<Long> ids, Long reviewerId, String comment) {
+        return ids.stream().map(id -> {
+            try { return approve(id, reviewerId, comment); }
+            catch (Exception e) { return null; }
+        }).filter(x -> x != null).toList();
+    }
+
+    public List<DayOffRequestResponse> bulkDeny(List<Long> ids, Long reviewerId, String comment) {
+        return ids.stream().map(id -> {
+            try { return deny(id, reviewerId, comment); }
+            catch (Exception e) { return null; }
+        }).filter(x -> x != null).toList();
+    }
+
+    public DayOffRequestResponse adminRevoke(Long id, Long reviewerId, String comment) {
+        DayOffRequest request = requestRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Day-off request not found: " + id));
+        if (request.getStatus() != DayOffRequestStatus.APPROVED) {
+            throw new IllegalStateException("Only approved requests can be revoked");
+        }
+        User reviewer = userRepository.findById(reviewerId)
+                .orElseThrow(() -> new EntityNotFoundException("Reviewer not found: " + reviewerId));
+
+        // Restore used days
+        int year = request.getStartDate().getYear();
+        quotaRepository.findByUserIdAndDayOffTypeIdAndYear(
+                request.getUser().getId(), request.getDayOffType().getId(), year)
+                .ifPresent(q -> {
+                    q.setUsedDays(Math.max(0, q.getUsedDays() - request.getTotalDays()));
+                    quotaRepository.save(q);
+                });
+
+        request.setStatus(DayOffRequestStatus.CANCELLED);
+        request.setReviewedBy(reviewer);
+        request.setReviewedAt(LocalDateTime.now());
+        String prev = request.getReviewComment();
+        request.setReviewComment("[Revoked] " + (comment != null ? comment : "") + (prev != null ? " | prev: " + prev : ""));
+
+        DayOffRequest saved = requestRepository.save(request);
+        eventPublisher.publishEvent(new WorkTimeNotificationEvent(
+                reviewerId,
+                Set.of(request.getUser().getId()),
+                "DAY_OFF_DENIED",
+                "Your approved day-off (" + request.getDayOffType().getName() + ") from "
+                        + request.getStartDate() + " to " + request.getEndDate() + " was revoked by admin"
+                        + (comment != null && !comment.isBlank() ? ": " + comment : "")
+        ));
+        return DayOffRequestResponse.from(saved);
+    }
+
+    @Transactional(readOnly = true)
+    public List<DayOffRequestResponse> adminList(Long orgId, String status, Long userId, Long typeId,
+                                                  LocalDate from, LocalDate to) {
+        DayOffRequestStatus st = null;
+        if (status != null && !status.isBlank() && !"ALL".equalsIgnoreCase(status)) {
+            try { st = DayOffRequestStatus.valueOf(status.toUpperCase()); } catch (IllegalArgumentException ignored) { }
+        }
+        return requestRepository.searchByOrgFilters(orgId, st, userId, typeId, from, to).stream()
+                .map(DayOffRequestResponse::from)
+                .toList();
+    }
+
     public DayOffRequestResponse deny(Long id, Long reviewerId, String comment) {
         DayOffRequest request = requestRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Day-off request not found: " + id));

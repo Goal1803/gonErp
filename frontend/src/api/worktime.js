@@ -26,6 +26,7 @@ export const worktimeDayOffTypeApi = {
 export const worktimeDayOffQuotaApi = {
   getMyQuotas: (year) => api.get('/worktime/quotas/my', { params: { year } }),
   getUserQuotas: (userId, year) => api.get(`/worktime/quotas/user/${userId}`, { params: { year } }),
+  getOrgQuotas: (year) => api.get('/worktime/quotas/org', { params: { year } }),
   setQuota: (userId, typeId, data) => api.put(`/worktime/quotas/user/${userId}/type/${typeId}`, data),
   bulkAssign: (data) => api.post('/worktime/quotas/bulk-assign', data)
 }
