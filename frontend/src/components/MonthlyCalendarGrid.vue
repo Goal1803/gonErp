@@ -28,7 +28,12 @@
           'cell-weekend': d.isWeekend,
           'cell-holiday': holidaySet.has(d.date)
         }"
+        :style="holidaySet.has(d.date) && holidayColorMap[d.date]
+          ? { '--holiday-color': holidayColorMap[d.date] }
+          : {}"
       >
+        <div v-if="holidaySet.has(d.date)" class="holiday-strip"
+             :style="{ background: holidayColorMap[d.date] || '#9C27B0' }" />
         <div class="day-name">{{ d.dayName }}</div>
         <div class="day-number">{{ d.dayNumber }}</div>
         <q-tooltip v-if="holidaySet.has(d.date)">{{ holidayNameMap[d.date] }}</q-tooltip>
@@ -120,6 +125,7 @@ const users = ref([])
 const dayEntryMap = ref(new Map())
 const holidaySet = ref(new Set())
 const holidayNameMap = ref({})
+const holidayColorMap = ref({})
 
 // ── Date helpers ────────────────────────────────────────────────
 function pad(n) { return String(n).padStart(2, '0') }
@@ -198,14 +204,28 @@ async function load() {
       map.set(`${d.userId}-${d.date}`, d)
     }
     dayEntryMap.value = map
+    // Expand multi-day holidays into every date they cover.
     const hset = new Set()
     const hnames = {}
+    const hcolors = {}
     for (const h of (data.holidays || [])) {
-      hset.add(h.holidayDate)
-      hnames[h.holidayDate] = h.name
+      const start = h.holidayDate
+      const end = h.endDate || h.holidayDate
+      const [sy, sm, sd] = start.split('-').map(Number)
+      const [ey, em, ed] = end.split('-').map(Number)
+      const d = new Date(sy, sm - 1, sd)
+      const last = new Date(ey, em - 1, ed)
+      while (d <= last) {
+        const key = iso(d)
+        hset.add(key)
+        if (!hnames[key]) hnames[key] = h.name
+        if (!hcolors[key] && h.color) hcolors[key] = h.color
+        d.setDate(d.getDate() + 1)
+      }
     }
     holidaySet.value = hset
     holidayNameMap.value = hnames
+    holidayColorMap.value = hcolors
   } catch (e) {
     console.error('Failed to load calendar data', e)
   } finally {
@@ -306,6 +326,14 @@ defineExpose({ reload: load })
 }
 .cell-holiday {
   background: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(255,255,255,0.06) 4px, rgba(255,255,255,0.06) 8px);
+}
+.holiday-strip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  opacity: 0.9;
 }
 .cell-today {
   box-shadow: inset 0 0 0 2px rgba(38, 166, 154, 0.6);

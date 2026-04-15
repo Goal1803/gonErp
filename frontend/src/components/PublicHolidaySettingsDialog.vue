@@ -26,12 +26,17 @@
           <q-list v-else separator class="q-mb-md">
             <q-item v-for="holiday in holidays" :key="holiday.id" class="q-px-none">
               <q-item-section avatar>
-                <q-icon name="event" color="purple-4" />
+                <div class="color-swatch" :style="{ background: holiday.color || '#9C27B0' }">
+                  <q-icon name="celebration" size="14px" color="white" />
+                </div>
               </q-item-section>
               <q-item-section>
                 <q-item-label class="text-adaptive">{{ holiday.name }}</q-item-label>
                 <q-item-label caption class="text-adaptive-caption">
                   {{ formatDate(holiday.holidayDate) }}
+                  <span v-if="holiday.endDate && holiday.endDate !== holiday.holidayDate">
+                    &mdash; {{ formatDate(holiday.endDate) }}
+                  </span>
                 </q-item-label>
               </q-item-section>
               <q-item-section side>
@@ -65,30 +70,62 @@
         <div class="text-subtitle2 text-adaptive text-weight-medium q-mb-sm">Add New Holiday</div>
         <q-form class="q-gutter-y-sm">
           <div class="row q-col-gutter-md">
-            <div class="col-5">
+            <div class="col-4">
               <q-input
                 v-model="addForm.holidayDate"
-                label="Date *"
-                outlined
-                dense
-                color="green-5"
+                label="Start date *"
+                outlined dense color="green-5"
                 type="date"
-                :rules="[v => !!v || 'Date is required']"
+                :rules="[v => !!v || 'Start date is required']"
                 lazy-rules
               />
             </div>
-            <div class="col-7">
+            <div class="col-4">
+              <q-input
+                v-model="addForm.endDate"
+                label="End date (optional)"
+                outlined dense color="green-5"
+                type="date"
+                :min="addForm.holidayDate"
+                hint="Leave empty for single day"
+              />
+            </div>
+            <div class="col-4">
               <q-input
                 v-model="addForm.name"
                 label="Name *"
-                outlined
-                dense
-                color="green-5"
+                outlined dense color="green-5"
                 :rules="[v => !!v || 'Name is required']"
                 lazy-rules
               />
             </div>
           </div>
+
+          <!-- Color swatches -->
+          <div>
+            <div class="text-caption text-adaptive-caption q-mb-xs">Color</div>
+            <div class="row q-gutter-sm items-center">
+              <div
+                v-for="swatch in colorSwatches"
+                :key="swatch"
+                class="color-pick cursor-pointer"
+                :class="{ 'color-pick-active': addForm.color === swatch }"
+                :style="{ background: swatch }"
+                @click="addForm.color = swatch"
+              />
+              <q-input
+                v-model="addForm.color"
+                dense outlined color="green-5"
+                style="max-width: 140px"
+                hint="Hex color"
+              >
+                <template #prepend>
+                  <div class="color-preview" :style="{ background: addForm.color || '#9C27B0' }" />
+                </template>
+              </q-input>
+            </div>
+          </div>
+
           <div class="row items-center justify-between">
             <q-toggle
               v-model="addForm.isRecurring"
@@ -141,9 +178,17 @@ const holidays = ref([])
 
 const addForm = ref({
   holidayDate: '',
+  endDate: '',
   name: '',
+  color: '#9C27B0',
   isRecurring: false
 })
+
+const colorSwatches = [
+  '#9C27B0', '#E91E63', '#F44336', '#FF5722',
+  '#FF9800', '#4CAF50', '#009688', '#00BCD4',
+  '#3F51B5', '#2196F3', '#607D8B', '#795548'
+]
 
 function formatDate(dateStr) {
   if (!dateStr) return '-'
@@ -173,15 +218,21 @@ async function loadHolidays() {
 
 async function addHoliday() {
   if (!addForm.value.holidayDate || !addForm.value.name?.trim()) return
+  if (addForm.value.endDate && addForm.value.endDate < addForm.value.holidayDate) {
+    $q.notify({ type: 'warning', message: 'End date cannot be before start date' })
+    return
+  }
   saving.value = true
   try {
     await worktimeHolidayApi.create({
       holidayDate: addForm.value.holidayDate,
+      endDate: addForm.value.endDate || null,
       name: addForm.value.name.trim(),
+      color: addForm.value.color || null,
       isRecurring: addForm.value.isRecurring
     })
     $q.notify({ type: 'positive', message: 'Holiday added' })
-    addForm.value = { holidayDate: '', name: '', isRecurring: false }
+    addForm.value = { holidayDate: '', endDate: '', name: '', color: '#9C27B0', isRecurring: false }
     await loadHolidays()
     emit('changed')
   } catch (e) {
@@ -215,3 +266,31 @@ watch(show, (val) => {
   }
 })
 </script>
+
+<style scoped>
+.color-swatch {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.color-pick {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: 2px solid transparent;
+  transition: border-color 0.15s, transform 0.15s;
+}
+.color-pick:hover { transform: scale(1.15); }
+.color-pick-active {
+  border-color: #fff;
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.3);
+}
+.color-preview {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+}
+</style>

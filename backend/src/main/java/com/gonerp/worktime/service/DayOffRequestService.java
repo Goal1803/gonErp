@@ -422,23 +422,41 @@ public class DayOffRequestService {
     private Set<LocalDate> resolveHolidayDates(Long orgId, LocalDate start, LocalDate end) {
         Set<LocalDate> dates = new HashSet<>();
         if (orgId == null) return dates;
-        // Fixed-date holidays within the range
-        publicHolidayRepository.findByOrganizationIdAndHolidayDateBetween(orgId, start, end)
-                .forEach(h -> dates.add(h.getHolidayDate()));
-        // Recurring holidays: match by month/day for each year in the range
-        List<PublicHoliday> recurring = publicHolidayRepository.findByOrganizationIdAndIsRecurring(orgId, true);
-        if (recurring.isEmpty()) return dates;
-        for (PublicHoliday h : recurring) {
-            MonthDay md = MonthDay.from(h.getHolidayDate());
+
+        // Non-recurring holidays whose [start..end] overlaps the query window.
+        // Use a broad fetch (all holidays for org) and filter — schema allows multi-day via endDate.
+        List<PublicHoliday> all = publicHolidayRepository.findByOrganizationId(orgId);
+        for (PublicHoliday h : all) {
+            if (h.isRecurring()) continue;
+            LocalDate hStart = h.getHolidayDate();
+            LocalDate hEnd = h.getEndDate() != null ? h.getEndDate() : hStart;
+            addRangeIfOverlaps(dates, hStart, hEnd, start, end);
+        }
+
+        // Recurring holidays: map into each year covered by the query range.
+        for (PublicHoliday h : all) {
+            if (!h.isRecurring()) continue;
+            LocalDate hStart = h.getHolidayDate();
+            LocalDate hEnd = h.getEndDate() != null ? h.getEndDate() : hStart;
+            MonthDay mdStart = MonthDay.from(hStart);
+            int spanDays = (int) java.time.temporal.ChronoUnit.DAYS.between(hStart, hEnd);
             for (int year = start.getYear(); year <= end.getYear(); year++) {
-                LocalDate candidate;
-                try {
-                    candidate = md.atYear(year);
-                } catch (Exception e) { continue; }
-                if (!candidate.isBefore(start) && !candidate.isAfter(end)) dates.add(candidate);
+                LocalDate candidateStart;
+                try { candidateStart = mdStart.atYear(year); } catch (Exception e) { continue; }
+                LocalDate candidateEnd = candidateStart.plusDays(spanDays);
+                addRangeIfOverlaps(dates, candidateStart, candidateEnd, start, end);
             }
         }
         return dates;
+    }
+
+    private void addRangeIfOverlaps(Set<LocalDate> out, LocalDate hStart, LocalDate hEnd,
+                                    LocalDate qStart, LocalDate qEnd) {
+        LocalDate from = hStart.isBefore(qStart) ? qStart : hStart;
+        LocalDate to = hEnd.isAfter(qEnd) ? qEnd : hEnd;
+        if (from.isAfter(to)) return;
+        LocalDate cur = from;
+        while (!cur.isAfter(to)) { out.add(cur); cur = cur.plusDays(1); }
     }
 
     /** Public helper so callers (dialog preview) can compute days without creating a request. */
