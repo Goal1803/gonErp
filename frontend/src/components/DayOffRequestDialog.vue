@@ -96,6 +96,7 @@
             <span class="text-adaptive-secondary">
               Total days: <strong class="text-adaptive">{{ computedDays }}</strong>
               <span v-if="form.halfDayType !== 'FULL_DAY'"> ({{ form.halfDayType === 'MORNING' ? 'Morning' : 'Afternoon' }} half day)</span>
+              <span class="text-grey-6"> — weekends and public holidays excluded</span>
             </span>
           </div>
 
@@ -182,29 +183,23 @@ watch(isSingleDay, (val) => {
   if (!val) form.value.halfDayType = 'FULL_DAY'
 })
 
-// Count business days between two dates (inclusive)
-function countBusinessDays(start, end) {
-  const startDate = new Date(start)
-  const endDate = new Date(end)
-  let count = 0
-  const current = new Date(startDate)
-  while (current <= endDate) {
-    const day = current.getDay()
-    if (day !== 0 && day !== 6) count++
-    current.setDate(current.getDate() + 1)
-  }
-  return count
-}
-
-const computedDays = computed(() => {
-  if (!form.value.startDate || !form.value.endDate) return 0
-  if (form.value.endDate < form.value.startDate) return 0
-  const bizDays = countBusinessDays(form.value.startDate, form.value.endDate)
-  if (isSingleDay.value && form.value.halfDayType !== 'FULL_DAY') {
-    return 0.5
-  }
-  return bizDays
-})
+// Server-computed days (excludes weekends and public holidays)
+const computedDays = ref(0)
+let previewTimer = null
+watch(() => [form.value.startDate, form.value.endDate, form.value.halfDayType], () => {
+  if (!form.value.startDate || !form.value.endDate) { computedDays.value = 0; return }
+  if (form.value.endDate < form.value.startDate) { computedDays.value = 0; return }
+  clearTimeout(previewTimer)
+  previewTimer = setTimeout(async () => {
+    try {
+      const res = await worktimeDayOffRequestApi.previewDays(
+        form.value.startDate, form.value.endDate, form.value.halfDayType)
+      computedDays.value = res.data.data?.days ?? 0
+    } catch {
+      computedDays.value = 0
+    }
+  }, 200)
+}, { immediate: true })
 
 const selectedTypeQuota = computed(() => {
   if (!form.value.dayOffTypeId) return null

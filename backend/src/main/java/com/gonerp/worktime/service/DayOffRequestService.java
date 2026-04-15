@@ -9,11 +9,13 @@ import com.gonerp.worktime.event.WorkTimeNotificationEvent;
 import com.gonerp.worktime.model.DayOffQuota;
 import com.gonerp.worktime.model.DayOffRequest;
 import com.gonerp.worktime.model.DayOffType;
+import com.gonerp.worktime.model.PublicHoliday;
 import com.gonerp.worktime.model.enums.DayOffRequestStatus;
 import com.gonerp.worktime.model.enums.HalfDayType;
 import com.gonerp.worktime.repository.DayOffQuotaRepository;
 import com.gonerp.worktime.repository.DayOffRequestRepository;
 import com.gonerp.worktime.repository.DayOffTypeRepository;
+import com.gonerp.worktime.repository.PublicHolidayRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -23,6 +25,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.MonthDay;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -35,6 +39,7 @@ public class DayOffRequestService {
     private final DayOffRequestRepository requestRepository;
     private final DayOffQuotaRepository quotaRepository;
     private final DayOffTypeRepository dayOffTypeRepository;
+    private final PublicHolidayRepository publicHolidayRepository;
     private final UserRepository userRepository;
     private final ApplicationEventPublisher eventPublisher;
 
@@ -66,8 +71,9 @@ public class DayOffRequestService {
             }
         }
 
-        // Compute total days
-        double totalDays = computeTotalDays(dto.getStartDate(), dto.getEndDate(), halfDayType);
+        // Compute total days (excludes weekends and public holidays)
+        Long orgId = user.getOrganization() != null ? user.getOrganization().getId() : null;
+        double totalDays = computeTotalDays(orgId, dto.getStartDate(), dto.getEndDate(), halfDayType);
 
         // Check quota availability
         int year = dto.getStartDate().getYear();
@@ -215,21 +221,60 @@ public class DayOffRequestService {
 
     // ── Helpers ─────────────────────────────────────────────────────────────────
 
-    private double computeTotalDays(LocalDate startDate, LocalDate endDate, HalfDayType halfDayType) {
+    private double computeTotalDays(Long orgId, LocalDate startDate, LocalDate endDate, HalfDayType halfDayType) {
+        Set<LocalDate> holidays = resolveHolidayDates(orgId, startDate, endDate);
+
         if (halfDayType == HalfDayType.MORNING || halfDayType == HalfDayType.AFTERNOON) {
+            // Half day only meaningful for single-day requests; if it falls on a weekend/holiday → 0
+            DayOfWeek dow = startDate.getDayOfWeek();
+            if (dow == DayOfWeek.SATURDAY || dow == DayOfWeek.SUNDAY || holidays.contains(startDate)) return 0;
             return 0.5;
         }
 
-        // Count weekdays between start and end (inclusive)
         double days = 0;
         LocalDate current = startDate;
         while (!current.isAfter(endDate)) {
             DayOfWeek dow = current.getDayOfWeek();
-            if (dow != DayOfWeek.SATURDAY && dow != DayOfWeek.SUNDAY) {
+            if (dow != DayOfWeek.SATURDAY && dow != DayOfWeek.SUNDAY && !holidays.contains(current)) {
                 days += 1.0;
             }
             current = current.plusDays(1);
         }
         return days;
+    }
+
+    private Set<LocalDate> resolveHolidayDates(Long orgId, LocalDate start, LocalDate end) {
+        Set<LocalDate> dates = new HashSet<>();
+        if (orgId == null) return dates;
+        // Fixed-date holidays within the range
+        publicHolidayRepository.findByOrganizationIdAndHolidayDateBetween(orgId, start, end)
+                .forEach(h -> dates.add(h.getHolidayDate()));
+        // Recurring holidays: match by month/day for each year in the range
+        List<PublicHoliday> recurring = publicHolidayRepository.findByOrganizationIdAndIsRecurring(orgId, true);
+        if (recurring.isEmpty()) return dates;
+        for (PublicHoliday h : recurring) {
+            MonthDay md = MonthDay.from(h.getHolidayDate());
+            for (int year = start.getYear(); year <= end.getYear(); year++) {
+                LocalDate candidate;
+                try {
+                    candidate = md.atYear(year);
+                } catch (Exception e) { continue; }
+                if (!candidate.isBefore(start) && !candidate.isAfter(end)) dates.add(candidate);
+            }
+        }
+        return dates;
+    }
+
+    /** Public helper so callers (dialog preview) can compute days without creating a request. */
+    @Transactional(readOnly = true)
+    public double previewTotalDays(Long userId, LocalDate startDate, LocalDate endDate, String halfDay) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new EntityNotFoundException("User not found: " + userId));
+        HalfDayType hd = HalfDayType.FULL_DAY;
+        if (halfDay != null && !halfDay.isBlank()) {
+            try { hd = HalfDayType.valueOf(halfDay.toUpperCase()); } catch (IllegalArgumentException ignored) { }
+        }
+        Long orgId = user.getOrganization() != null ? user.getOrganization().getId() : null;
+        return computeTotalDays(orgId, startDate, endDate, hd);
     }
 }

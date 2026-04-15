@@ -34,9 +34,17 @@ export const worktimeDayOffRequestApi = {
   getMyRequests: () => api.get('/worktime/day-off-requests/my'),
   create: (data) => api.post('/worktime/day-off-requests', data),
   cancel: (id) => api.delete(`/worktime/day-off-requests/${id}`),
+  previewDays: (startDate, endDate, halfDay) => api.get('/worktime/day-off-requests/preview-days', {
+    params: { startDate, endDate, halfDay }
+  }),
   getPending: () => api.get('/worktime/day-off-requests/pending'),
   approve: (id, comment) => api.patch(`/worktime/day-off-requests/${id}/approve`, { comment }),
-  deny: (id, comment) => api.patch(`/worktime/day-off-requests/${id}/deny`, { comment })
+  deny: (id, comment) => api.patch(`/worktime/day-off-requests/${id}/deny`, { comment }),
+  bulkApprove: (ids, comment) => api.post('/worktime/day-off-requests/bulk-approve', { ids, comment }),
+  bulkDeny: (ids, comment) => api.post('/worktime/day-off-requests/bulk-deny', { ids, comment }),
+  adminRevoke: (id, comment) => api.patch(`/worktime/day-off-requests/${id}/revoke`, { comment }),
+  adminList: (params) => api.get('/worktime/day-off-requests/admin', { params }),
+  exportCsv: (params) => api.get('/worktime/day-off-requests/admin/export', { params, responseType: 'blob' })
 }
 
 // Phase 3: Team Calendar & Public Holidays

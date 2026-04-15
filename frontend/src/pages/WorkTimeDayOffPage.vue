@@ -102,6 +102,22 @@
               </q-td>
             </template>
 
+            <!-- Review -->
+            <template #body-cell-review="props">
+              <q-td :props="props">
+                <div v-if="props.row.reviewedAt" style="min-width: 180px;">
+                  <div class="text-caption text-adaptive">
+                    by <strong>{{ props.row.reviewedByName || '-' }}</strong>
+                    <span class="text-grey-6"> · {{ formatDateTime(props.row.reviewedAt) }}</span>
+                  </div>
+                  <div v-if="props.row.reviewComment" class="text-caption text-adaptive-secondary" style="white-space: normal;">
+                    “{{ props.row.reviewComment }}”
+                  </div>
+                </div>
+                <span v-else class="text-grey-6">-</span>
+              </q-td>
+            </template>
+
             <!-- Actions -->
             <template #body-cell-actions="props">
               <q-td :props="props">
@@ -166,6 +182,7 @@ const requestColumns = [
   { name: 'dates', label: 'Dates', field: 'startDate', align: 'left', sortable: true },
   { name: 'totalDays', label: 'Days', field: 'totalDays', align: 'center', sortable: true },
   { name: 'reason', label: 'Reason', field: 'reason', align: 'left' },
+  { name: 'review', label: 'Review', field: 'reviewComment', align: 'left' },
   { name: 'actions', label: '', field: 'actions', align: 'right' }
 ]
 
@@ -187,6 +204,11 @@ function formatDate(dateStr) {
   } catch {
     return dateStr
   }
+}
+
+function formatDateTime(dt) {
+  if (!dt) return '-'
+  try { return new Date(dt).toLocaleString() } catch { return dt }
 }
 
 async function loadQuotas() {

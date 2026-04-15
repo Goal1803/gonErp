@@ -31,6 +31,18 @@ public class DayOffRequestController {
         return ResponseEntity.ok(ApiResponse.ok(requestService.getMyRequests(user.getId())));
     }
 
+    @GetMapping("/preview-days")
+    public ResponseEntity<ApiResponse<Map<String, Double>>> previewDays(
+            Authentication auth,
+            @RequestParam("startDate") String startDate,
+            @RequestParam("endDate") String endDate,
+            @RequestParam(value = "halfDay", required = false) String halfDay) {
+        User user = userRepository.findByUserName(auth.getName()).orElseThrow();
+        double days = requestService.previewTotalDays(user.getId(),
+                java.time.LocalDate.parse(startDate), java.time.LocalDate.parse(endDate), halfDay);
+        return ResponseEntity.ok(ApiResponse.ok(Map.of("days", days)));
+    }
+
     @PostMapping
     public ResponseEntity<ApiResponse<DayOffRequestResponse>> createRequest(
             Authentication auth, @Valid @RequestBody DayOffRequestCreateDTO dto) {
