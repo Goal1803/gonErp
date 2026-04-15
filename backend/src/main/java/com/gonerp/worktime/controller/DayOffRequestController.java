@@ -47,10 +47,13 @@ public class DayOffRequestController {
             Authentication auth,
             @RequestParam("startDate") String startDate,
             @RequestParam("endDate") String endDate,
-            @RequestParam(value = "halfDay", required = false) String halfDay) {
+            @RequestParam(value = "halfDay", required = false) String halfDay,
+            @RequestParam(value = "startHalfDay", required = false) String startHalfDay,
+            @RequestParam(value = "endHalfDay", required = false) String endHalfDay) {
         User user = userRepository.findByUserName(auth.getName()).orElseThrow();
         double days = requestService.previewTotalDays(user.getId(),
-                java.time.LocalDate.parse(startDate), java.time.LocalDate.parse(endDate), halfDay);
+                java.time.LocalDate.parse(startDate), java.time.LocalDate.parse(endDate),
+                halfDay, startHalfDay, endHalfDay);
         return ResponseEntity.ok(ApiResponse.ok(Map.of("days", days)));
     }
 

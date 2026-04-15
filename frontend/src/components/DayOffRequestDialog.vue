@@ -78,7 +78,7 @@
             </div>
           </div>
 
-          <!-- Half Day (only when single day) -->
+          <!-- Half Day (single-day) -->
           <q-select
             v-if="isSingleDay"
             v-model="form.halfDayType"
@@ -88,7 +88,36 @@
             color="green-5"
             emit-value
             map-options
+            hint="Morning or afternoon = 0.5 day"
           />
+
+          <!-- Half Day (multi-day: first day + last day) -->
+          <div v-else-if="form.startDate && form.endDate" class="row q-col-gutter-md">
+            <div class="col-6">
+              <q-select
+                v-model="form.startHalfDayType"
+                :options="halfDayOptions"
+                label="First day"
+                outlined
+                color="green-5"
+                emit-value
+                map-options
+                hint="Half-day on the first day?"
+              />
+            </div>
+            <div class="col-6">
+              <q-select
+                v-model="form.endHalfDayType"
+                :options="halfDayOptions"
+                label="Last day"
+                outlined
+                color="green-5"
+                emit-value
+                map-options
+                hint="Half-day on the last day?"
+              />
+            </div>
+          </div>
 
           <!-- Overlap warning -->
           <div v-if="overlappingPeers.length" class="text-caption q-pa-sm"
@@ -115,7 +144,10 @@
             <q-icon name="calculate" color="green-5" class="q-mr-xs" />
             <span class="text-adaptive-secondary">
               Total days: <strong class="text-adaptive">{{ computedDays }}</strong>
-              <span v-if="form.halfDayType !== 'FULL_DAY'"> ({{ form.halfDayType === 'MORNING' ? 'Morning' : 'Afternoon' }} half day)</span>
+              <span v-if="isSingleDay && form.halfDayType !== 'FULL_DAY'"> ({{ form.halfDayType === 'MORNING' ? 'Morning' : 'Afternoon' }} half-day)</span>
+              <span v-else-if="!isSingleDay && (form.startHalfDayType !== 'FULL_DAY' || form.endHalfDayType !== 'FULL_DAY')">
+                (<span v-if="form.startHalfDayType !== 'FULL_DAY'">first day {{ form.startHalfDayType === 'MORNING' ? 'morning' : 'afternoon' }}</span><span v-if="form.startHalfDayType !== 'FULL_DAY' && form.endHalfDayType !== 'FULL_DAY'">, </span><span v-if="form.endHalfDayType !== 'FULL_DAY'">last day {{ form.endHalfDayType === 'MORNING' ? 'morning' : 'afternoon' }}</span>)
+              </span>
               <span class="text-grey-6"> — weekends and public holidays excluded</span>
             </span>
           </div>
@@ -177,6 +209,8 @@ const form = ref({
   startDate: '',
   endDate: '',
   halfDayType: 'FULL_DAY',
+  startHalfDayType: 'FULL_DAY',
+  endHalfDayType: 'FULL_DAY',
   reason: ''
 })
 
@@ -198,16 +232,22 @@ const isSingleDay = computed(() => {
   return form.value.startDate && form.value.endDate && form.value.startDate === form.value.endDate
 })
 
-// Reset half day when not single day
+// Reset appropriate half-day fields when switching between single/multi day
 watch(isSingleDay, (val) => {
-  if (!val) form.value.halfDayType = 'FULL_DAY'
+  if (val) {
+    form.value.startHalfDayType = 'FULL_DAY'
+    form.value.endHalfDayType = 'FULL_DAY'
+  } else {
+    form.value.halfDayType = 'FULL_DAY'
+  }
 })
 
 // Server-computed days (excludes weekends and public holidays)
 const computedDays = ref(0)
 const overlappingPeers = ref([])
 let previewTimer = null
-watch(() => [form.value.startDate, form.value.endDate, form.value.halfDayType], () => {
+watch(() => [form.value.startDate, form.value.endDate, form.value.halfDayType,
+             form.value.startHalfDayType, form.value.endHalfDayType], () => {
   if (!form.value.startDate || !form.value.endDate) {
     computedDays.value = 0; overlappingPeers.value = []; return
   }
@@ -218,7 +258,13 @@ watch(() => [form.value.startDate, form.value.endDate, form.value.halfDayType], 
   previewTimer = setTimeout(async () => {
     try {
       const [preview, peers] = await Promise.all([
-        worktimeDayOffRequestApi.previewDays(form.value.startDate, form.value.endDate, form.value.halfDayType),
+        worktimeDayOffRequestApi.previewDays(
+          form.value.startDate,
+          form.value.endDate,
+          form.value.halfDayType,
+          form.value.startHalfDayType,
+          form.value.endHalfDayType
+        ),
         worktimeDayOffRequestApi.overlappingPeers(form.value.startDate, form.value.endDate)
       ])
       computedDays.value = preview.data.data?.days ?? 0
@@ -253,6 +299,8 @@ watch(show, (val) => {
       startDate: props.initialDate || '',
       endDate: props.initialDate || '',
       halfDayType: 'FULL_DAY',
+      startHalfDayType: 'FULL_DAY',
+      endHalfDayType: 'FULL_DAY',
       reason: ''
     }
     loadData()
@@ -280,7 +328,9 @@ async function handleSubmit() {
       dayOffTypeId: form.value.dayOffTypeId,
       startDate: form.value.startDate,
       endDate: form.value.endDate,
-      halfDayType: form.value.halfDayType,
+      halfDayType: isSingleDay.value ? form.value.halfDayType : 'FULL_DAY',
+      startHalfDayType: isSingleDay.value ? null : form.value.startHalfDayType,
+      endHalfDayType: isSingleDay.value ? null : form.value.endHalfDayType,
       totalDays: computedDays.value,
       reason: form.value.reason || null
     }

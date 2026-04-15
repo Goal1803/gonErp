@@ -249,3 +249,47 @@ body {
     color: var(--erp-text-caption);
   }
 }
+
+/* ── Native date / time / datetime-local / month / week pickers ─────────────
+   Dark mode makes the WebKit calendar-picker icon invisible on dark backgrounds.
+   We replace it with a larger, lighter chevron-down icon and add a hover pill. */
+.body--dark {
+  input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"],
+  input[type="month"],
+  input[type="week"] {
+    color: var(--erp-text);
+    color-scheme: dark;
+  }
+
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="time"]::-webkit-calendar-picker-indicator,
+  input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+  input[type="month"]::-webkit-calendar-picker-indicator,
+  input[type="week"]::-webkit-calendar-picker-indicator {
+    /* Replace native icon with a light chevron-down SVG */
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23e0e0e0' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 20px 20px;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    margin-right: 2px;
+    border-radius: 6px;
+    opacity: 0.95;
+    filter: none;
+    cursor: pointer;
+    transition: background-color 0.15s, opacity 0.15s;
+  }
+
+  input[type="date"]::-webkit-calendar-picker-indicator:hover,
+  input[type="time"]::-webkit-calendar-picker-indicator:hover,
+  input[type="datetime-local"]::-webkit-calendar-picker-indicator:hover,
+  input[type="month"]::-webkit-calendar-picker-indicator:hover,
+  input[type="week"]::-webkit-calendar-picker-indicator:hover {
+    background-color: rgba(255, 255, 255, 0.12);
+    opacity: 1;
+  }
+}

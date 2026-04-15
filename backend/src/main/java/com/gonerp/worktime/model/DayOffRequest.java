@@ -42,10 +42,21 @@ public class DayOffRequest extends BaseModel {
     @Column(name = "end_date", nullable = false)
     private LocalDate endDate;
 
+    /** Legacy: used only when startDate == endDate. For multi-day ranges use start/endHalfDayType. */
     @Enumerated(EnumType.STRING)
     @Column(name = "half_day_type", length = 20)
     @Builder.Default
     private HalfDayType halfDayType = HalfDayType.FULL_DAY;
+
+    /** Half-day marker on the first day of a multi-day range. null / FULL_DAY = full day. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "start_half_day_type", length = 20)
+    private HalfDayType startHalfDayType;
+
+    /** Half-day marker on the last day of a multi-day range. null / FULL_DAY = full day. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "end_half_day_type", length = 20)
+    private HalfDayType endHalfDayType;
 
     @Column(name = "total_days")
     private double totalDays;

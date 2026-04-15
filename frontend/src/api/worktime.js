@@ -35,8 +35,8 @@ export const worktimeDayOffRequestApi = {
   getMyRequests: () => api.get('/worktime/day-off-requests/my'),
   create: (data) => api.post('/worktime/day-off-requests', data),
   cancel: (id) => api.delete(`/worktime/day-off-requests/${id}`),
-  previewDays: (startDate, endDate, halfDay) => api.get('/worktime/day-off-requests/preview-days', {
-    params: { startDate, endDate, halfDay }
+  previewDays: (startDate, endDate, halfDay, startHalfDay, endHalfDay) => api.get('/worktime/day-off-requests/preview-days', {
+    params: { startDate, endDate, halfDay, startHalfDay, endHalfDay }
   }),
   overlappingPeers: (startDate, endDate) => api.get('/worktime/day-off-requests/overlapping-peers', {
     params: { startDate, endDate }

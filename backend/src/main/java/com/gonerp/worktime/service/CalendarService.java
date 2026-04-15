@@ -1,6 +1,7 @@
 package com.gonerp.worktime.service;
 
 import com.gonerp.usermanager.model.User;
+import com.gonerp.usermanager.model.enums.UserStatus;
 import com.gonerp.usermanager.repository.UserRepository;
 import com.gonerp.worktime.dto.*;
 import com.gonerp.worktime.model.DayOffRequest;
@@ -8,6 +9,7 @@ import com.gonerp.worktime.model.PublicHoliday;
 import com.gonerp.worktime.model.enums.DayOffRequestStatus;
 import com.gonerp.worktime.repository.DayOffRequestRepository;
 import com.gonerp.worktime.repository.PublicHolidayRepository;
+import java.util.Comparator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,8 +27,14 @@ public class CalendarService {
     private final PublicHolidayRepository publicHolidayRepository;
 
     public CalendarQueryResponse getCalendarData(Long orgId, LocalDate startDate, LocalDate endDate) {
-        // 1. Get all users in the organization
-        List<User> users = userRepository.findByOrganizationId(orgId);
+        // 1. Get all active users in the organization, sorted by first name then user name
+        List<User> users = userRepository.findByOrganizationId(orgId).stream()
+                .filter(u -> u.getStatus() == UserStatus.ACTIVE)
+                .sorted(Comparator
+                        .comparing((User u) -> u.getFirstName() != null ? u.getFirstName() : u.getUserName(),
+                                   Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER))
+                        .thenComparing(User::getUserName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
+                .toList();
         List<CalendarUserDTO> userDTOs = users.stream()
                 .map(CalendarUserDTO::from)
                 .toList();
@@ -79,11 +87,22 @@ public class CalendarService {
 
         for (DayOffRequest request : requests) {
             User reqUser = request.getUser();
-            LocalDate reqStart = request.getStartDate().isBefore(startDate) ? startDate : request.getStartDate();
-            LocalDate reqEnd = request.getEndDate().isAfter(endDate) ? endDate : request.getEndDate();
+            LocalDate fullStart = request.getStartDate();
+            LocalDate fullEnd = request.getEndDate();
+            boolean singleDay = fullStart.equals(fullEnd);
+            LocalDate reqStart = fullStart.isBefore(startDate) ? startDate : fullStart;
+            LocalDate reqEnd = fullEnd.isAfter(endDate) ? endDate : fullEnd;
 
             LocalDate current = reqStart;
             while (!current.isAfter(reqEnd)) {
+                String perDayHalf = "FULL_DAY";
+                if (singleDay) {
+                    perDayHalf = request.getHalfDayType() != null ? request.getHalfDayType().name() : "FULL_DAY";
+                } else if (current.equals(fullStart) && request.getStartHalfDayType() != null) {
+                    perDayHalf = request.getStartHalfDayType().name();
+                } else if (current.equals(fullEnd) && request.getEndHalfDayType() != null) {
+                    perDayHalf = request.getEndHalfDayType().name();
+                }
                 CalendarDayDTO day = CalendarDayDTO.builder()
                         .date(current)
                         .userId(reqUser.getId())
@@ -96,7 +115,7 @@ public class CalendarService {
                         .dayOffTypeColor(request.getDayOffType() != null ? request.getDayOffType().getColor() : null)
                         .requestId(request.getId())
                         .status(request.getStatus() != null ? request.getStatus().name() : null)
-                        .halfDayType(request.getHalfDayType() != null ? request.getHalfDayType().name() : null)
+                        .halfDayType(perDayHalf)
                         .isHoliday(holidayDateSet.contains(current))
                         .holidayName(holidayNameMap.getOrDefault(current, null))
                         .build();

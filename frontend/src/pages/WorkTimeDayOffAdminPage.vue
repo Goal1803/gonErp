@@ -185,7 +185,12 @@
             >
               <template #body-cell-status="props">
                 <q-td :props="props">
-                  <q-badge :color="statusColor(props.row.status)" :label="props.row.status" />
+                  <q-badge
+                    :color="statusColor(props.row.status)"
+                    :label="props.row.status || '—'"
+                    class="text-weight-medium"
+                    style="padding: 4px 10px; font-size: 0.72rem; letter-spacing: 0.3px;"
+                  />
                 </q-td>
               </template>
               <template #body-cell-dayOffTypeName="props">
@@ -657,7 +662,7 @@ const pendingColumns = [
 ]
 
 const allRequestsColumns = [
-  { name: 'status', label: 'Status', field: 'status', align: 'left', sortable: true },
+  { name: 'status', label: 'Status', field: 'status', align: 'center', sortable: true, style: 'min-width: 110px;' },
   { name: 'userName', label: 'User', field: 'userName', align: 'left', sortable: true },
   { name: 'dayOffTypeName', label: 'Type', field: 'dayOffTypeName', align: 'left', sortable: true },
   { name: 'dates', label: 'Dates', field: 'startDate', align: 'left', sortable: true },
