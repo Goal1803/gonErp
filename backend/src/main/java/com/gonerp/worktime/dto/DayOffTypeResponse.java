@@ -1,5 +1,6 @@
 package com.gonerp.worktime.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.gonerp.worktime.model.DayOffType;
 import lombok.Builder;
 import lombok.Data;
@@ -10,6 +11,7 @@ public class DayOffTypeResponse {
     private Long id;
     private String name;
     private String color;
+    @JsonProperty("isPaid")
     private boolean isPaid;
     private double defaultQuota;
     private int displayOrder;

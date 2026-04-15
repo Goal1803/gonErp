@@ -61,19 +61,16 @@ public class DayOffRequestService {
             throw new IllegalArgumentException("End date cannot be before start date");
         }
 
-        // Parse half-day type
-        HalfDayType halfDayType = HalfDayType.FULL_DAY;
-        if (dto.getHalfDayType() != null && !dto.getHalfDayType().isBlank()) {
-            try {
-                halfDayType = HalfDayType.valueOf(dto.getHalfDayType().toUpperCase());
-            } catch (IllegalArgumentException e) {
-                throw new IllegalArgumentException("Invalid half-day type: " + dto.getHalfDayType());
-            }
-        }
+        boolean singleDay = dto.getStartDate().equals(dto.getEndDate());
+        HalfDayType halfDayType = parseHalf(dto.getHalfDayType());
+        HalfDayType startHalf = parseHalf(dto.getStartHalfDayType());
+        HalfDayType endHalf = parseHalf(dto.getEndHalfDayType());
 
         // Compute total days (excludes weekends and public holidays)
         Long orgId = user.getOrganization() != null ? user.getOrganization().getId() : null;
-        double totalDays = computeTotalDays(orgId, dto.getStartDate(), dto.getEndDate(), halfDayType);
+        double totalDays = singleDay
+                ? computeTotalDays(orgId, dto.getStartDate(), dto.getEndDate(), halfDayType)
+                : computeRangeDays(orgId, dto.getStartDate(), dto.getEndDate(), startHalf, endHalf);
 
         // Check quota availability
         int year = dto.getStartDate().getYear();
@@ -95,7 +92,9 @@ public class DayOffRequestService {
                 .dayOffType(dayOffType)
                 .startDate(dto.getStartDate())
                 .endDate(dto.getEndDate())
-                .halfDayType(halfDayType)
+                .halfDayType(singleDay ? halfDayType : HalfDayType.FULL_DAY)
+                .startHalfDayType(singleDay ? null : startHalf)
+                .endHalfDayType(singleDay ? null : endHalf)
                 .totalDays(totalDays)
                 .reason(dto.getReason())
                 .status(DayOffRequestStatus.PENDING)
@@ -368,6 +367,36 @@ public class DayOffRequestService {
 
     // ── Helpers ─────────────────────────────────────────────────────────────────
 
+    private HalfDayType parseHalf(String raw) {
+        if (raw == null || raw.isBlank()) return HalfDayType.FULL_DAY;
+        try { return HalfDayType.valueOf(raw.toUpperCase()); }
+        catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid half-day type: " + raw);
+        }
+    }
+
+    /** Multi-day range: count weekdays/non-holidays; subtract 0.5 on start/end if marked half. */
+    private double computeRangeDays(Long orgId, LocalDate start, LocalDate end, HalfDayType startHalf, HalfDayType endHalf) {
+        Set<LocalDate> holidays = resolveHolidayDates(orgId, start, end);
+        double days = 0;
+        LocalDate current = start;
+        while (!current.isAfter(end)) {
+            DayOfWeek dow = current.getDayOfWeek();
+            boolean counted = dow != DayOfWeek.SATURDAY && dow != DayOfWeek.SUNDAY && !holidays.contains(current);
+            if (counted) days += 1.0;
+            current = current.plusDays(1);
+        }
+        DayOfWeek startDow = start.getDayOfWeek();
+        boolean startCounted = startDow != DayOfWeek.SATURDAY && startDow != DayOfWeek.SUNDAY && !holidays.contains(start);
+        if (startCounted && (startHalf == HalfDayType.MORNING || startHalf == HalfDayType.AFTERNOON)) days -= 0.5;
+
+        DayOfWeek endDow = end.getDayOfWeek();
+        boolean endCounted = endDow != DayOfWeek.SATURDAY && endDow != DayOfWeek.SUNDAY && !holidays.contains(end);
+        if (endCounted && (endHalf == HalfDayType.MORNING || endHalf == HalfDayType.AFTERNOON)) days -= 0.5;
+
+        return Math.max(0, days);
+    }
+
     private double computeTotalDays(Long orgId, LocalDate startDate, LocalDate endDate, HalfDayType halfDayType) {
         Set<LocalDate> holidays = resolveHolidayDates(orgId, startDate, endDate);
 
@@ -393,35 +422,64 @@ public class DayOffRequestService {
     private Set<LocalDate> resolveHolidayDates(Long orgId, LocalDate start, LocalDate end) {
         Set<LocalDate> dates = new HashSet<>();
         if (orgId == null) return dates;
-        // Fixed-date holidays within the range
-        publicHolidayRepository.findByOrganizationIdAndHolidayDateBetween(orgId, start, end)
-                .forEach(h -> dates.add(h.getHolidayDate()));
-        // Recurring holidays: match by month/day for each year in the range
-        List<PublicHoliday> recurring = publicHolidayRepository.findByOrganizationIdAndIsRecurring(orgId, true);
-        if (recurring.isEmpty()) return dates;
-        for (PublicHoliday h : recurring) {
-            MonthDay md = MonthDay.from(h.getHolidayDate());
+
+        // Non-recurring holidays whose [start..end] overlaps the query window.
+        // Use a broad fetch (all holidays for org) and filter — schema allows multi-day via endDate.
+        List<PublicHoliday> all = publicHolidayRepository.findByOrganizationId(orgId);
+        for (PublicHoliday h : all) {
+            if (h.isRecurring()) continue;
+            LocalDate hStart = h.getHolidayDate();
+            LocalDate hEnd = h.getEndDate() != null ? h.getEndDate() : hStart;
+            addRangeIfOverlaps(dates, hStart, hEnd, start, end);
+        }
+
+        // Recurring holidays: map into each year covered by the query range.
+        for (PublicHoliday h : all) {
+            if (!h.isRecurring()) continue;
+            LocalDate hStart = h.getHolidayDate();
+            LocalDate hEnd = h.getEndDate() != null ? h.getEndDate() : hStart;
+            MonthDay mdStart = MonthDay.from(hStart);
+            int spanDays = (int) java.time.temporal.ChronoUnit.DAYS.between(hStart, hEnd);
             for (int year = start.getYear(); year <= end.getYear(); year++) {
-                LocalDate candidate;
-                try {
-                    candidate = md.atYear(year);
-                } catch (Exception e) { continue; }
-                if (!candidate.isBefore(start) && !candidate.isAfter(end)) dates.add(candidate);
+                LocalDate candidateStart;
+                try { candidateStart = mdStart.atYear(year); } catch (Exception e) { continue; }
+                LocalDate candidateEnd = candidateStart.plusDays(spanDays);
+                addRangeIfOverlaps(dates, candidateStart, candidateEnd, start, end);
             }
         }
         return dates;
     }
 
+    private void addRangeIfOverlaps(Set<LocalDate> out, LocalDate hStart, LocalDate hEnd,
+                                    LocalDate qStart, LocalDate qEnd) {
+        LocalDate from = hStart.isBefore(qStart) ? qStart : hStart;
+        LocalDate to = hEnd.isAfter(qEnd) ? qEnd : hEnd;
+        if (from.isAfter(to)) return;
+        LocalDate cur = from;
+        while (!cur.isAfter(to)) { out.add(cur); cur = cur.plusDays(1); }
+    }
+
     /** Public helper so callers (dialog preview) can compute days without creating a request. */
     @Transactional(readOnly = true)
-    public double previewTotalDays(Long userId, LocalDate startDate, LocalDate endDate, String halfDay) {
+    public double previewTotalDays(Long userId, LocalDate startDate, LocalDate endDate,
+                                   String halfDay, String startHalfDay, String endHalfDay) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException("User not found: " + userId));
-        HalfDayType hd = HalfDayType.FULL_DAY;
-        if (halfDay != null && !halfDay.isBlank()) {
-            try { hd = HalfDayType.valueOf(halfDay.toUpperCase()); } catch (IllegalArgumentException ignored) { }
-        }
         Long orgId = user.getOrganization() != null ? user.getOrganization().getId() : null;
-        return computeTotalDays(orgId, startDate, endDate, hd);
+        if (startDate.equals(endDate)) {
+            HalfDayType hd = HalfDayType.FULL_DAY;
+            if (halfDay != null && !halfDay.isBlank()) {
+                try { hd = HalfDayType.valueOf(halfDay.toUpperCase()); } catch (IllegalArgumentException ignored) { }
+            }
+            return computeTotalDays(orgId, startDate, endDate, hd);
+        }
+        HalfDayType startH = HalfDayType.FULL_DAY, endH = HalfDayType.FULL_DAY;
+        if (startHalfDay != null && !startHalfDay.isBlank()) {
+            try { startH = HalfDayType.valueOf(startHalfDay.toUpperCase()); } catch (IllegalArgumentException ignored) { }
+        }
+        if (endHalfDay != null && !endHalfDay.isBlank()) {
+            try { endH = HalfDayType.valueOf(endHalfDay.toUpperCase()); } catch (IllegalArgumentException ignored) { }
+        }
+        return computeRangeDays(orgId, startDate, endDate, startH, endH);
     }
 }

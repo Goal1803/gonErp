@@ -22,6 +22,8 @@ public class DayOffRequestResponse {
     private LocalDate startDate;
     private LocalDate endDate;
     private String halfDayType;
+    private String startHalfDayType;
+    private String endHalfDayType;
     private double totalDays;
     private String reason;
     private String status;
@@ -45,6 +47,8 @@ public class DayOffRequestResponse {
                 .startDate(r.getStartDate())
                 .endDate(r.getEndDate())
                 .halfDayType(r.getHalfDayType() != null ? r.getHalfDayType().name() : null)
+                .startHalfDayType(r.getStartHalfDayType() != null ? r.getStartHalfDayType().name() : null)
+                .endHalfDayType(r.getEndHalfDayType() != null ? r.getEndHalfDayType().name() : null)
                 .totalDays(r.getTotalDays())
                 .reason(r.getReason())
                 .status(r.getStatus() != null ? r.getStatus().name() : null)

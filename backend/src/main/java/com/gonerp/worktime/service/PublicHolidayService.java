@@ -40,10 +40,16 @@ public class PublicHolidayService {
         Organization org = organizationRepository.findById(orgId)
                 .orElseThrow(() -> new EntityNotFoundException("Organization not found: " + orgId));
 
+        if (request.getEndDate() != null && request.getEndDate().isBefore(request.getHolidayDate())) {
+            throw new IllegalArgumentException("End date cannot be before start date");
+        }
+
         PublicHoliday holiday = PublicHoliday.builder()
                 .organization(org)
                 .holidayDate(request.getHolidayDate())
+                .endDate(request.getEndDate())
                 .name(request.getName())
+                .color(request.getColor())
                 .isRecurring(request.getIsRecurring() != null ? request.getIsRecurring() : false)
                 .build();
 
@@ -54,8 +60,14 @@ public class PublicHolidayService {
         PublicHoliday holiday = publicHolidayRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Public holiday not found: " + id));
 
+        if (request.getEndDate() != null && request.getEndDate().isBefore(request.getHolidayDate())) {
+            throw new IllegalArgumentException("End date cannot be before start date");
+        }
+
         holiday.setHolidayDate(request.getHolidayDate());
+        holiday.setEndDate(request.getEndDate());
         holiday.setName(request.getName());
+        holiday.setColor(request.getColor());
         if (request.getIsRecurring() != null) {
             holiday.setRecurring(request.getIsRecurring());
         }
