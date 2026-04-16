@@ -137,6 +137,7 @@
             @assign-card="onAssignCard"
             @toggle-select-card="onToggleSelectCard"
             @download-mockups-card="onDownloadMockupsCard"
+            @toggle-select-all-column="onToggleSelectAllColumn"
           />
         </template>
       </draggable>
@@ -403,6 +404,14 @@ const doBulkMove = async () => {
     $q.notify({ type: 'negative', message: e.response?.data?.message || 'Bulk move failed' })
   } finally {
     bulkMoving.value = false
+  }
+}
+
+const onToggleSelectAllColumn = ({ ids, selectAll }) => {
+  if (selectAll) {
+    for (const id of ids) selectedCardIds.add(id)
+  } else {
+    for (const id of ids) selectedCardIds.delete(id)
   }
 }
 

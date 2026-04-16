@@ -11,6 +11,17 @@
         @keyup.enter="saveTitle" @keyup.escape="editingTitle=false" @blur="saveTitle" />
 
       <div class="row items-center q-ml-xs">
+        <q-btn
+          v-if="visibleCount"
+          flat round dense size="xs" color="grey-5"
+          :icon="allVisibleSelected ? 'check_box' : 'select_all'"
+          :class="{ 'select-active': allVisibleSelected }"
+          @click="toggleSelectAll"
+        >
+          <q-tooltip>
+            {{ allVisibleSelected ? 'Deselect all in column' : 'Select all cards in column' }}
+          </q-tooltip>
+        </q-btn>
         <q-badge color="grey-8" :label="visibleCount" rounded style="font-size:0.65rem" />
         <q-btn flat round dense icon="more_vert" color="grey-5" size="xs" class="q-ml-xs">
           <q-menu>
@@ -30,7 +41,8 @@
     </div>
 
     <!-- Cards scroll container -->
-    <div class="col-cards" ref="colCardsEl">
+    <div class="col-cards-wrap">
+    <div class="col-cards" ref="colCardsEl" @scroll="onColScroll">
       <draggable
         v-model="displayCards"
         group="cards"
@@ -60,6 +72,23 @@
       </draggable>
     </div>
 
+      <!-- Jump-to-bottom FAB -->
+      <transition name="fab-fade">
+        <q-btn
+          v-if="showJumpBottom"
+          round
+          dense
+          color="teal-7"
+          icon="keyboard_double_arrow_down"
+          size="sm"
+          class="jump-bottom-fab"
+          @click="scrollToBottom"
+        >
+          <q-tooltip>Jump to bottom</q-tooltip>
+        </q-btn>
+      </transition>
+    </div>
+
     <!-- Add card -->
     <div class="q-px-sm q-pb-sm">
       <div v-if="!addingCard">
@@ -87,7 +116,7 @@ let globalCardDragging = false
 </script>
 
 <script setup>
-import { ref, computed, onUnmounted } from 'vue'
+import { ref, computed, onUnmounted, watch, nextTick } from 'vue'
 import { useQuasar } from 'quasar'
 import draggable from 'vuedraggable'
 import KanbanCard from './KanbanCard.vue'
@@ -101,7 +130,7 @@ const props = defineProps({
   selectedIds: { type: Set, default: () => new Set() },
   boardType: { type: String, default: 'GENERAL' },
 })
-const emit = defineEmits(['open-card', 'delete', 'delete-card', 'copy-card', 'refresh', 'drag-start', 'drag-end', 'assign-card', 'toggle-select-card', 'download-mockups-card'])
+const emit = defineEmits(['open-card', 'delete', 'delete-card', 'copy-card', 'refresh', 'drag-start', 'drag-end', 'assign-card', 'toggle-select-card', 'download-mockups-card', 'toggle-select-all-column'])
 const $q = useQuasar()
 const boardStore = useBoardStore()
 
@@ -137,6 +166,40 @@ const displayCards = computed({
 })
 
 const visibleCount = computed(() => displayCards.value.length)
+
+const allVisibleSelected = computed(() => {
+  if (!displayCards.value.length) return false
+  return displayCards.value.every(c => props.selectedIds.has(c.id))
+})
+
+// Jump-to-bottom FAB: only visible when the column is scrollable AND not near the bottom.
+const showJumpBottom = ref(false)
+
+const updateJumpBottom = () => {
+  const el = colCardsEl.value
+  if (!el) { showJumpBottom.value = false; return }
+  const canScroll = el.scrollHeight - el.clientHeight > 40
+  const nearBottom = el.scrollHeight - el.clientHeight - el.scrollTop < 20
+  showJumpBottom.value = canScroll && !nearBottom
+}
+
+const onColScroll = () => updateJumpBottom()
+
+const scrollToBottom = () => {
+  const el = colCardsEl.value
+  if (!el) return
+  el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+}
+
+// Re-evaluate visibility whenever the card list size changes.
+watch(() => displayCards.value.length, () => nextTick(updateJumpBottom))
+
+const toggleSelectAll = () => {
+  emit('toggle-select-all-column', {
+    ids: displayCards.value.map(c => c.id),
+    selectAll: !allVisibleSelected.value
+  })
+}
 
 const startEdit = () => {
   editTitle.value = props.column.title
@@ -294,10 +357,29 @@ onUnmounted(() => {
   border-bottom: 1px solid var(--erp-border-subtle);
   min-height: 44px;
 }
+.col-cards-wrap {
+  position: relative;
+}
 .col-cards {
   overflow-y: auto;
   max-height: calc(100vh - 200px);
   min-height: 40px;
+}
+.jump-bottom-fab {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  z-index: 5;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+  opacity: 0.92;
+}
+.jump-bottom-fab:hover { opacity: 1; }
+.fab-fade-enter-active, .fab-fade-leave-active {
+  transition: opacity 0.15s, transform 0.15s;
+}
+.fab-fade-enter-from, .fab-fade-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
 }
 .col-cards-inner {
   padding: 8px;
@@ -308,4 +390,5 @@ onUnmounted(() => {
 }
 .card-ghost { opacity: 0.4; }
 .card-drag { transform: rotate(2deg); box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+.select-active :deep(.q-icon) { color: #26a69a !important; }
 </style>
