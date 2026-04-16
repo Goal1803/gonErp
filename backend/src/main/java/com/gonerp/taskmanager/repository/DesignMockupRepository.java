@@ -28,4 +28,8 @@ public interface DesignMockupRepository extends JpaRepository<DesignMockup, Long
     List<HashRow> findAllHashed();
 
     List<DesignMockup> findByImageHashIsNull();
+
+    List<DesignMockup> findByImageHashIsNull(org.springframework.data.domain.Pageable pageable);
+
+    long countByImageHashIsNull();
 }

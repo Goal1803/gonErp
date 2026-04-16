@@ -119,8 +119,10 @@ public class DesignsController {
 
     @PostMapping("/rehash-mockups")
     @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<java.util.Map<String, Integer>>> rehashMockups() {
-        return ResponseEntity.ok(ApiResponse.ok("Rehash complete", designsService.rehashMissingMockups()));
+    public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> rehashMockups(
+            @RequestParam(value = "batchSize", defaultValue = "25") int batchSize) {
+        return ResponseEntity.ok(ApiResponse.ok("Rehash batch complete",
+                designsService.rehashMissingMockups(batchSize)));
     }
 
     @GetMapping("/hash-stats")

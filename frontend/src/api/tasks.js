@@ -113,7 +113,9 @@ export const designsApi = {
   searchByImage: (formData, params) => api.post('/tasks/designs/search-by-image', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }, params, timeout: 120000
   }),
-  rehashMockups: () => api.post('/tasks/designs/rehash-mockups', {}, { timeout: 1800000 }),
+  rehashMockups: (batchSize = 25) => api.post('/tasks/designs/rehash-mockups', {}, {
+    params: { batchSize }, timeout: 120000
+  }),
   hashStats: () => api.get('/tasks/designs/hash-stats'),
   getDetail: (designId) => api.get(`/tasks/designs/${designId}/detail`),
   updateDetail: (designId, data) => api.put(`/tasks/designs/${designId}`, data),

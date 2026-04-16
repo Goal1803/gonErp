@@ -247,14 +247,21 @@ public class DesignsService {
 
     private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(DesignsService.class);
 
-    /** Backfill imageHash for every existing mockup that doesn't have one. Admin-only. */
-    @Transactional
-    public java.util.Map<String, Integer> rehashMissingMockups() {
+    /**
+     * Backfill imageHash for up to {@code batchSize} mockups that don't have one.
+     * NOT @Transactional — each save() commits individually so the HTTP call can
+     * return quickly (avoids proxy / load-balancer timeouts) and work survives if
+     * the batch is interrupted. Returns counts + remaining so the frontend can
+     * loop until 0. Admin-only.
+     */
+    public java.util.Map<String, Object> rehashMissingMockups(int batchSize) {
         int processed = 0;
         int failedBadUrl = 0, failedR2 = 0, failedDecode = 0, failedException = 0;
         String publicBase = r2Props.getPublicUrl();
-        java.util.List<DesignMockup> todo = designMockupRepository.findByImageHashIsNull();
-        LOG.info("Rehash: {} mockup(s) missing image_hash. publicBase={}", todo.size(), publicBase);
+        int effectiveBatch = Math.max(1, Math.min(batchSize, 500));
+        java.util.List<DesignMockup> todo = designMockupRepository.findByImageHashIsNull(
+                org.springframework.data.domain.PageRequest.of(0, effectiveBatch));
+        LOG.info("Rehash batch: {} mockup(s) this run, publicBase={}", todo.size(), publicBase);
 
         for (DesignMockup m : todo) {
             if (m.getUrl() == null || publicBase == null || !m.getUrl().startsWith(publicBase)) {
@@ -285,15 +292,17 @@ public class DesignsService {
             }
         }
         int failed = failedBadUrl + failedR2 + failedDecode + failedException;
-        LOG.info("Rehash done: processed={}, failed={} (badUrl={}, r2={}, decode={}, exception={})",
-                processed, failed, failedBadUrl, failedR2, failedDecode, failedException);
+        long remaining = designMockupRepository.countByImageHashIsNull();
+        LOG.info("Rehash batch done: processed={}, failed={}, remaining={}",
+                processed, failed, remaining);
         return java.util.Map.of(
                 "processed", processed,
                 "failed", failed,
                 "failedBadUrl", failedBadUrl,
                 "failedR2", failedR2,
                 "failedDecode", failedDecode,
-                "failedException", failedException
+                "failedException", failedException,
+                "remaining", remaining
         );
     }
 
