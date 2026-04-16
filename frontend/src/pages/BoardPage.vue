@@ -137,6 +137,7 @@
             @assign-card="onAssignCard"
             @toggle-select-card="onToggleSelectCard"
             @download-mockups-card="onDownloadMockupsCard"
+            @toggle-select-all-column="onToggleSelectAllColumn"
           />
         </template>
       </draggable>
@@ -165,6 +166,7 @@
       <q-btn flat color="blue-4" icon="person_add" label="Assign Member" no-caps @click="showBulkMemberAssign = true" />
       <q-btn v-if="isPodDesign" flat color="purple-4" icon="brush" label="Assign Designer" no-caps @click="showBulkDesignerAssign = true" />
       <q-btn v-if="isPodDesign" flat color="teal-3" icon="download" label="Download Mockups" no-caps :loading="bulkDownloading" @click="doBulkDownloadMockups" />
+      <q-btn flat color="amber-4" icon="swap_horiz" label="Move to Column" no-caps @click="openBulkMove" />
       <q-btn flat color="grey-5" icon="close" label="Clear" no-caps @click="selectedCardIds.clear()" />
     </div>
 
@@ -218,6 +220,34 @@
         <q-card-actions align="right">
           <q-btn flat label="Cancel" color="grey-5" v-close-popup />
           <q-btn flat label="Assign" color="purple-4" :disable="!bulkDesignerUserId" :loading="bulkAssigning" @click="doBulkDesignerAssign" />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
+
+    <!-- Bulk move dialog -->
+    <q-dialog v-model="showBulkMove">
+      <q-card style="min-width:360px" class="bg-dark text-white">
+        <q-card-section>
+          <div class="text-h6">Move {{ selectedCardIds.size }} card(s) to column</div>
+        </q-card-section>
+        <q-card-section>
+          <q-select
+            v-model="bulkMoveColumnId"
+            :options="columnOptions"
+            option-value="id"
+            option-label="title"
+            emit-value
+            map-options
+            dense
+            outlined
+            color="amber-4"
+            label="Target column"
+            autofocus
+          />
+        </q-card-section>
+        <q-card-actions align="right">
+          <q-btn flat label="Cancel" color="grey-5" v-close-popup />
+          <q-btn flat label="Move" color="amber-4" :disable="!bulkMoveColumnId" :loading="bulkMoving" @click="doBulkMove" />
         </q-card-actions>
       </q-card>
     </q-dialog>
@@ -348,6 +378,42 @@ const showBulkDesignerAssign = ref(false)
 const bulkMemberUserId = ref(null)
 const bulkDesignerUserId = ref(null)
 const bulkAssigning = ref(false)
+const showBulkMove = ref(false)
+const bulkMoveColumnId = ref(null)
+const bulkMoving = ref(false)
+const columnOptions = computed(() =>
+  (boardStore.board?.columns || []).map(c => ({ id: c.id, title: c.title }))
+)
+const openBulkMove = () => {
+  if (!selectedCardIds.size) return
+  bulkMoveColumnId.value = null
+  showBulkMove.value = true
+}
+const doBulkMove = async () => {
+  if (!bulkMoveColumnId.value || !selectedCardIds.size) return
+  bulkMoving.value = true
+  try {
+    const ids = [...selectedCardIds]
+    const res = await cardApi.bulkMove(ids, bulkMoveColumnId.value)
+    const moved = res.data.data?.moved ?? ids.length
+    $q.notify({ type: 'positive', message: `Moved ${moved} card(s)` })
+    selectedCardIds.clear()
+    showBulkMove.value = false
+    await refreshBoard()
+  } catch (e) {
+    $q.notify({ type: 'negative', message: e.response?.data?.message || 'Bulk move failed' })
+  } finally {
+    bulkMoving.value = false
+  }
+}
+
+const onToggleSelectAllColumn = ({ ids, selectAll }) => {
+  if (selectAll) {
+    for (const id of ids) selectedCardIds.add(id)
+  } else {
+    for (const id of ids) selectedCardIds.delete(id)
+  }
+}
 
 const onToggleSelectCard = (card) => {
   if (selectedCardIds.has(card.id)) {

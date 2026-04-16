@@ -333,6 +333,31 @@ public class CardService {
         eventPublisher.publish(boardId, "CARD_DELETED", id, columnId, actor, null);
     }
 
+    /**
+     * Moves a batch of cards to a target column, appending each one at the end
+     * (maintaining the given order). Reuses moveCard so all side-effects fire
+     * (activity log, order/design status sync, notifications, websocket events).
+     */
+    public int bulkMoveCards(List<Long> cardIds, Long targetColumnId) {
+        if (cardIds == null || cardIds.isEmpty()) return 0;
+        BoardColumn target = boardColumnRepository.findById(targetColumnId)
+                .orElseThrow(() -> new EntityNotFoundException("Column not found: " + targetColumnId));
+        int startPos = target.getCards().size();
+        int moved = 0;
+        for (int i = 0; i < cardIds.size(); i++) {
+            CardMoveRequest req = new CardMoveRequest();
+            req.setTargetColumnId(targetColumnId);
+            req.setPosition(startPos + i);
+            try {
+                moveCard(cardIds.get(i), req);
+                moved++;
+            } catch (Exception ignored) {
+                // skip single failures so one bad card doesn't abort the batch
+            }
+        }
+        return moved;
+    }
+
     public void moveCard(Long cardId, CardMoveRequest request) {
         Card card = getCardOrThrow(cardId);
         checkBoardAccess(card.getColumn());

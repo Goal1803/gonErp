@@ -35,6 +35,9 @@ public class DesignsService {
     private final DesignStaffRoleRepository designStaffRoleRepository;
     private final UserDesignStaffRoleRepository userDesignStaffRoleRepository;
     private final UserRepository userRepository;
+    private final DesignMockupRepository designMockupRepository;
+    private final com.gonerp.common.FileStorageService fileStorageService;
+    private final com.gonerp.config.R2StorageProperties r2Props;
 
     private User getCurrentUser() {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -191,6 +194,81 @@ public class DesignsService {
             Hibernate.initialize(dd.getNiches());
             return DesignSummaryResponse.from(dd);
         });
+    }
+
+    // ── Image-similarity search ───────────────────────────────────────────────
+
+    /**
+     * Searches designs whose mockups are visually similar to the uploaded query image.
+     * Groups matches by design, takes the best (min Hamming distance) hit per design,
+     * filters by threshold, and sorts ascending (closest match first).
+     */
+    public List<com.gonerp.taskmanager.dto.DesignImageSearchResult> searchByImage(
+            org.springframework.web.multipart.MultipartFile queryImage, int threshold, int limit) {
+        Long queryHash;
+        try (java.io.InputStream in = queryImage.getInputStream()) {
+            queryHash = com.gonerp.common.PerceptualHash.compute(in);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Unable to read uploaded image");
+        }
+        if (queryHash == null) throw new IllegalArgumentException("Unsupported image format");
+
+        List<DesignMockupRepository.HashRow> hashed = designMockupRepository.findAllHashed();
+        java.util.Map<Long, Integer> bestPerDesign = new java.util.HashMap<>();
+        for (DesignMockupRepository.HashRow row : hashed) {
+            if (row.getDesignDetailId() == null || row.getImageHash() == null) continue;
+            int dist = com.gonerp.common.PerceptualHash.hammingDistance(queryHash, row.getImageHash());
+            if (dist > threshold) continue;
+            bestPerDesign.merge(row.getDesignDetailId(), dist, Math::min);
+        }
+        if (bestPerDesign.isEmpty()) return List.of();
+
+        // Fetch matched designs in one pass, keep order by distance.
+        List<DesignDetail> found = designDetailRepository.findAllById(bestPerDesign.keySet());
+        java.util.Map<Long, DesignDetail> byId = new java.util.HashMap<>();
+        for (DesignDetail dd : found) byId.put(dd.getId(), dd);
+
+        return bestPerDesign.entrySet().stream()
+                .sorted(java.util.Map.Entry.comparingByValue())
+                .limit(Math.max(1, limit))
+                .map(e -> {
+                    DesignDetail dd = byId.get(e.getKey());
+                    if (dd == null) return null;
+                    Hibernate.initialize(dd.getMockups());
+                    Hibernate.initialize(dd.getDesigners());
+                    Hibernate.initialize(dd.getProductTypes());
+                    Hibernate.initialize(dd.getNiches());
+                    return new com.gonerp.taskmanager.dto.DesignImageSearchResult(
+                            DesignSummaryResponse.from(dd), e.getValue());
+                })
+                .filter(java.util.Objects::nonNull)
+                .toList();
+    }
+
+    /** Backfill imageHash for every existing mockup that doesn't have one. Admin-only. */
+    @Transactional
+    public java.util.Map<String, Integer> rehashMissingMockups() {
+        int processed = 0, failed = 0;
+        String publicBase = r2Props.getPublicUrl();
+        for (DesignMockup m : designMockupRepository.findByImageHashIsNull()) {
+            if (m.getUrl() == null || publicBase == null || !m.getUrl().startsWith(publicBase)) {
+                failed++;
+                continue;
+            }
+            String key = m.getUrl().substring(publicBase.length() + 1);
+            org.springframework.core.io.Resource r = fileStorageService.loadFromR2(key);
+            if (r == null) { failed++; continue; }
+            try (java.io.InputStream in = r.getInputStream()) {
+                Long h = com.gonerp.common.PerceptualHash.compute(in);
+                if (h == null) { failed++; continue; }
+                m.setImageHash(h);
+                designMockupRepository.save(m);
+                processed++;
+            } catch (Exception e) {
+                failed++;
+            }
+        }
+        return java.util.Map.of("processed", processed, "failed", failed);
     }
 
     private void ensureDesignStaffRole(User user, String roleName) {

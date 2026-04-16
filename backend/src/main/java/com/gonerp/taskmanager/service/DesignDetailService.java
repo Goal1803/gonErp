@@ -363,12 +363,19 @@ public class DesignDetailService {
 
     private DesignMockupResponse doUploadMockup(DesignDetail dd, MultipartFile file) {
         String url = fileStorageService.store(file, "taskmanager");
+        Long hash = null;
+        try (java.io.InputStream in = file.getInputStream()) {
+            hash = com.gonerp.common.PerceptualHash.compute(in);
+        } catch (Exception ignored) {
+            // Hash is best-effort; upload must still succeed if hashing fails.
+        }
         boolean isFirst = dd.getMockups().isEmpty();
         DesignMockup mockup = DesignMockup.builder()
                 .name(file.getOriginalFilename())
                 .url(url)
                 .fileType(file.getContentType())
                 .mainMockup(isFirst)
+                .imageHash(hash)
                 .designDetail(dd)
                 .build();
         mockup = designMockupRepository.save(mockup);
