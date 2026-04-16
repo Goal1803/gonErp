@@ -576,11 +576,20 @@ function matchLabel(d) {
 async function runRehash() {
   rehashing.value = true
   try {
+    const stats = await designsApi.hashStats()
+    const { total = 0, hashed = 0, unhashed = 0 } = stats.data.data || {}
+    if (unhashed === 0) {
+      $q.notify({ type: 'info', message: `All ${total} mockups already hashed.` })
+      return
+    }
+    $q.notify({ type: 'ongoing', message: `Hashing ${unhashed} mockup(s)...`, timeout: 2000 })
     const res = await designsApi.rehashMockups()
-    const { processed = 0, failed = 0 } = res.data.data || {}
-    $q.notify({ type: 'positive', message: `Hashed ${processed} mockup(s), ${failed} failed` })
-  } catch {
-    $q.notify({ type: 'negative', message: 'Rehash failed' })
+    const d = res.data.data || {}
+    const msg = `Hashed ${d.processed || 0}/${unhashed}. Failed: ${d.failed || 0}`
+      + (d.failed ? ` (badUrl=${d.failedBadUrl}, r2=${d.failedR2}, decode=${d.failedDecode}, exc=${d.failedException})` : '')
+    $q.notify({ type: d.failed ? 'warning' : 'positive', message: msg, timeout: 8000 })
+  } catch (e) {
+    $q.notify({ type: 'negative', message: e.response?.data?.message || 'Rehash failed' })
   } finally {
     rehashing.value = false
   }

@@ -123,6 +123,12 @@ public class DesignsController {
         return ResponseEntity.ok(ApiResponse.ok("Rehash complete", designsService.rehashMissingMockups()));
     }
 
+    @GetMapping("/hash-stats")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<java.util.Map<String, Long>>> hashStats() {
+        return ResponseEntity.ok(ApiResponse.ok(designsService.hashStats()));
+    }
+
     @PostMapping("/{designId}/mockups")
     public ResponseEntity<ApiResponse<DesignMockupResponse>> uploadMockup(
             @PathVariable Long designId, @RequestParam("file") MultipartFile file) {

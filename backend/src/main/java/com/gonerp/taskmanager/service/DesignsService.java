@@ -245,30 +245,65 @@ public class DesignsService {
                 .toList();
     }
 
+    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(DesignsService.class);
+
     /** Backfill imageHash for every existing mockup that doesn't have one. Admin-only. */
     @Transactional
     public java.util.Map<String, Integer> rehashMissingMockups() {
-        int processed = 0, failed = 0;
+        int processed = 0;
+        int failedBadUrl = 0, failedR2 = 0, failedDecode = 0, failedException = 0;
         String publicBase = r2Props.getPublicUrl();
-        for (DesignMockup m : designMockupRepository.findByImageHashIsNull()) {
+        java.util.List<DesignMockup> todo = designMockupRepository.findByImageHashIsNull();
+        LOG.info("Rehash: {} mockup(s) missing image_hash. publicBase={}", todo.size(), publicBase);
+
+        for (DesignMockup m : todo) {
             if (m.getUrl() == null || publicBase == null || !m.getUrl().startsWith(publicBase)) {
-                failed++;
+                LOG.warn("Rehash skip mockup #{}: url='{}' does not start with publicBase", m.getId(), m.getUrl());
+                failedBadUrl++;
                 continue;
             }
             String key = m.getUrl().substring(publicBase.length() + 1);
             org.springframework.core.io.Resource r = fileStorageService.loadFromR2(key);
-            if (r == null) { failed++; continue; }
+            if (r == null) {
+                LOG.warn("Rehash skip mockup #{}: R2 fetch returned null for key='{}'", m.getId(), key);
+                failedR2++;
+                continue;
+            }
             try (java.io.InputStream in = r.getInputStream()) {
                 Long h = com.gonerp.common.PerceptualHash.compute(in);
-                if (h == null) { failed++; continue; }
+                if (h == null) {
+                    LOG.warn("Rehash skip mockup #{}: pHash returned null (unsupported format?) key='{}'", m.getId(), key);
+                    failedDecode++;
+                    continue;
+                }
                 m.setImageHash(h);
                 designMockupRepository.save(m);
                 processed++;
             } catch (Exception e) {
-                failed++;
+                LOG.warn("Rehash skip mockup #{}: {}", m.getId(), e.toString());
+                failedException++;
             }
         }
-        return java.util.Map.of("processed", processed, "failed", failed);
+        int failed = failedBadUrl + failedR2 + failedDecode + failedException;
+        LOG.info("Rehash done: processed={}, failed={} (badUrl={}, r2={}, decode={}, exception={})",
+                processed, failed, failedBadUrl, failedR2, failedDecode, failedException);
+        return java.util.Map.of(
+                "processed", processed,
+                "failed", failed,
+                "failedBadUrl", failedBadUrl,
+                "failedR2", failedR2,
+                "failedDecode", failedDecode,
+                "failedException", failedException
+        );
+    }
+
+    /** Diagnostics: how many mockups have an image hash? */
+    @Transactional(readOnly = true)
+    public java.util.Map<String, Long> hashStats() {
+        long total = designMockupRepository.count();
+        long hashed = designMockupRepository.findAllHashed().size();
+        long unhashed = total - hashed;
+        return java.util.Map.of("total", total, "hashed", hashed, "unhashed", unhashed);
     }
 
     private void ensureDesignStaffRole(User user, String roleName) {
