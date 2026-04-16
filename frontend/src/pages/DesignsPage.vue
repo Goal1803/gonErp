@@ -575,21 +575,57 @@ function matchLabel(d) {
 
 async function runRehash() {
   rehashing.value = true
+  // Live progress notification that we'll update as batches complete.
+  const notify = $q.notify({
+    type: 'ongoing',
+    message: 'Checking mockup hash status...',
+    timeout: 0, spinner: true, group: false
+  })
+  let totalUnhashed = 0
+  let cumulativeProcessed = 0
+  let cumulativeFailed = 0
   try {
     const stats = await designsApi.hashStats()
-    const { total = 0, hashed = 0, unhashed = 0 } = stats.data.data || {}
+    const { total = 0, unhashed = 0 } = stats.data.data || {}
     if (unhashed === 0) {
-      $q.notify({ type: 'info', message: `All ${total} mockups already hashed.` })
+      notify({ type: 'info', message: `All ${total} mockups already hashed.`, timeout: 3000, spinner: false })
       return
     }
-    $q.notify({ type: 'ongoing', message: `Hashing ${unhashed} mockup(s)...`, timeout: 2000 })
-    const res = await designsApi.rehashMockups()
-    const d = res.data.data || {}
-    const msg = `Hashed ${d.processed || 0}/${unhashed}. Failed: ${d.failed || 0}`
-      + (d.failed ? ` (badUrl=${d.failedBadUrl}, r2=${d.failedR2}, decode=${d.failedDecode}, exc=${d.failedException})` : '')
-    $q.notify({ type: d.failed ? 'warning' : 'positive', message: msg, timeout: 8000 })
+    totalUnhashed = unhashed
+
+    // Loop batches until the server says there's nothing left.
+    const BATCH = 25
+    // Safety cap so a runaway loop can't spin forever.
+    const MAX_ITERATIONS = Math.ceil(unhashed / BATCH) + 10
+    let iteration = 0
+    while (iteration++ < MAX_ITERATIONS) {
+      const res = await designsApi.rehashMockups(BATCH)
+      const d = res.data.data || {}
+      cumulativeProcessed += (d.processed || 0)
+      cumulativeFailed += (d.failed || 0)
+      const remaining = d.remaining ?? 0
+      notify({
+        message: `Hashing mockups... ${cumulativeProcessed} done, ${remaining} left`
+          + (cumulativeFailed ? `, ${cumulativeFailed} failed` : ''),
+        timeout: 0, spinner: true
+      })
+      if (remaining === 0) break
+      // If a batch made no progress and no failures, the remaining rows are unreachable — stop.
+      if ((d.processed || 0) === 0 && (d.failed || 0) === 0) break
+    }
+
+    notify({
+      type: cumulativeFailed ? 'warning' : 'positive',
+      message: `Done. Hashed ${cumulativeProcessed}/${totalUnhashed}`
+        + (cumulativeFailed ? `. ${cumulativeFailed} failed — check backend logs.` : '.'),
+      timeout: 8000, spinner: false
+    })
   } catch (e) {
-    $q.notify({ type: 'negative', message: e.response?.data?.message || 'Rehash failed' })
+    notify({
+      type: 'negative',
+      message: e.response?.data?.message || `Rehash failed after ${cumulativeProcessed} mockups. Click again to resume.`,
+      timeout: 8000, spinner: false
+    })
   } finally {
     rehashing.value = false
   }
