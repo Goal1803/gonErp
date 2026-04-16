@@ -64,6 +64,17 @@ public class CardController {
         return ResponseEntity.ok(ApiResponse.ok("Card moved successfully", null));
     }
 
+    @PostMapping("/cards/bulk-move")
+    public ResponseEntity<ApiResponse<Map<String, Integer>>> bulkMove(@RequestBody Map<String, Object> body) {
+        @SuppressWarnings("unchecked")
+        List<Integer> rawIds = (List<Integer>) body.get("cardIds");
+        List<Long> cardIds = rawIds == null ? List.of() : rawIds.stream().map(Integer::longValue).toList();
+        Long targetColumnId = body.get("targetColumnId") != null
+                ? Long.valueOf(body.get("targetColumnId").toString()) : null;
+        int moved = cardService.bulkMoveCards(cardIds, targetColumnId);
+        return ResponseEntity.ok(ApiResponse.ok("Bulk moved", Map.of("moved", moved)));
+    }
+
     @PatchMapping("/columns/{columnId}/cards/reorder")
     public ResponseEntity<ApiResponse<Void>> reorderCards(
             @PathVariable Long columnId, @RequestBody ReorderRequest request) {

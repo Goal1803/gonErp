@@ -39,7 +39,8 @@ public class BoardService {
             "Draft", "New Order", "Clarify with Customer", "Confirmed",
             "Designing", "Design Checking", "Need to Fix", "Fix Checking",
             "Fixing", "Confirming Design with Customer", "Design Approved",
-            "Fulfilled", "Track Generated", "Track Added to Store"
+            "Fulfilled", "Track Generated", "Track Added to Store",
+            "Cancelled", "Refunded", "Replaced"
     );
 
     private User getCurrentUser() {

@@ -31,6 +31,7 @@ export const cardApi = {
   delete: (id) => api.delete(`/tasks/cards/${id}`),
   copy: (id) => api.post(`/tasks/cards/${id}/copy`),
   move: (id, data) => api.patch(`/tasks/cards/${id}/move`, data),
+  bulkMove: (cardIds, targetColumnId) => api.post('/tasks/cards/bulk-move', { cardIds, targetColumnId }),
   reorder: (columnId, orderedIds) => api.patch(`/tasks/columns/${columnId}/cards/reorder`, { orderedIds }),
   addComment: (id, data) => api.post(`/tasks/cards/${id}/comments`, data),
   updateComment: (id, commentId, data) => api.put(`/tasks/cards/${id}/comments/${commentId}`, data),
