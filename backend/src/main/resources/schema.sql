@@ -45,3 +45,7 @@ WHERE b.board_type = 'POD_ORDER'
   AND NOT EXISTS (
     SELECT 1 FROM tm_columns c WHERE c.board_id = b.id AND c.title = 'Replaced'
   );
+
+-- Image-similarity search: 64-bit perceptual hash for each mockup.
+ALTER TABLE tm_design_mockups ADD COLUMN IF NOT EXISTS image_hash BIGINT;
+CREATE INDEX IF NOT EXISTS idx_tm_design_mockups_image_hash ON tm_design_mockups (image_hash);

@@ -109,6 +109,20 @@ public class DesignsController {
         return ResponseEntity.ok(ApiResponse.ok("PSD file removed", null));
     }
 
+    @PostMapping(value = "/search-by-image", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<java.util.List<DesignImageSearchResult>>> searchByImage(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "threshold", defaultValue = "18") int threshold,
+            @RequestParam(value = "limit", defaultValue = "60") int limit) {
+        return ResponseEntity.ok(ApiResponse.ok(designsService.searchByImage(file, threshold, limit)));
+    }
+
+    @PostMapping("/rehash-mockups")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<java.util.Map<String, Integer>>> rehashMockups() {
+        return ResponseEntity.ok(ApiResponse.ok("Rehash complete", designsService.rehashMissingMockups()));
+    }
+
     @PostMapping("/{designId}/mockups")
     public ResponseEntity<ApiResponse<DesignMockupResponse>> uploadMockup(
             @PathVariable Long designId, @RequestParam("file") MultipartFile file) {

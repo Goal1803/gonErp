@@ -11,11 +11,31 @@
         <div class="text-caption text-grey-5 q-mt-xs">All POD Design cards across boards</div>
       </div>
       <q-space />
+      <q-btn icon="image_search" label="Search by image" color="indigo-6" unelevated class="q-mr-sm"
+        @click="showImageSearchDialog = true" />
+      <q-btn v-if="authStore.isAdmin" flat round dense icon="refresh" color="grey-5" class="q-mr-sm"
+        :loading="rehashing" @click="runRehash">
+        <q-tooltip>Rebuild image hashes for all mockups</q-tooltip>
+      </q-btn>
       <q-btn icon="add" label="New Design" color="teal-6" unelevated
         @click="openCreateDialog" />
     </div>
 
     <div class="q-px-xl q-pb-xl">
+      <!-- Active image-search banner -->
+      <div v-if="imageSearchActive" class="image-search-banner row items-center q-mb-md q-pa-sm">
+        <q-icon name="image_search" color="indigo-4" size="20px" class="q-mr-sm" />
+        <div>
+          <div class="text-caption text-indigo-3">Showing designs visually similar to your query image</div>
+          <div class="text-caption text-grey-5">
+            {{ designs.length }} match{{ designs.length === 1 ? '' : 'es' }} · threshold {{ imageSearchThreshold }}
+          </div>
+        </div>
+        <img v-if="imageSearchPreview" :src="imageSearchPreview" class="banner-preview q-mx-md" />
+        <q-space />
+        <q-btn flat color="grey-5" icon="close" label="Clear search" no-caps @click="clearImageSearch" />
+      </div>
+
       <!-- Filter bar -->
       <div class="row q-gutter-sm q-mb-md items-end" style="flex-wrap: wrap">
         <q-input v-model="filters.search" outlined color="teal-5" dense label="Search" clearable
@@ -62,6 +82,10 @@
             <img v-if="d.mainMockupUrl" :src="thumbUrl(d.mainMockupUrl)" loading="lazy" />
             <div v-else class="design-card-no-img">
               <q-icon name="image" size="32px" color="grey-7" />
+            </div>
+            <div v-if="d._distance != null" class="match-chip"
+                 :class="'match-' + matchQuality(d._distance)">
+              {{ matchLabel(d._distance) }}
             </div>
           </div>
           <div class="design-card-body">
@@ -198,6 +222,49 @@
       </q-card>
     </q-dialog>
 
+    <!-- Image Search Dialog -->
+    <q-dialog v-model="showImageSearchDialog" persistent>
+      <q-card style="min-width: 460px; max-width: 520px">
+        <q-card-section class="row items-center no-wrap">
+          <q-icon name="image_search" color="indigo-4" size="md" class="q-mr-sm" />
+          <div>
+            <div class="text-h6 text-white">Search by image</div>
+            <div class="text-caption text-grey-5">Upload an image to find visually similar designs</div>
+          </div>
+          <q-space />
+          <q-btn flat round dense icon="close" color="grey-5" v-close-popup />
+        </q-card-section>
+
+        <q-card-section class="q-pt-none">
+          <div class="image-drop q-mb-md" @click="$refs.imageInput.click()" @drop.prevent="onDropImage" @dragover.prevent>
+            <input ref="imageInput" type="file" accept="image/*" style="display:none" @change="onPickImage" />
+            <template v-if="searchFilePreview">
+              <img :src="searchFilePreview" class="drop-preview" />
+              <div class="text-caption text-grey-5 q-mt-xs ellipsis">{{ searchFile?.name }}</div>
+            </template>
+            <template v-else>
+              <q-icon name="add_photo_alternate" size="42px" color="indigo-4" />
+              <div class="text-white q-mt-sm">Click or drop an image</div>
+              <div class="text-caption text-grey-5">PNG, JPG, WebP</div>
+            </template>
+          </div>
+
+          <div class="text-caption text-grey-5 q-mb-xs">
+            Match tolerance: <strong class="text-indigo-3">{{ imageSearchThreshold }}</strong>
+            <span class="text-grey-6">(lower = stricter)</span>
+          </div>
+          <q-slider v-model="imageSearchThreshold" :min="2" :max="28" :step="1"
+                    color="indigo-4" label markers marker-labels="(v) => v" />
+        </q-card-section>
+
+        <q-card-actions align="right">
+          <q-btn flat label="Cancel" color="grey-5" v-close-popup />
+          <q-btn unelevated color="indigo-6" icon="search" label="Search"
+                 :loading="searching" :disable="!searchFile" @click="runImageSearch" />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
+
   </q-page>
 </template>
 
@@ -260,6 +327,8 @@ const filters = ref({
 })
 
 const loadDesigns = async () => {
+  // If an image-search result set is active, don't clobber it with the normal list.
+  if (imageSearchActive.value) return
   loading.value = true
   try {
     const params = {
@@ -438,6 +507,85 @@ const finishCreate = () => {
   loadDesigns()
 }
 
+// ── Search by image ─────────────────────────────────────────────────
+const showImageSearchDialog = ref(false)
+const searchFile = ref(null)
+const searchFilePreview = ref('')
+const searching = ref(false)
+const imageSearchThreshold = ref(18)
+const imageSearchActive = ref(false)
+const imageSearchPreview = ref('')
+const rehashing = ref(false)
+
+function onPickImage(ev) {
+  const f = ev.target.files?.[0]
+  if (f) setSearchFile(f)
+}
+function onDropImage(ev) {
+  const f = ev.dataTransfer?.files?.[0]
+  if (f) setSearchFile(f)
+}
+function setSearchFile(f) {
+  searchFile.value = f
+  if (searchFilePreview.value) URL.revokeObjectURL(searchFilePreview.value)
+  searchFilePreview.value = URL.createObjectURL(f)
+}
+
+async function runImageSearch() {
+  if (!searchFile.value) return
+  searching.value = true
+  try {
+    const fd = new FormData()
+    fd.append('file', searchFile.value)
+    const res = await designsApi.searchByImage(fd, { threshold: imageSearchThreshold.value, limit: 60 })
+    const results = res.data.data || []
+    designs.value = results.map(r => ({ ...r.design, _distance: r.distance }))
+    totalPages.value = 0
+    imageSearchActive.value = true
+    imageSearchPreview.value = searchFilePreview.value
+    showImageSearchDialog.value = false
+    if (!results.length) {
+      $q.notify({ type: 'warning', message: 'No designs matched. Try raising the tolerance.' })
+    }
+  } catch (e) {
+    $q.notify({ type: 'negative', message: e.response?.data?.message || 'Search failed' })
+  } finally {
+    searching.value = false
+  }
+}
+
+function clearImageSearch() {
+  imageSearchActive.value = false
+  if (searchFilePreview.value) { URL.revokeObjectURL(searchFilePreview.value); searchFilePreview.value = '' }
+  imageSearchPreview.value = ''
+  searchFile.value = null
+  loadDesigns()
+}
+
+function matchQuality(d) {
+  if (d <= 4) return 'exact'
+  if (d <= 10) return 'very'
+  return 'similar'
+}
+function matchLabel(d) {
+  if (d <= 4) return 'Near-exact match'
+  if (d <= 10) return 'Very similar'
+  return 'Similar'
+}
+
+async function runRehash() {
+  rehashing.value = true
+  try {
+    const res = await designsApi.rehashMockups()
+    const { processed = 0, failed = 0 } = res.data.data || {}
+    $q.notify({ type: 'positive', message: `Hashed ${processed} mockup(s), ${failed} failed` })
+  } catch {
+    $q.notify({ type: 'negative', message: 'Rehash failed' })
+  } finally {
+    rehashing.value = false
+  }
+}
+
 onMounted(() => {
   loadDesigns()
   loadLookups()
@@ -470,6 +618,55 @@ onMounted(() => {
   width: 100%;
   aspect-ratio: 1;
   background: var(--erp-bg-secondary);
+  position: relative;
+}
+.match-chip {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+}
+.match-exact { background: #2e7d32; }
+.match-very { background: #00838f; }
+.match-similar { background: #ef6c00; }
+
+.image-search-banner {
+  background: linear-gradient(90deg, rgba(92, 107, 192, 0.12), rgba(63, 81, 181, 0.06));
+  border: 1px solid rgba(121, 134, 203, 0.35);
+  border-radius: 8px;
+}
+.banner-preview {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--erp-border-subtle);
+}
+
+.image-drop {
+  border: 2px dashed rgba(121, 134, 203, 0.45);
+  border-radius: 10px;
+  padding: 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.image-drop:hover {
+  border-color: rgba(121, 134, 203, 0.8);
+  background: rgba(121, 134, 203, 0.06);
+}
+.drop-preview {
+  max-width: 100%;
+  max-height: 180px;
+  border-radius: 6px;
+  display: block;
+  margin: 0 auto;
 }
 .design-card-img img {
   width: 100%;

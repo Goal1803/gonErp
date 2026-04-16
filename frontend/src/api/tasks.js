@@ -110,6 +110,10 @@ export const lookupApi = {
 export const designsApi = {
   getAll: (params) => api.get('/tasks/designs', { params }),
   create: (data) => api.post('/tasks/designs', data),
+  searchByImage: (formData, params) => api.post('/tasks/designs/search-by-image', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }, params, timeout: 120000
+  }),
+  rehashMockups: () => api.post('/tasks/designs/rehash-mockups', {}, { timeout: 1800000 }),
   getDetail: (designId) => api.get(`/tasks/designs/${designId}/detail`),
   updateDetail: (designId, data) => api.put(`/tasks/designs/${designId}`, data),
   uploadPng: (designId, formData) => api.post(`/tasks/designs/${designId}/png-files`, formData, {

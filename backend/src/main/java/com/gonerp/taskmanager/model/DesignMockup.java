@@ -30,6 +30,10 @@ public class DesignMockup extends BaseModel {
     @Builder.Default
     private boolean mainMockup = false;
 
+    /** 64-bit DCT perceptual hash used for reverse-image search. Null until computed. */
+    @Column(name = "image_hash")
+    private Long imageHash;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "design_detail_id", nullable = false)
     private DesignDetail designDetail;
