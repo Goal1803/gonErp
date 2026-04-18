@@ -29,6 +29,9 @@ public class EcomSupplierTransaction extends BaseModel {
     @Column(name = "supplier_order_id", nullable = false, length = 100)
     private String supplierOrderId;
 
+    @Column(name = "external_number", length = 100)
+    private String externalNumber;
+
     @Column(name = "order_date")
     private LocalDateTime orderDate;
 

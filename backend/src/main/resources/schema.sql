@@ -49,3 +49,9 @@ WHERE b.board_type = 'POD_ORDER'
 -- Image-similarity search: 64-bit perceptual hash for each mockup.
 ALTER TABLE tm_design_mockups ADD COLUMN IF NOT EXISTS image_hash BIGINT;
 CREATE INDEX IF NOT EXISTS idx_tm_design_mockups_image_hash ON tm_design_mockups (image_hash);
+
+-- Supplier transaction: buyer-facing order id (e.g. Merchize "External number"),
+-- used by the match step to pair txns directly with EcomOrder.platformOrderId.
+ALTER TABLE ecom_supplier_transactions ADD COLUMN IF NOT EXISTS external_number VARCHAR(100);
+CREATE INDEX IF NOT EXISTS idx_ecom_supplier_txn_external_number
+    ON ecom_supplier_transactions (supplier_id, external_number);

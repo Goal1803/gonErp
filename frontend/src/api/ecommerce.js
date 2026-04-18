@@ -19,6 +19,7 @@ export const ecomOrderApi = {
   getById: (id) => api.get(`/ecommerce/orders/${id}`),
   update: (id, data) => api.put(`/ecommerce/orders/${id}`, data),
   delete: (id) => api.delete(`/ecommerce/orders/${id}`),
+  search: (q, limit = 25) => api.get('/ecommerce/orders/search', { params: { q, limit } }),
   syncToBoard: (boardId, orderIds) => api.post(`/ecommerce/orders/sync-to-board/${boardId}`, orderIds)
 }
 

@@ -34,6 +34,13 @@ public class EcomOrderController {
         return ResponseEntity.ok(ApiResponse.ok(ecomOrderService.findById(id)));
     }
 
+    @GetMapping("/search")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> search(
+            @RequestParam String q,
+            @RequestParam(required = false, defaultValue = "25") int limit) {
+        return ResponseEntity.ok(ApiResponse.ok(ecomOrderService.search(q, limit)));
+    }
+
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<EcomOrderResponse>> update(
             @PathVariable Long id, @RequestBody EcomOrderRequest request) {
