@@ -18,6 +18,7 @@ import com.gonerp.usermanager.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -179,6 +180,53 @@ public class EcomOrderService {
         }
 
         return Map.of("synced", synced, "skipped", skipped, "errors", errors);
+    }
+
+    /**
+     * Lightweight order search for manual supplier-txn matching. Returns summary maps
+     * scoped to the caller's organization.
+     */
+    public List<Map<String, Object>> search(String q, int limit) {
+        ecomAccessService.requireEcommerceAccess();
+        Organization org = ecomAccessService.resolveOrganization();
+        if (q == null || q.trim().isEmpty()) return List.of();
+        int capped = Math.max(1, Math.min(limit, 50));
+        List<EcomOrder> orders = ecomOrderRepository.searchByOrganization(
+                org.getId(), q.trim(), PageRequest.of(0, capped));
+        return orders.stream().map(this::toSearchSummary).toList();
+    }
+
+    private Map<String, Object> toSearchSummary(EcomOrder o) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("orderId", o.getId());
+        m.put("platformOrderId", o.getPlatformOrderId());
+        m.put("orderDate", o.getOrderDate());
+        m.put("orderTotal", o.getOrderTotal());
+        m.put("orderNet", o.getOrderNet());
+        m.put("currency", o.getCurrency());
+        m.put("customerName", o.getCustomerName());
+        m.put("shipStreet1", combineStreet(o.getShipStreet1(), o.getShipStreet2()));
+        m.put("shipCity", o.getShipCity());
+        m.put("shipState", o.getShipState());
+        m.put("shipZipcode", o.getShipZipcode());
+        m.put("shipCountry", o.getShipCountry());
+        m.put("sku", o.getSku());
+        m.put("numberOfItems", o.getNumberOfItems());
+        m.put("status", o.getStatus() != null ? o.getStatus().name() : null);
+        m.put("storeName", o.getStore() != null ? o.getStore().getName() : null);
+        m.put("synced", o.getCard() != null);
+        m.put("hasFulfillmentCost",
+                o.getFulfillmentCost() != null && o.getFulfillmentCost().compareTo(BigDecimal.ZERO) != 0);
+        m.put("hasTracking", o.getTrackingNumber() != null && !o.getTrackingNumber().isBlank());
+        return m;
+    }
+
+    private String combineStreet(String s1, String s2) {
+        String a = s1 != null ? s1.trim() : "";
+        String b = s2 != null ? s2.trim() : "";
+        if (a.isEmpty()) return b.isEmpty() ? null : b;
+        if (b.isEmpty()) return a;
+        return a + " " + b;
     }
 
     private EcomOrder getOrderInOrg(Long id) {

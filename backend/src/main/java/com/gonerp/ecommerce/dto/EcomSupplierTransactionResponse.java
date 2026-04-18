@@ -12,6 +12,7 @@ import java.time.LocalDateTime;
 public class EcomSupplierTransactionResponse {
     private Long id;
     private String supplierOrderId;
+    private String externalNumber;
     private LocalDateTime orderDate;
     private BigDecimal amount;
     private String currency;
@@ -35,6 +36,7 @@ public class EcomSupplierTransactionResponse {
         return EcomSupplierTransactionResponse.builder()
                 .id(t.getId())
                 .supplierOrderId(t.getSupplierOrderId())
+                .externalNumber(t.getExternalNumber())
                 .orderDate(t.getOrderDate())
                 .amount(t.getAmount())
                 .currency(t.getCurrency())

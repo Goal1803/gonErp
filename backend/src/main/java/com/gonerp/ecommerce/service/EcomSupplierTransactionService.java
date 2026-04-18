@@ -83,12 +83,19 @@ public class EcomSupplierTransactionService {
                     if (existingOpt.isPresent()) {
                         EcomSupplierTransaction existing = existingOpt.get();
                         boolean changed = false;
+                        boolean trackingChanged = false;
                         if (txn.getTrackingId() != null && !txn.getTrackingId().equals(existing.getTrackingId())) {
                             existing.setTrackingId(txn.getTrackingId());
                             changed = true;
+                            trackingChanged = true;
                         }
                         if (txn.getStatus() != null && !txn.getStatus().equals(existing.getStatus())) {
                             existing.setStatus(txn.getStatus());
+                            changed = true;
+                        }
+                        if (txn.getExternalNumber() != null
+                                && (existing.getExternalNumber() == null || existing.getExternalNumber().isBlank())) {
+                            existing.setExternalNumber(txn.getExternalNumber());
                             changed = true;
                         }
                         if (changed) {
@@ -96,6 +103,12 @@ public class EcomSupplierTransactionService {
                             updated++;
                         } else {
                             skipped++;
+                        }
+                        // If tracking arrived in a later import and this txn is already matched,
+                        // propagate it to the linked order and advance status → moves the board card
+                        // into "Track Generated" automatically.
+                        if (trackingChanged && existing.isMatched() && existing.getMatchedOrder() != null) {
+                            propagateTrackingToOrder(existing);
                         }
                     } else {
                         txnRepository.save(txn);
@@ -125,11 +138,18 @@ public class EcomSupplierTransactionService {
 
         // Build lookup: normalized(name + street) -> list of orders (to detect ambiguous)
         Map<String, List<EcomOrder>> orderLookup = new LinkedHashMap<>();
+        // Secondary lookup by platformOrderId, used when the supplier txn carries an
+        // explicit external number (e.g. Merchize "External number" = buyer-facing Etsy id).
+        Map<String, List<EcomOrder>> externalLookup = new LinkedHashMap<>();
         for (EcomOrder order : allOrders) {
             String fullStreet = combineStreet(order.getShipStreet1(), order.getShipStreet2());
             String key = normalizeForMatch(order.getCustomerName(), fullStreet);
             if (key != null) {
                 orderLookup.computeIfAbsent(key, k -> new ArrayList<>()).add(order);
+            }
+            String pid = order.getPlatformOrderId();
+            if (pid != null && !pid.isBlank()) {
+                externalLookup.computeIfAbsent(pid.trim(), k -> new ArrayList<>()).add(order);
             }
         }
 
@@ -138,11 +158,24 @@ public class EcomSupplierTransactionService {
         List<Map<String, Object>> ambiguousMatches = new ArrayList<>();
 
         for (EcomSupplierTransaction txn : unmatched) {
-            String key = normalizeForMatch(txn.getFullName(), txn.getStreetAddress());
-            if (key == null) { noMatch++; continue; }
+            List<EcomOrder> candidates = null;
 
-            List<EcomOrder> candidates = orderLookup.get(key);
-            if (candidates == null || candidates.isEmpty()) { noMatch++; continue; }
+            // 1. Try external number first (exact match on platformOrderId)
+            String externalNum = txn.getExternalNumber();
+            if (externalNum != null && !externalNum.isBlank()) {
+                List<EcomOrder> byExternal = externalLookup.get(externalNum.trim());
+                if (byExternal != null && !byExternal.isEmpty()) {
+                    candidates = byExternal;
+                }
+            }
+
+            // 2. Fall back to customer name + street address
+            if (candidates == null) {
+                String key = normalizeForMatch(txn.getFullName(), txn.getStreetAddress());
+                if (key == null) { noMatch++; continue; }
+                candidates = orderLookup.get(key);
+                if (candidates == null || candidates.isEmpty()) { noMatch++; continue; }
+            }
 
             if (candidates.size() > 1) {
                 // Multiple orders match — flag as ambiguous for manual resolution
@@ -342,6 +375,33 @@ public class EcomSupplierTransactionService {
         if (s1.isEmpty()) return s2.isEmpty() ? null : s2;
         if (s2.isEmpty()) return s1;
         return s1 + " " + s2;
+    }
+
+    /**
+     * Push a newly-arrived tracking id onto the already-matched order and advance
+     * its status → moves the linked board card into the Track Generated column.
+     * Fill-only: does not overwrite an existing tracking number on the order.
+     */
+    private void propagateTrackingToOrder(EcomSupplierTransaction txn) {
+        EcomOrder order = txn.getMatchedOrder();
+        if (order == null) return;
+        String newTracking = txn.getTrackingId();
+        if (newTracking == null || newTracking.isBlank()) return;
+
+        boolean touched = false;
+        if (order.getTrackingNumber() == null || order.getTrackingNumber().isBlank()) {
+            order.setTrackingNumber(newTracking);
+            touched = true;
+        }
+        if (txn.getShipMethod() != null && !txn.getShipMethod().isBlank()
+                && (order.getShippingAgent() == null || order.getShippingAgent().isBlank())) {
+            order.setShippingAgent(txn.getShipMethod());
+            touched = true;
+        }
+        if (!touched) return;
+
+        advanceOrderStatus(order);
+        orderRepository.save(order);
     }
 
     /**

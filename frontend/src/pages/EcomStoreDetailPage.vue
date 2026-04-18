@@ -600,7 +600,7 @@ const loadingOrders = ref(false)
 const showOrderImport = ref(false)
 const importingOrders = ref(false)
 const orderImportResult = ref(null)
-const orderImportForm = ref({ ordersFile: null, itemsFile: null, syncToBoard: false, boardId: null })
+const orderImportForm = ref({ ordersFile: null, itemsFile: null, syncToBoard: true, boardId: null })
 const podOrderBoardOptions = ref([])
 
 const selectedStoreOrders = ref([])
@@ -664,6 +664,10 @@ async function loadPodOrderBoards () {
     podOrderBoardOptions.value = (res.data.data || [])
       .filter(b => b.boardType === 'POD_ORDER')
       .map(b => ({ label: b.name, value: b.id }))
+    // Pre-select a default board so the on-by-default sync toggle has a target.
+    if (!orderImportForm.value.boardId && podOrderBoardOptions.value.length > 0) {
+      orderImportForm.value.boardId = podOrderBoardOptions.value[0].value
+    }
   } catch { /* ignore */ }
 }
 
@@ -691,7 +695,12 @@ async function handleOrderImport () {
 }
 
 function resetOrderImport () {
-  orderImportForm.value = { ordersFile: null, itemsFile: null, syncToBoard: false, boardId: null }
+  orderImportForm.value = {
+    ordersFile: null,
+    itemsFile: null,
+    syncToBoard: true,
+    boardId: podOrderBoardOptions.value[0]?.value || null
+  }
   orderImportResult.value = null
 }
 

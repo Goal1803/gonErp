@@ -2,7 +2,10 @@ package com.gonerp.ecommerce.repository;
 
 import com.gonerp.ecommerce.model.EcomOrder;
 import com.gonerp.ecommerce.model.enums.OrderStatus;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -27,4 +30,13 @@ public interface EcomOrderRepository extends JpaRepository<EcomOrder, Long> {
 
     List<EcomOrder> findByStoreIdAndOrderDateBetweenOrderByOrderDateDesc(
             Long storeId, LocalDateTime start, LocalDateTime end);
+
+    @Query("SELECT o FROM EcomOrder o WHERE o.organization.id = :orgId AND (" +
+            "LOWER(o.platformOrderId) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
+            "LOWER(o.customerName) LIKE LOWER(CONCAT('%', :q, '%')) OR " +
+            "LOWER(o.shipStreet1) LIKE LOWER(CONCAT('%', :q, '%'))) " +
+            "ORDER BY o.orderDate DESC")
+    List<EcomOrder> searchByOrganization(@Param("orgId") Long orgId,
+                                          @Param("q") String q,
+                                          Pageable pageable);
 }
