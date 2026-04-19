@@ -39,4 +39,17 @@ public interface EcomOrderRepository extends JpaRepository<EcomOrder, Long> {
     List<EcomOrder> searchByOrganization(@Param("orgId") Long orgId,
                                           @Param("q") String q,
                                           Pageable pageable);
+
+    // Find the latest order (by createdAt DESC) within the same board whose items share
+    // any SKU with the given set, excluding the current order. Used as a fallback for
+    // bulk auto-assign on POD_ORDER boards when no matching design is found.
+    @Query("SELECT DISTINCT o FROM EcomOrder o JOIN o.items i " +
+            "WHERE i.sku IN :skus " +
+            "AND o.id <> :excludeOrderId " +
+            "AND o.card.column.board.id = :boardId " +
+            "ORDER BY o.createdAt DESC")
+    List<EcomOrder> findLatestByItemSkuOverlap(@Param("skus") List<String> skus,
+                                                @Param("excludeOrderId") Long excludeOrderId,
+                                                @Param("boardId") Long boardId,
+                                                Pageable pageable);
 }

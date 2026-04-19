@@ -166,6 +166,8 @@
       <q-btn flat color="blue-4" icon="person_add" label="Assign Member" no-caps @click="showBulkMemberAssign = true" />
       <q-btn v-if="isPodDesign" flat color="purple-4" icon="brush" label="Assign Designer" no-caps @click="showBulkDesignerAssign = true" />
       <q-btn v-if="isPodDesign" flat color="teal-3" icon="download" label="Download Mockups" no-caps :loading="bulkDownloading" @click="doBulkDownloadMockups" />
+      <q-btn v-if="isPodOrder" flat color="purple-3" icon="groups" label="Auto-assign Designers" no-caps :loading="bulkAutoAssigning" @click="doBulkAutoAssignDesigners" />
+      <q-btn v-if="isPodOrder" flat color="pink-3" icon="image" label="Auto-set Cover" no-caps :loading="bulkAutoCovering" @click="doBulkAutoSetCover" />
       <q-btn flat color="amber-4" icon="swap_horiz" label="Move to Column" no-caps @click="openBulkMove" />
       <q-btn flat color="grey-5" icon="close" label="Clear" no-caps @click="selectedCardIds.clear()" />
     </div>
@@ -248,6 +250,32 @@
         <q-card-actions align="right">
           <q-btn flat label="Cancel" color="grey-5" v-close-popup />
           <q-btn flat label="Move" color="amber-4" :disable="!bulkMoveColumnId" :loading="bulkMoving" @click="doBulkMove" />
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
+
+    <!-- Bulk auto-assign result dialog (POD_ORDER) -->
+    <q-dialog v-model="showBulkAutoResult">
+      <q-card style="min-width:480px;max-width:720px" class="bg-dark text-white">
+        <q-card-section>
+          <div class="text-h6">{{ bulkAutoResultTitle }}</div>
+          <div class="text-caption text-grey-5">
+            Processed: {{ bulkAutoResultProcessed }} · Skipped: {{ bulkAutoResultSkipped.length }}
+          </div>
+        </q-card-section>
+        <q-card-section class="q-pt-none" style="max-height:60vh;overflow:auto">
+          <q-list dense separator>
+            <q-item v-for="(s, i) in bulkAutoResultSkipped" :key="i" class="text-grey-3">
+              <q-item-section>
+                <q-item-label>{{ s.cardName || `Card #${s.cardId}` }}</q-item-label>
+                <q-item-label caption class="text-amber-4">{{ s.reason }}</q-item-label>
+              </q-item-section>
+            </q-item>
+          </q-list>
+        </q-card-section>
+        <q-card-actions align="right">
+          <q-btn flat label="Copy list" color="teal-5" @click="copyBulkAutoResult" />
+          <q-btn flat label="Close" color="grey-5" v-close-popup />
         </q-card-actions>
       </q-card>
     </q-dialog>
@@ -432,6 +460,90 @@ const doBulkMove = async () => {
     await refreshBoard()
   } finally {
     bulkMoving.value = false
+  }
+}
+
+const bulkAutoAssigning = ref(false)
+const bulkAutoCovering = ref(false)
+const showBulkAutoResult = ref(false)
+const bulkAutoResultTitle = ref('')
+const bulkAutoResultProcessed = ref(0)
+const bulkAutoResultSkipped = ref([])
+
+const runChunkedBulkAuto = async ({ label, apiFn, loadingRef }) => {
+  if (!selectedCardIds.size) return
+  loadingRef.value = true
+  const ids = [...selectedCardIds]
+  const total = ids.length
+  const chunkSize = 50
+  let processed = 0
+  const skippedAll = []
+  const notif = $q.notify({
+    type: 'ongoing',
+    message: `${label}: 0 / ${total}...`,
+    timeout: 0,
+    spinner: true
+  })
+  try {
+    for (let i = 0; i < ids.length; i += chunkSize) {
+      const chunk = ids.slice(i, i + chunkSize)
+      try {
+        const res = await apiFn(chunk)
+        const data = res.data.data || {}
+        processed += data.processed || 0
+        if (Array.isArray(data.skippedDetails)) skippedAll.push(...data.skippedDetails)
+      } catch (e) {
+        const reason = 'Request failed: ' + (e.response?.data?.message || e.message || 'unknown')
+        chunk.forEach(id => skippedAll.push({ cardId: id, cardName: '', reason }))
+      }
+      notif({
+        type: 'ongoing',
+        message: `${label}: ${processed} done, ${skippedAll.length} skipped / ${total}`,
+        timeout: 0,
+        spinner: true
+      })
+    }
+    notif({
+      type: skippedAll.length ? 'warning' : 'positive',
+      message: skippedAll.length
+        ? `${label} done — ${processed} processed, ${skippedAll.length} skipped`
+        : `${label} done — ${processed} processed`,
+      spinner: false,
+      timeout: 3000
+    })
+    if (skippedAll.length) {
+      bulkAutoResultTitle.value = `${label} — ${skippedAll.length} skipped`
+      bulkAutoResultProcessed.value = processed
+      bulkAutoResultSkipped.value = skippedAll
+      showBulkAutoResult.value = true
+    }
+    selectedCardIds.clear()
+    await refreshBoard()
+  } finally {
+    loadingRef.value = false
+  }
+}
+
+const doBulkAutoAssignDesigners = () => runChunkedBulkAuto({
+  label: 'Auto-assign designers',
+  apiFn: cardApi.bulkAutoAssignDesigners,
+  loadingRef: bulkAutoAssigning
+})
+const doBulkAutoSetCover = () => runChunkedBulkAuto({
+  label: 'Auto-set cover',
+  apiFn: cardApi.bulkAutoSetCover,
+  loadingRef: bulkAutoCovering
+})
+
+const copyBulkAutoResult = async () => {
+  const lines = bulkAutoResultSkipped.value
+    .map(s => `${s.cardName || '#' + s.cardId}\t${s.reason}`)
+    .join('\n')
+  try {
+    await navigator.clipboard.writeText(lines)
+    $q.notify({ type: 'positive', message: 'Copied to clipboard' })
+  } catch {
+    $q.notify({ type: 'negative', message: 'Copy failed' })
   }
 }
 
@@ -632,6 +744,7 @@ const cardFilter = computed(() => {
 })
 
 const isPodDesign = computed(() => boardStore.board?.boardType === 'POD_DESIGN')
+const isPodOrder = computed(() => boardStore.board?.boardType === 'POD_ORDER')
 
 const canManage = computed(() => {
   if (authStore.isAdmin) return true

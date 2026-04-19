@@ -75,6 +75,20 @@ public class CardController {
         return ResponseEntity.ok(ApiResponse.ok("Bulk moved", Map.of("moved", moved)));
     }
 
+    @PostMapping("/cards/bulk-auto-assign-designers")
+    public ResponseEntity<ApiResponse<BulkAutoAssignResult>> bulkAutoAssignDesigners(
+            @RequestBody Map<String, List<Long>> body) {
+        BulkAutoAssignResult result = cardService.bulkAutoAssignDesigners(body.get("cardIds"));
+        return ResponseEntity.ok(ApiResponse.ok("Auto-assign designers completed", result));
+    }
+
+    @PostMapping("/cards/bulk-auto-set-cover")
+    public ResponseEntity<ApiResponse<BulkAutoAssignResult>> bulkAutoSetCover(
+            @RequestBody Map<String, List<Long>> body) {
+        BulkAutoAssignResult result = cardService.bulkAutoSetCover(body.get("cardIds"));
+        return ResponseEntity.ok(ApiResponse.ok("Auto-set cover completed", result));
+    }
+
     @PatchMapping("/columns/{columnId}/cards/reorder")
     public ResponseEntity<ApiResponse<Void>> reorderCards(
             @PathVariable Long columnId, @RequestBody ReorderRequest request) {

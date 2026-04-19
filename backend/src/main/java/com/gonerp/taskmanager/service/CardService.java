@@ -11,6 +11,7 @@ import com.gonerp.taskmanager.model.enums.NotificationType;
 import com.gonerp.taskmanager.repository.*;
 import com.gonerp.taskmanager.websocket.BoardEventPublisher;
 import com.gonerp.ecommerce.model.EcomOrder;
+import com.gonerp.ecommerce.model.EcomOrderItem;
 import com.gonerp.ecommerce.model.enums.OrderStatus;
 import com.gonerp.ecommerce.repository.EcomOrderRepository;
 import com.gonerp.usermanager.model.User;
@@ -19,6 +20,7 @@ import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import com.gonerp.config.R2StorageProperties;
@@ -356,6 +358,184 @@ public class CardService {
             }
         }
         return moved;
+    }
+
+    /**
+     * For each POD_ORDER card: collect item SKUs, find every DesignDetail whose name
+     * contains any of those SKUs, union all their designers, and add them as members.
+     * If no design matches, fall back to the most recent order (same board, different
+     * card) that shares any item SKU and copy its members. Skips (with reason) when
+     * nothing can be resolved.
+     */
+    public BulkAutoAssignResult bulkAutoAssignDesigners(List<Long> cardIds) {
+        List<BulkAutoAssignResult.SkippedItem> skipped = new ArrayList<>();
+        int processed = 0;
+        if (cardIds == null) cardIds = List.of();
+
+        for (Long cardId : cardIds) {
+            try {
+                Card card = cardRepository.findById(cardId).orElse(null);
+                if (card == null) {
+                    skipped.add(skip(cardId, "Unknown", "Card not found"));
+                    continue;
+                }
+                EcomOrder order = ecomOrderRepository.findByCardId(cardId).orElse(null);
+                if (order == null) {
+                    skipped.add(skip(cardId, card.getName(), "No linked order"));
+                    continue;
+                }
+                List<String> skus = collectItemSkus(order);
+                if (skus.isEmpty()) {
+                    skipped.add(skip(cardId, card.getName(), "Order has no SKUs"));
+                    continue;
+                }
+
+                LinkedHashSet<User> usersToAdd = new LinkedHashSet<>();
+                for (String sku : skus) {
+                    for (DesignDetail dd : designDetailRepository.findByNameContainingIgnoreCaseOrderByCreatedAtDesc(sku)) {
+                        usersToAdd.addAll(dd.getDesigners());
+                    }
+                }
+
+                if (usersToAdd.isEmpty()) {
+                    Card fallback = findFallbackCard(order, card, skus);
+                    if (fallback != null) {
+                        fallback.getMembers().forEach(m -> usersToAdd.add(m.getUser()));
+                    }
+                }
+
+                if (usersToAdd.isEmpty()) {
+                    skipped.add(skip(cardId, card.getName(), "No matching design or fallback order"));
+                    continue;
+                }
+
+                int added = 0;
+                for (User u : usersToAdd) {
+                    if (!cardMemberRepository.existsByCardIdAndUserId(cardId, u.getId())) {
+                        addCardMember(cardId, u.getId());
+                        added++;
+                    }
+                }
+                if (added == 0) {
+                    skipped.add(skip(cardId, card.getName(), "All matched users already assigned"));
+                    continue;
+                }
+                processed++;
+            } catch (Exception e) {
+                skipped.add(skip(cardId, "", "Error: " + safeMsg(e)));
+            }
+        }
+
+        return BulkAutoAssignResult.builder()
+                .processed(processed)
+                .skipped(skipped.size())
+                .skippedDetails(skipped)
+                .build();
+    }
+
+    /**
+     * For each POD_ORDER card without an existing cover: find the latest DesignDetail
+     * whose name contains any item SKU and use its main mockup URL. Fallback: latest
+     * overlapping order's card cover. Skips (with reason) when nothing is resolved.
+     */
+    public BulkAutoAssignResult bulkAutoSetCover(List<Long> cardIds) {
+        List<BulkAutoAssignResult.SkippedItem> skipped = new ArrayList<>();
+        int processed = 0;
+        if (cardIds == null) cardIds = List.of();
+
+        for (Long cardId : cardIds) {
+            try {
+                Card card = cardRepository.findById(cardId).orElse(null);
+                if (card == null) {
+                    skipped.add(skip(cardId, "Unknown", "Card not found"));
+                    continue;
+                }
+                if (card.getMainImageUrl() != null && !card.getMainImageUrl().isBlank()) {
+                    skipped.add(skip(cardId, card.getName(), "Cover already set"));
+                    continue;
+                }
+                EcomOrder order = ecomOrderRepository.findByCardId(cardId).orElse(null);
+                if (order == null) {
+                    skipped.add(skip(cardId, card.getName(), "No linked order"));
+                    continue;
+                }
+                List<String> skus = collectItemSkus(order);
+                if (skus.isEmpty()) {
+                    skipped.add(skip(cardId, card.getName(), "Order has no SKUs"));
+                    continue;
+                }
+
+                String coverUrl = null;
+                outer:
+                for (String sku : skus) {
+                    for (DesignDetail dd : designDetailRepository.findByNameContainingIgnoreCaseOrderByCreatedAtDesc(sku)) {
+                        String url = dd.getMockups().stream()
+                                .filter(DesignMockup::isMainMockup)
+                                .map(DesignMockup::getUrl)
+                                .filter(u -> u != null && !u.isBlank())
+                                .findFirst().orElse(null);
+                        if (url != null) {
+                            coverUrl = url;
+                            break outer;
+                        }
+                    }
+                }
+
+                if (coverUrl == null) {
+                    Card fallback = findFallbackCard(order, card, skus);
+                    if (fallback != null && fallback.getMainImageUrl() != null && !fallback.getMainImageUrl().isBlank()) {
+                        coverUrl = fallback.getMainImageUrl();
+                    }
+                }
+
+                if (coverUrl == null) {
+                    skipped.add(skip(cardId, card.getName(), "No matching design cover or fallback order"));
+                    continue;
+                }
+
+                card.setMainImageUrl(coverUrl);
+                cardRepository.save(card);
+                eventPublisher.publish(card.getColumn().getBoard().getId(), "CARD_UPDATED",
+                        card.getId(), card.getColumn().getId(), getCurrentUser().getUserName(),
+                        CardSummaryResponse.from(card));
+                processed++;
+            } catch (Exception e) {
+                skipped.add(skip(cardId, "", "Error: " + safeMsg(e)));
+            }
+        }
+
+        return BulkAutoAssignResult.builder()
+                .processed(processed)
+                .skipped(skipped.size())
+                .skippedDetails(skipped)
+                .build();
+    }
+
+    private List<String> collectItemSkus(EcomOrder order) {
+        if (order.getItems() == null) return List.of();
+        return order.getItems().stream()
+                .map(EcomOrderItem::getSku)
+                .filter(s -> s != null && !s.isBlank())
+                .distinct()
+                .toList();
+    }
+
+    private Card findFallbackCard(EcomOrder selfOrder, Card selfCard, List<String> skus) {
+        Long boardId = selfCard.getColumn().getBoard().getId();
+        List<EcomOrder> found = ecomOrderRepository.findLatestByItemSkuOverlap(
+                skus, selfOrder.getId(), boardId, PageRequest.of(0, 1));
+        if (found.isEmpty()) return null;
+        return found.get(0).getCard();
+    }
+
+    private BulkAutoAssignResult.SkippedItem skip(Long cardId, String name, String reason) {
+        return BulkAutoAssignResult.SkippedItem.builder()
+                .cardId(cardId).cardName(name == null ? "" : name).reason(reason).build();
+    }
+
+    private String safeMsg(Exception e) {
+        String m = e.getMessage();
+        return m == null ? e.getClass().getSimpleName() : m;
     }
 
     public void moveCard(Long cardId, CardMoveRequest request) {

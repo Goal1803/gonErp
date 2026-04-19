@@ -15,6 +15,10 @@ import java.util.Optional;
 public interface DesignDetailRepository extends JpaRepository<DesignDetail, Long>, JpaSpecificationExecutor<DesignDetail> {
     Optional<DesignDetail> findByCardId(Long cardId);
 
+    // Find designs whose name contains the given SKU substring (case-insensitive), latest first.
+    // Used by bulk auto-assign actions on POD_ORDER boards to match orders to designs by SKU.
+    List<DesignDetail> findByNameContainingIgnoreCaseOrderByCreatedAtDesc(String sku);
+
     // Find completed designs (with approvalDate) in a board within date range
     @Query("SELECT dd FROM DesignDetail dd JOIN dd.card c " +
             "WHERE c.column.board.id = :boardId " +
