@@ -392,16 +392,44 @@ const openBulkMove = () => {
 const doBulkMove = async () => {
   if (!bulkMoveColumnId.value || !selectedCardIds.size) return
   bulkMoving.value = true
+  const ids = [...selectedCardIds]
+  const total = ids.length
+  const chunkSize = 50
+  let moved = 0
+  let failedChunks = 0
+  const notif = $q.notify({
+    type: 'ongoing',
+    message: `Moving 0 / ${total} card(s)...`,
+    timeout: 0,
+    spinner: true
+  })
   try {
-    const ids = [...selectedCardIds]
-    const res = await cardApi.bulkMove(ids, bulkMoveColumnId.value)
-    const moved = res.data.data?.moved ?? ids.length
-    $q.notify({ type: 'positive', message: `Moved ${moved} card(s)` })
+    for (let i = 0; i < ids.length; i += chunkSize) {
+      const chunk = ids.slice(i, i + chunkSize)
+      try {
+        const res = await cardApi.bulkMove(chunk, bulkMoveColumnId.value)
+        moved += res.data.data?.moved ?? chunk.length
+      } catch {
+        failedChunks++
+      }
+      notif({
+        type: 'ongoing',
+        message: `Moving ${moved} / ${total} card(s)...`,
+        timeout: 0,
+        spinner: true
+      })
+    }
+    notif({
+      type: failedChunks ? 'warning' : 'positive',
+      message: failedChunks
+        ? `Moved ${moved} / ${total} card(s) — ${failedChunks} batch(es) failed`
+        : `Moved ${moved} / ${total} card(s)`,
+      spinner: false,
+      timeout: 3000
+    })
     selectedCardIds.clear()
     showBulkMove.value = false
     await refreshBoard()
-  } catch (e) {
-    $q.notify({ type: 'negative', message: e.response?.data?.message || 'Bulk move failed' })
   } finally {
     bulkMoving.value = false
   }
