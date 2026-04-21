@@ -363,9 +363,10 @@ public class CardService {
     /**
      * For each POD_ORDER card: collect item SKUs, find every DesignDetail whose
      * own name or linked card's name/sku contains any of those SKUs, union all
-     * their designers, and add them as members. If nothing resolves, fall back
-     * to the most recent order on the same board that shares any item SKU and
-     * copy its card's members.
+     * members of those matched design cards (the DesignDetail.designers list is
+     * often empty in practice but the design card itself has members), and add
+     * them to the order card. If nothing resolves, fall back to the most recent
+     * order on the same board that shares any item SKU and copy its members.
      */
     public BulkAutoAssignResult bulkAutoAssignDesigners(List<Long> cardIds) {
         List<BulkAutoAssignResult.SkippedItem> skipped = new ArrayList<>();
@@ -395,7 +396,9 @@ public class CardService {
                 for (String sku : skus) {
                     for (DesignDetail dd : designDetailRepository.findByDesignOrCardMatching(sku)) {
                         designsFound++;
-                        usersToAdd.addAll(dd.getDesigners());
+                        if (dd.getCard() != null) {
+                            dd.getCard().getMembers().forEach(m -> usersToAdd.add(m.getUser()));
+                        }
                     }
                 }
 
@@ -408,7 +411,7 @@ public class CardService {
 
                 if (usersToAdd.isEmpty()) {
                     String reason = designsFound > 0
-                            ? "Matched " + designsFound + " design(s) but none have designers, and no fallback order"
+                            ? "Matched " + designsFound + " design(s) but their cards have no members, and no fallback order"
                             : "No design matched SKU(s) " + skus + " and no fallback order";
                     skipped.add(skip(cardId, card.getName(), reason));
                     continue;
