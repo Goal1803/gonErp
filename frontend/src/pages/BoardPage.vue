@@ -166,7 +166,7 @@
       <q-btn flat color="blue-4" icon="person_add" label="Assign Member" no-caps @click="showBulkMemberAssign = true" />
       <q-btn v-if="isPodDesign" flat color="purple-4" icon="brush" label="Assign Designer" no-caps @click="showBulkDesignerAssign = true" />
       <q-btn v-if="isPodDesign" flat color="teal-3" icon="download" label="Download Mockups" no-caps :loading="bulkDownloading" @click="doBulkDownloadMockups" />
-      <q-btn v-if="isPodOrder" flat color="purple-3" icon="groups" label="Auto-assign Designers" no-caps :loading="bulkAutoAssigning" @click="doBulkAutoAssignDesigners" />
+      <q-btn v-if="isPodOrder" flat color="purple-3" icon="groups" label="Auto-assign Members" no-caps :loading="bulkAutoAssigning" @click="doBulkAutoAssignDesigners" />
       <q-btn v-if="isPodOrder" flat color="pink-3" icon="image" label="Auto-set Cover" no-caps :loading="bulkAutoCovering" @click="doBulkAutoSetCover" />
       <q-btn flat color="amber-4" icon="swap_horiz" label="Move to Column" no-caps @click="openBulkMove" />
       <q-btn flat color="grey-5" icon="close" label="Clear" no-caps @click="selectedCardIds.clear()" />
@@ -525,7 +525,7 @@ const runChunkedBulkAuto = async ({ label, apiFn, loadingRef }) => {
 }
 
 const doBulkAutoAssignDesigners = () => runChunkedBulkAuto({
-  label: 'Auto-assign designers',
+  label: 'Auto-assign members',
   apiFn: cardApi.bulkAutoAssignDesigners,
   loadingRef: bulkAutoAssigning
 })
