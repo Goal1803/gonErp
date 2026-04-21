@@ -361,11 +361,11 @@ public class CardService {
     }
 
     /**
-     * For each POD_ORDER card: collect item SKUs, find every DesignDetail whose name
-     * contains any of those SKUs, union all their designers, and add them as members.
-     * If no design matches, fall back to the most recent order (same board, different
-     * card) that shares any item SKU and copy its members. Skips (with reason) when
-     * nothing can be resolved.
+     * For each POD_ORDER card: collect item SKUs, find every DesignDetail whose
+     * own name or linked card's name/sku contains any of those SKUs, union all
+     * their designers, and add them as members. If nothing resolves, fall back
+     * to the most recent order on the same board that shares any item SKU and
+     * copy its card's members.
      */
     public BulkAutoAssignResult bulkAutoAssignDesigners(List<Long> cardIds) {
         List<BulkAutoAssignResult.SkippedItem> skipped = new ArrayList<>();
@@ -391,8 +391,10 @@ public class CardService {
                 }
 
                 LinkedHashSet<User> usersToAdd = new LinkedHashSet<>();
+                int designsFound = 0;
                 for (String sku : skus) {
-                    for (DesignDetail dd : designDetailRepository.findByNameContainingIgnoreCaseOrderByCreatedAtDesc(sku)) {
+                    for (DesignDetail dd : designDetailRepository.findByDesignOrCardMatching(sku)) {
+                        designsFound++;
                         usersToAdd.addAll(dd.getDesigners());
                     }
                 }
@@ -405,7 +407,10 @@ public class CardService {
                 }
 
                 if (usersToAdd.isEmpty()) {
-                    skipped.add(skip(cardId, card.getName(), "No matching design or fallback order"));
+                    String reason = designsFound > 0
+                            ? "Matched " + designsFound + " design(s) but none have designers, and no fallback order"
+                            : "No design matched SKU(s) " + skus + " and no fallback order";
+                    skipped.add(skip(cardId, card.getName(), reason));
                     continue;
                 }
 
@@ -435,8 +440,8 @@ public class CardService {
 
     /**
      * For each POD_ORDER card without an existing cover: find the latest DesignDetail
-     * whose name contains any item SKU and use its main mockup URL. Fallback: latest
-     * overlapping order's card cover. Skips (with reason) when nothing is resolved.
+     * whose own name or linked card's name/sku contains any item SKU and use its main
+     * mockup URL. Fallback: latest overlapping order's card cover.
      */
     public BulkAutoAssignResult bulkAutoSetCover(List<Long> cardIds) {
         List<BulkAutoAssignResult.SkippedItem> skipped = new ArrayList<>();
@@ -466,9 +471,11 @@ public class CardService {
                 }
 
                 String coverUrl = null;
+                int designsFound = 0;
                 outer:
                 for (String sku : skus) {
-                    for (DesignDetail dd : designDetailRepository.findByNameContainingIgnoreCaseOrderByCreatedAtDesc(sku)) {
+                    for (DesignDetail dd : designDetailRepository.findByDesignOrCardMatching(sku)) {
+                        designsFound++;
                         String url = dd.getMockups().stream()
                                 .filter(DesignMockup::isMainMockup)
                                 .map(DesignMockup::getUrl)
@@ -489,7 +496,10 @@ public class CardService {
                 }
 
                 if (coverUrl == null) {
-                    skipped.add(skip(cardId, card.getName(), "No matching design cover or fallback order"));
+                    String reason = designsFound > 0
+                            ? "Matched " + designsFound + " design(s) but none have a main mockup, and no fallback cover"
+                            : "No design matched SKU(s) " + skus + " and no fallback cover";
+                    skipped.add(skip(cardId, card.getName(), reason));
                     continue;
                 }
 
