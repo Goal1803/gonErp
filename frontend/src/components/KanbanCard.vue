@@ -37,7 +37,7 @@
 
     <!-- Main image (always square, image fits without cropping) -->
     <div v-if="card.mainImageUrl" class="card-cover">
-      <img :src="thumbUrl(card.mainImageUrl)" class="card-cover-inner" alt="" loading="lazy" />
+      <img :src="thumbUrl(card.mainImageUrl)" class="card-cover-inner" alt="" loading="lazy" draggable="false" />
     </div>
 
     <div class="card-body">
@@ -183,6 +183,10 @@ const statusColor = (s) => ({
   height: 100%;
   object-fit: cover;
   object-position: center;
+  /* Prevent the browser's native image drag from hijacking the card drag
+     (Pragmatic DnD must own the drag, otherwise drop targets reject it). */
+  -webkit-user-drag: none;
+  user-select: none;
 }
 .card-body { padding: 10px 12px; }
 

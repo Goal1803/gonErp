@@ -132,8 +132,6 @@
             @delete-card="confirmDeleteCard"
             @copy-card="handleCopyCard"
             @refresh="refreshBoard"
-            @drag-start="onDragStart"
-            @drag-end="onDragEnd"
             @assign-card="onAssignCard"
             @toggle-select-card="onToggleSelectCard"
             @download-mockups-card="onDownloadMockupsCard"
@@ -166,7 +164,7 @@
       <q-btn flat color="blue-4" icon="person_add" label="Assign Member" no-caps @click="showBulkMemberAssign = true" />
       <q-btn v-if="isPodDesign" flat color="purple-4" icon="brush" label="Assign Designer" no-caps @click="showBulkDesignerAssign = true" />
       <q-btn v-if="isPodDesign" flat color="teal-3" icon="download" label="Download Mockups" no-caps :loading="bulkDownloading" @click="doBulkDownloadMockups" />
-      <q-btn v-if="isPodOrder" flat color="purple-3" icon="groups" label="Auto-assign Designers" no-caps :loading="bulkAutoAssigning" @click="doBulkAutoAssignDesigners" />
+      <q-btn v-if="isPodOrder" flat color="purple-3" icon="groups" label="Auto-assign Members" no-caps :loading="bulkAutoAssigning" @click="doBulkAutoAssignDesigners" />
       <q-btn v-if="isPodOrder" flat color="pink-3" icon="image" label="Auto-set Cover" no-caps :loading="bulkAutoCovering" @click="doBulkAutoSetCover" />
       <q-btn flat color="amber-4" icon="swap_horiz" label="Move to Column" no-caps @click="openBulkMove" />
       <q-btn flat color="grey-5" icon="close" label="Clear" no-caps @click="selectedCardIds.clear()" />
@@ -356,6 +354,9 @@ import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useQuasar } from 'quasar'
 import draggable from 'vuedraggable'
+import { monitorForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
+import { autoScrollForElements } from '@atlaskit/pragmatic-drag-and-drop-auto-scroll/element'
+import { extractClosestEdge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
 import { useBoardStore } from 'src/stores/boardStore'
 import { useAuthStore } from 'src/stores/authStore'
 import { useBoardSocket } from 'src/composables/useBoardSocket'
@@ -525,7 +526,7 @@ const runChunkedBulkAuto = async ({ label, apiFn, loadingRef }) => {
 }
 
 const doBulkAutoAssignDesigners = () => runChunkedBulkAuto({
-  label: 'Auto-assign designers',
+  label: 'Auto-assign members',
   apiFn: cardApi.bulkAutoAssignDesigners,
   loadingRef: bulkAutoAssigning
 })
@@ -941,6 +942,81 @@ const onDragEnd = () => {
   detachHScrollListeners()
 }
 
+// ─── Pragmatic DnD: card drag-and-drop (Trello-style, virtualization-safe) ───
+// Cards register themselves as draggables/drop targets in DraggableCard.vue;
+// columns register a body drop target in KanbanColumn.vue. A single board-level
+// monitor here resolves each drop: it mutates the in-memory column.cards arrays
+// optimistically (keyed by id, so it works while filtered/virtualized) and then
+// persists via the existing reorder/move APIs. Horizontal auto-scroll on the
+// board container is registered when that element mounts.
+let boardDndCleanup = null
+let hScrollCleanup = null
+
+const findColumnById = (id) =>
+  (boardStore.board?.columns || []).find(c => c.id === id)
+
+const persistCardDrop = async (cardId, fromColumnId, toColumnId, fromCol, toCol) => {
+  try {
+    const toOrder = (toCol.cards || []).map(c => c.id)
+    if (fromColumnId === toColumnId) {
+      await cardApi.reorder(toColumnId, toOrder)
+    } else {
+      const destIndex = toOrder.indexOf(cardId)
+      await cardApi.move(cardId, { targetColumnId: toColumnId, position: destIndex + 1 })
+      await cardApi.reorder(toColumnId, toOrder)
+      const fromOrder = (fromCol.cards || []).map(c => c.id)
+      if (fromOrder.length) await cardApi.reorder(fromColumnId, fromOrder)
+    }
+  } catch (e) {
+    console.error('Failed to persist card drop', e)
+    $q.notify({ type: 'negative', message: 'Failed to move card' })
+    await refreshBoard()
+  }
+}
+
+const handleCardDrop = ({ source, location }) => {
+  const target = location.current.dropTargets[0]
+  if (!target) return
+
+  const cardId = source.data.cardId
+  const fromColumnId = source.data.fromColumnId
+  const fromCol = findColumnById(fromColumnId)
+  if (!fromCol || !fromCol.cards) return
+  const fromIdx = fromCol.cards.findIndex(c => c.id === cardId)
+  if (fromIdx === -1) return
+
+  // Resolve destination column + drop position from the innermost drop target.
+  let toColumnId, overCardId = null, edge = null
+  if (target.data.type === 'column') {
+    toColumnId = target.data.columnId
+  } else {
+    toColumnId = target.data.columnId
+    overCardId = target.data.cardId
+    edge = extractClosestEdge(target.data)
+  }
+  if (overCardId === cardId) return // dropped onto itself — no-op
+
+  const toCol = findColumnById(toColumnId)
+  if (!toCol) return
+  if (!toCol.cards) toCol.cards = []
+
+  // Optimistic move: remove from source, then insert into destination. We look
+  // up the over-card index AFTER removal so it's correct for same-column moves.
+  const [card] = fromCol.cards.splice(fromIdx, 1)
+  let insertIdx
+  if (overCardId == null) {
+    insertIdx = toCol.cards.length
+  } else {
+    const overIdx = toCol.cards.findIndex(c => c.id === overCardId)
+    insertIdx = overIdx === -1
+      ? toCol.cards.length
+      : (edge === 'bottom' ? overIdx + 1 : overIdx)
+  }
+  toCol.cards.splice(insertIdx, 0, card)
+
+  persistCardDrop(cardId, fromColumnId, toColumnId, fromCol, toCol)
+}
+
 // ─── WebSocket real-time updates ────────────────────────────────────────────
 
 // Events handled in real-time by child components — no conflict banner needed
@@ -1159,8 +1235,30 @@ watch(() => route.query.cardId, (cardId) => {
   }
 })
 
+// Register the board-level card drop monitor once; (re)register horizontal
+// auto-scroll whenever the kanban scroll container mounts/unmounts.
+watch(kanbanScrollEl, (el) => {
+  if (hScrollCleanup) { hScrollCleanup(); hScrollCleanup = null }
+  if (el) {
+    hScrollCleanup = autoScrollForElements({
+      element: el,
+      canScroll: ({ source }) => source.data.type === 'card',
+    })
+  }
+}, { immediate: true })
+
 onMounted(async () => {
+  // Load the board first so columns always render, even if DnD setup fails.
   await refreshBoard()
+
+  try {
+    boardDndCleanup = monitorForElements({
+      canMonitor: ({ source }) => source.data.type === 'card',
+      onDrop: handleCardDrop,
+    })
+  } catch (e) {
+    console.error('Failed to set up board drag-and-drop', e)
+  }
 
   // Deep-link: open card dialog if ?cardId= is present
   const cardIdParam = route.query.cardId
@@ -1175,6 +1273,8 @@ onMounted(async () => {
 onUnmounted(() => {
   detachHScrollListeners()
   if (scrollRaf) cancelAnimationFrame(scrollRaf)
+  if (boardDndCleanup) boardDndCleanup()
+  if (hScrollCleanup) hScrollCleanup()
 })
 </script>
 

@@ -23,6 +23,12 @@
           </q-tooltip>
         </q-btn>
         <q-badge color="grey-8" :label="visibleCount" rounded style="font-size:0.65rem" />
+        <q-icon v-if="virtualMode" name="bolt" size="xs" color="amber-5" class="q-ml-xs">
+          <q-tooltip>
+            Virtual scroll đang bật ({{ visibleCount }} thẻ &gt; {{ VIRTUAL_THRESHOLD }}) —
+            chỉ render thẻ trong tầm nhìn để giữ hiệu năng. Kéo-thả vẫn hoạt động bình thường.
+          </q-tooltip>
+        </q-icon>
         <q-btn flat round dense icon="more_vert" color="grey-5" size="xs" class="q-ml-xs">
           <q-menu>
             <q-list dense>
@@ -40,36 +46,59 @@
       </div>
     </div>
 
-    <!-- Cards scroll container -->
+    <!-- Cards scroll container. Doubles as a Pragmatic DnD drop target so cards
+         can be dropped into empty space / the end of the column, and as the
+         vertical auto-scroll region during a card drag. -->
     <div class="col-cards-wrap">
     <div class="col-cards" ref="colCardsEl" @scroll="onColScroll">
-      <draggable
-        v-model="displayCards"
-        group="cards"
-        item-key="id"
-        handle=".kanban-card"
-        ghost-class="card-ghost"
-        drag-class="card-drag"
-        :data-column-id="column.id"
-        @start="onCardDragStart"
-        @end="onDragEnd"
-        class="col-cards-inner"
+      <!-- Normal rendering (≤ VIRTUAL_THRESHOLD cards) -->
+      <div v-if="!virtualMode" class="col-cards-inner">
+        <draggable-card
+          v-for="card in displayCards"
+          :key="card.id"
+          :card="card"
+          :column-id="column.id"
+          :selectable="selectable"
+          :selected="selectedIds.has(card.id)"
+          :board-type="boardType"
+          @open="$emit('open-card', $event)"
+          @delete="$emit('delete-card', $event)"
+          @copy="$emit('copy-card', $event)"
+          @assign="$emit('assign-card', $event)"
+          @toggle-select="$emit('toggle-select-card', $event)"
+          @download-mockups="$emit('download-mockups-card', $event)"
+        />
+      </div>
+
+      <!-- Virtual scrolling for very large columns (> VIRTUAL_THRESHOLD cards):
+           only on-screen cards are mounted, so the DOM (and lazy cover images)
+           stay light no matter the card count. Drag-and-drop keeps working
+           because Pragmatic DnD tolerates the source card being unmounted
+           mid-drag. scroll-target reuses the same .col-cards container so the
+           jump-to-bottom FAB and auto-scroll keep working. -->
+      <q-virtual-scroll
+        v-else-if="colCardsEl"
+        :items="displayCards"
+        :scroll-target="colCardsEl"
+        :virtual-scroll-item-size="120"
+        class="col-cards-virtual"
+        v-slot="{ item }"
       >
-        <template #item="{ element }">
-          <kanban-card
-            :card="element"
-            :selectable="selectable"
-            :selected="selectedIds.has(element.id)"
-            :board-type="boardType"
-            @open="$emit('open-card', element)"
-            @delete="$emit('delete-card', $event)"
-            @copy="$emit('copy-card', $event)"
-            @assign="$emit('assign-card', $event)"
-            @toggle-select="$emit('toggle-select-card', $event)"
-            @download-mockups="$emit('download-mockups-card', $event)"
-          />
-        </template>
-      </draggable>
+        <draggable-card
+          :key="item.id"
+          :card="item"
+          :column-id="column.id"
+          :selectable="selectable"
+          :selected="selectedIds.has(item.id)"
+          :board-type="boardType"
+          @open="$emit('open-card', $event)"
+          @delete="$emit('delete-card', $event)"
+          @copy="$emit('copy-card', $event)"
+          @assign="$emit('assign-card', $event)"
+          @toggle-select="$emit('toggle-select-card', $event)"
+          @download-mockups="$emit('download-mockups-card', $event)"
+        />
+      </q-virtual-scroll>
     </div>
 
       <!-- Jump-to-bottom FAB -->
@@ -108,20 +137,14 @@
   </div>
 </template>
 
-<script>
-// Module-level: one shared variable across ALL KanbanColumn instances.
-// Set to true by whichever column starts a card drag so every column's
-// onVDragMove can respond — enabling vertical scroll when dragging into a new column.
-let globalCardDragging = false
-</script>
-
 <script setup>
-import { ref, computed, onUnmounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useQuasar } from 'quasar'
-import draggable from 'vuedraggable'
-import KanbanCard from './KanbanCard.vue'
+import DraggableCard from './DraggableCard.vue'
 import { columnApi, cardApi } from 'src/api/tasks'
-import { useBoardStore } from 'src/stores/boardStore'
+import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
+import { dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
+import { autoScrollForElements } from '@atlaskit/pragmatic-drag-and-drop-auto-scroll/element'
 
 const props = defineProps({
   column: { type: Object, required: true },
@@ -130,9 +153,8 @@ const props = defineProps({
   selectedIds: { type: Set, default: () => new Set() },
   boardType: { type: String, default: 'GENERAL' },
 })
-const emit = defineEmits(['open-card', 'delete', 'delete-card', 'copy-card', 'refresh', 'drag-start', 'drag-end', 'assign-card', 'toggle-select-card', 'download-mockups-card', 'toggle-select-all-column'])
+const emit = defineEmits(['open-card', 'delete', 'delete-card', 'copy-card', 'refresh', 'assign-card', 'toggle-select-card', 'download-mockups-card', 'toggle-select-all-column'])
 const $q = useQuasar()
-const boardStore = useBoardStore()
 
 const editingTitle = ref(false)
 const editTitle = ref('')
@@ -140,32 +162,20 @@ const addingCard = ref(false)
 const newCardName = ref('')
 const colCardsEl = ref(null)
 
-const localCards = computed({
-  get: () => props.column.cards || [],
-  set: (newCards) => { props.column.cards = newCards }
-})
-
-// Display only filtered cards in the draggable — avoids v-show inside sortable
-// which corrupts SortableJS internal state and loses cards on unfilter.
-const displayCards = computed({
-  get: () => {
-    const all = localCards.value
-    if (!props.cardFilter) return all
-    return all.filter(props.cardFilter)
-  },
-  set: (newVisible) => {
-    if (!props.cardFilter) {
-      // No filter active — direct pass-through
-      props.column.cards = newVisible
-    } else {
-      // Merge: keep hidden (filtered-out) cards, replace visible subset with new order
-      const hidden = localCards.value.filter(c => !props.cardFilter(c))
-      props.column.cards = [...newVisible, ...hidden]
-    }
-  }
+// Display only filtered cards — actual reordering is applied to the full
+// column.cards array in BoardPage's drop handler, keyed by card id.
+const displayCards = computed(() => {
+  const all = props.column.cards || []
+  if (!props.cardFilter) return all
+  return all.filter(props.cardFilter)
 })
 
 const visibleCount = computed(() => displayCards.value.length)
+
+// Above this many visible cards, render via virtual scrolling (only on-screen
+// cards in the DOM) instead of a plain v-for. Drag-and-drop works in both modes.
+const VIRTUAL_THRESHOLD = 200
+const virtualMode = computed(() => displayCards.value.length > VIRTUAL_THRESHOLD)
 
 const allVisibleSelected = computed(() => {
   if (!displayCards.value.length) return false
@@ -233,112 +243,31 @@ const addCard = async () => {
   }
 }
 
-// ─── Vertical drag-scroll ─────────────────────────────────────────────────────
+// ─── Pragmatic DnD: column-level drop target + vertical auto-scroll ───────────
+// The card-level draggable/drop-target registration lives in DraggableCard.vue;
+// here we register the column body so a card can be dropped onto empty space
+// (lands at the end), and enable auto-scroll while dragging within the column.
+let dndCleanup = null
 
-let vDragScrollSpeed = 0
-let vScrollRaf = null
-let vDragMoveRafPending = false
-
-const vScrollLoop = () => {
-  if (vDragScrollSpeed !== 0 && colCardsEl.value) {
-    colCardsEl.value.scrollTop += vDragScrollSpeed
-  }
-  if (globalCardDragging && vDragScrollSpeed !== 0) {
-    vScrollRaf = requestAnimationFrame(vScrollLoop)
-  } else {
-    vScrollRaf = null
-  }
-}
-
-const onVDragMove = (e) => {
-  if (!globalCardDragging || !colCardsEl.value) return
-  // Throttle to one computation per animation frame
-  if (vDragMoveRafPending) return
-  vDragMoveRafPending = true
-  const clientX = e.clientX ?? e.touches?.[0]?.clientX
-  const clientY = e.clientY ?? e.touches?.[0]?.clientY
-  requestAnimationFrame(() => {
-    vDragMoveRafPending = false
-    if (!globalCardDragging || !colCardsEl.value || clientY == null) return
-
-    const rect = colCardsEl.value.getBoundingClientRect()
-
-    // Only activate for the column the cursor is currently over
-    if (clientX != null && (clientX < rect.left || clientX > rect.right)) {
-      vDragScrollSpeed = 0
-      return
-    }
-
-    const EDGE = 60      // px from top/bottom edge to start scrolling
-    const MAX_SPEED = 12 // max scroll speed (px per frame)
-    const distBottom = rect.bottom - clientY
-    const distTop    = clientY - rect.top
-
-    if (distBottom < EDGE) {
-      vDragScrollSpeed = Math.ceil(MAX_SPEED * (1 - Math.max(0, distBottom) / EDGE))
-    } else if (distTop < EDGE) {
-      vDragScrollSpeed = -Math.ceil(MAX_SPEED * (1 - Math.max(0, distTop) / EDGE))
-    } else {
-      vDragScrollSpeed = 0
-    }
-
-    if (vDragScrollSpeed !== 0 && !vScrollRaf) {
-      vScrollRaf = requestAnimationFrame(vScrollLoop)
-    }
-  })
-}
-
-// Only attach listeners during drag — avoids N columns × 2 listeners firing on every mousemove
-const attachDragListeners = () => {
-  document.addEventListener('mousemove', onVDragMove)
-  document.addEventListener('dragover',  onVDragMove)
-  document.addEventListener('touchmove', onVDragMove, { passive: true })
-}
-
-const detachDragListeners = () => {
-  document.removeEventListener('mousemove', onVDragMove)
-  document.removeEventListener('dragover',  onVDragMove)
-  document.removeEventListener('touchmove', onVDragMove)
-}
-
-const onCardDragStart = () => {
-  globalCardDragging = true
-  vDragScrollSpeed = 0
-  attachDragListeners()
-  emit('drag-start')
-}
-
-const onDragEnd = (evt) => {
-  globalCardDragging = false
-  vDragScrollSpeed = 0
-  detachDragListeners()
-  emit('drag-end')
-
-  // Fire API calls in background — optimistic update already applied by vuedraggable
-  if (evt.from === evt.to) {
-    const newOrder = displayCards.value.map(c => c.id)
-    boardStore.reorderCards(props.column.id, newOrder)
-  } else {
-    const movedCardId = Number(evt.item.dataset.cardId)
-    const targetColumnId = Number(evt.to.dataset.columnId)
-    if (!movedCardId || !targetColumnId) {
-      emit('refresh')
-      return
-    }
-    const position = evt.newIndex + 1
-    const sourceOrder = displayCards.value.map(c => c.id)
-    cardApi.move(movedCardId, { targetColumnId, position })
-      .then(() => sourceOrder.length > 0 ? cardApi.reorder(props.column.id, sourceOrder) : null)
-      .catch(() => {
-        $q.notify({ type: 'negative', message: 'Failed to move card' })
-        emit('refresh')
-      })
-  }
-}
+onMounted(() => {
+  const el = colCardsEl.value
+  if (!el) return
+  dndCleanup = combine(
+    dropTargetForElements({
+      element: el,
+      canDrop: ({ source }) => source.data.type === 'card',
+      getIsSticky: () => true,
+      getData: () => ({ type: 'column', columnId: props.column.id }),
+    }),
+    autoScrollForElements({
+      element: el,
+      canScroll: ({ source }) => source.data.type === 'card',
+    }),
+  )
+})
 
 onUnmounted(() => {
-  detachDragListeners()
-  if (vScrollRaf) cancelAnimationFrame(vScrollRaf)
+  if (dndCleanup) dndCleanup()
 })
 </script>
 
@@ -388,7 +317,14 @@ onUnmounted(() => {
   gap: 8px;
   min-height: 40px;
 }
-.card-ghost { opacity: 0.4; }
-.card-drag { transform: rotate(2deg); box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+/* Virtual-scroll mode: QVirtualScroll positions items itself, so space cards
+   via per-item margin rather than flex gap. */
+.col-cards-virtual {
+  padding: 8px;
+  min-height: 40px;
+}
+.col-cards-virtual :deep(.draggable-card) {
+  margin-bottom: 8px;
+}
 .select-active :deep(.q-icon) { color: #26a69a !important; }
 </style>

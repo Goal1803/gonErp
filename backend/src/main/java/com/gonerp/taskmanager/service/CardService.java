@@ -402,10 +402,13 @@ public class CardService {
                     }
                 }
 
+                Card fallback = null;
+                boolean usedFallback = false;
                 if (usersToAdd.isEmpty()) {
-                    Card fallback = findFallbackCard(order, card, skus);
+                    fallback = findFallbackCard(order, card, skus);
                     if (fallback != null) {
                         fallback.getMembers().forEach(m -> usersToAdd.add(m.getUser()));
+                        usedFallback = true;
                     }
                 }
 
@@ -425,7 +428,16 @@ public class CardService {
                     }
                 }
                 if (added == 0) {
-                    skipped.add(skip(cardId, card.getName(), "All matched users already assigned"));
+                    String reason;
+                    if (usedFallback) {
+                        String fallbackName = fallback.getName() == null ? "#" + fallback.getId() : fallback.getName();
+                        reason = designsFound > 0
+                                ? "Matched " + designsFound + " design(s) but their cards had no members; fallback card " + fallbackName + " has " + usersToAdd.size() + " member(s), all already on this card"
+                                : "No design matched SKU(s) " + skus + "; fallback card " + fallbackName + " has " + usersToAdd.size() + " member(s), all already on this card";
+                    } else {
+                        reason = "Matched " + designsFound + " design(s) with " + usersToAdd.size() + " member(s), all already on this card";
+                    }
+                    skipped.add(skip(cardId, card.getName(), reason));
                     continue;
                 }
                 processed++;
