@@ -55,3 +55,14 @@ CREATE INDEX IF NOT EXISTS idx_tm_design_mockups_image_hash ON tm_design_mockups
 ALTER TABLE ecom_supplier_transactions ADD COLUMN IF NOT EXISTS external_number VARCHAR(100);
 CREATE INDEX IF NOT EXISTS idx_ecom_supplier_txn_external_number
     ON ecom_supplier_transactions (supplier_id, external_number);
+
+-- Board load performance: the board view reads cards by column ordered by
+-- position and filters out archived ones; child collections are counted by
+-- card_id. Postgres does not auto-index foreign keys, so add them explicitly.
+CREATE INDEX IF NOT EXISTS idx_tm_cards_column_position ON tm_cards (column_id, position);
+CREATE INDEX IF NOT EXISTS idx_tm_cards_archived ON tm_cards (archived);
+CREATE INDEX IF NOT EXISTS idx_tm_card_comments_card ON tm_card_comments (card_id);
+CREATE INDEX IF NOT EXISTS idx_tm_card_attachments_card ON tm_card_attachments (card_id);
+CREATE INDEX IF NOT EXISTS idx_tm_card_members_card ON tm_card_members (card_id);
+CREATE INDEX IF NOT EXISTS idx_tm_card_label_map_card ON tm_card_label_map (card_id);
+CREATE INDEX IF NOT EXISTS idx_tm_card_type_map_card ON tm_card_type_map (card_id);

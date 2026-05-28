@@ -24,6 +24,15 @@ public class BoardResponse {
     private List<Long> archiveColumnIds;
 
     public static BoardResponse from(Board board, List<LabelResponse> labels, List<TypeResponse> types) {
+        return from(board, labels, types,
+                board.getColumns().stream().map(ColumnResponse::from).toList());
+    }
+
+    // Overload that accepts pre-built column responses, so the service can build
+    // columns with paginated cards + batch comment/attachment counts instead of
+    // eagerly materialising every card collection.
+    public static BoardResponse from(Board board, List<LabelResponse> labels, List<TypeResponse> types,
+                                     List<ColumnResponse> columns) {
         return BoardResponse.builder()
                 .id(board.getId())
                 .name(board.getName())
@@ -32,7 +41,7 @@ public class BoardResponse {
                 .boardType(board.getBoardType())
                 .owner(UserSummaryResponse.from(board.getOwner()))
                 .members(board.getMembers().stream().map(BoardMemberResponse::from).toList())
-                .columns(board.getColumns().stream().map(ColumnResponse::from).toList())
+                .columns(columns)
                 .labels(labels)
                 .types(types)
                 .autoArchiveDays(board.getAutoArchiveDays())

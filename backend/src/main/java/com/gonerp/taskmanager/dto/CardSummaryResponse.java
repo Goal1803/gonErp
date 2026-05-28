@@ -27,7 +27,14 @@ public class CardSummaryResponse {
     private boolean archived;
     private LocalDateTime archivedAt;
 
+    // Convenience overload for single-card paths (loads comment/attachment
+    // collections to count). For board/column listing use the overload below
+    // with pre-computed batch counts to avoid loading those collections.
     public static CardSummaryResponse from(Card card) {
+        return from(card, card.getComments().size(), card.getAttachments().size());
+    }
+
+    public static CardSummaryResponse from(Card card, int commentCount, int attachmentCount) {
         return CardSummaryResponse.builder()
                 .id(card.getId())
                 .name(card.getName())
@@ -40,8 +47,8 @@ public class CardSummaryResponse {
                 .types(card.getTypes().stream().map(TypeResponse::from).toList())
                 .members(card.getMembers().stream()
                         .map(m -> UserSummaryResponse.from(m.getUser())).toList())
-                .commentCount(card.getComments().size())
-                .attachmentCount(card.getAttachments().size())
+                .commentCount(commentCount)
+                .attachmentCount(attachmentCount)
                 .createdAt(card.getCreatedAt())
                 .archived(card.isArchived())
                 .archivedAt(card.getArchivedAt())
