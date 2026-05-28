@@ -21,6 +21,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import com.gonerp.config.R2StorageProperties;
@@ -51,6 +53,7 @@ public class CardService {
     private final BoardMemberRepository boardMemberRepository;
     private final CardCommentRepository cardCommentRepository;
     private final CardAttachmentRepository cardAttachmentRepository;
+    private final CardSummaryMapper cardSummaryMapper;
     private final CardLinkRepository cardLinkRepository;
     private final CardActivityRepository cardActivityRepository;
     private final CardLabelRepository cardLabelRepository;
@@ -115,6 +118,36 @@ public class CardService {
     private Card getCardOrThrow(Long id) {
         return cardRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Card not found: " + id));
+    }
+
+    // Server-side paginated + filtered cards for one column (used by lazy
+    // loading on the board). Visibility for non-privileged users is enforced
+    // in SQL via the filter, so pagination counts/pages stay correct.
+    public CardPageResponse getColumnCards(Long columnId, CardFilter filter, int page, int size) {
+        BoardColumn column = boardColumnRepository.findById(columnId)
+                .orElseThrow(() -> new EntityNotFoundException("Column not found: " + columnId));
+        checkBoardAccess(column);
+        CardFilter f = (filter == null) ? new CardFilter() : filter;
+        if (!canSeeAllCards(column.getBoard())) {
+            f.setRestrictToMemberUserId(getCurrentUser().getId());
+        }
+        Specification<Card> spec = CardSpecifications.build(columnId, f);
+        long total = cardRepository.count(spec);
+        List<Card> cards = cardRepository.findAll(spec,
+                PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "position"))).getContent();
+        return new CardPageResponse(cardSummaryMapper.toSummaries(cards), total, page, size);
+    }
+
+    // True if the current user may see every card on the board (system admin,
+    // board owner, or board ADMIN/OWNER member).
+    public boolean canSeeAllCards(Board board) {
+        if (isSystemAdmin()) return true;
+        User user = getCurrentUser();
+        if (board.getOwner().getId().equals(user.getId())) return true;
+        return boardMemberRepository.findByBoardIdAndUserId(board.getId(), user.getId())
+                .map(m -> m.getRole() == com.gonerp.taskmanager.model.enums.BoardMemberRole.ADMIN
+                        || m.getRole() == com.gonerp.taskmanager.model.enums.BoardMemberRole.OWNER)
+                .orElse(false);
     }
 
     private void ensureDesignStaffRole(User user, String roleName) {
@@ -571,9 +604,40 @@ public class CardService {
         Long boardId = card.getColumn().getBoard().getId();
         String oldStage = card.getStage();
         Long fromColumnId = card.getColumn().getId();
+        Long targetColumnId = targetColumn.getId();
+        int oldPos = card.getPosition();
+        boolean sameColumn = fromColumnId.equals(targetColumnId);
+
+        // Park the moving card out of range so the position shifts below never
+        // touch it, then close the gap it leaves in its source column.
+        card.setPosition(-1);
+        cardRepository.saveAndFlush(card);
+        cardRepository.shiftPositionsFrom(fromColumnId, oldPos + 1, -1);
+
+        // Resolve the 1-based insert slot in the target column. Relative
+        // placement (referenceCardId) lets the client reorder without holding
+        // the full, possibly lazily-loaded, card list.
+        int insertPos;
+        Long refId = request.getReferenceCardId();
+        if (refId != null && !refId.equals(cardId)) {
+            Card ref = getCardOrThrow(refId); // position already reflects the gap-close above
+            insertPos = Boolean.TRUE.equals(request.getPlaceBefore())
+                    ? ref.getPosition() : ref.getPosition() + 1;
+        } else if (request.getPosition() > 0) {
+            insertPos = request.getPosition();
+        } else {
+            // Append to the end. The parked card is still counted while it
+            // remains in the (same) target column, so subtract it there.
+            int count = cardRepository.countByColumnId(targetColumnId);
+            insertPos = sameColumn ? count : count + 1;
+        }
+        if (insertPos < 1) insertPos = 1;
+
+        // Open the slot and place the card.
+        cardRepository.shiftPositionsFrom(targetColumnId, insertPos, 1);
         card.setColumn(targetColumn);
         card.setStage(targetColumn.getTitle());
-        card.setPosition(request.getPosition());
+        card.setPosition(insertPos);
         cardRepository.save(card);
 
         // Handle designStatus and approvalDate for POD_DESIGN boards

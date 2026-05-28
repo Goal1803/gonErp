@@ -123,7 +123,6 @@
         <template #item="{ element: col }">
           <kanban-column
             :column="col"
-            :card-filter="cardFilter"
             :selectable="showBulkActions"
             :selected-ids="selectedCardIds"
             :board-type="boardStore.board?.boardType || 'GENERAL'"
@@ -711,37 +710,31 @@ const clearFilters = () => {
   filterDateTo.value = null
 }
 
-const cardFilter = computed(() => {
-  if (!hasActiveFilters.value) return null
-  return (card) => {
-    // Member filter
-    if (filterMembers.value.length > 0) {
-      const cardMemberIds = (card.members || []).map(m => m.id)
-      if (!filterMembers.value.some(id => cardMemberIds.includes(id))) return false
-    }
-    // Label filter
-    if (filterLabels.value.length > 0) {
-      const cardLabelIds = (card.labels || []).map(l => l.id)
-      if (!filterLabels.value.some(id => cardLabelIds.includes(id))) return false
-    }
-    // Type filter
-    if (filterTypes.value.length > 0) {
-      const cardTypeIds = (card.types || []).map(t => t.id)
-      if (!filterTypes.value.some(id => cardTypeIds.includes(id))) return false
-    }
-    // Status filter
-    if (filterStatuses.value.length > 0) {
-      if (!filterStatuses.value.includes(card.status)) return false
-    }
-    // Date range filter
-    if (filterDateFrom.value || filterDateTo.value) {
-      const cardDate = card.createdAt ? card.createdAt.substring(0, 10) : null
-      if (!cardDate) return false
-      if (filterDateFrom.value && cardDate < filterDateFrom.value) return false
-      if (filterDateTo.value && cardDate > filterDateTo.value) return false
-    }
-    return true
-  }
+// Cards are filtered server-side: each column loads only its first page of
+// matching cards (the rest are fetched on scroll). The page size also bounds
+// the initial payload, which is what makes large boards load fast.
+const PAGE_SIZE = 50
+
+// Build query params for the active filter bar. Arrays are comma-joined so
+// Spring binds them to List<…> request params.
+const buildServerFilter = () => {
+  const f = {}
+  if (filterMembers.value.length) f.memberIds = filterMembers.value.join(',')
+  if (filterLabels.value.length) f.labelIds = filterLabels.value.join(',')
+  if (filterTypes.value.length) f.typeIds = filterTypes.value.join(',')
+  if (filterStatuses.value.length) f.statuses = filterStatuses.value.join(',')
+  if (filterDateFrom.value) f.dateFrom = filterDateFrom.value
+  if (filterDateTo.value) f.dateTo = filterDateTo.value
+  return f
+}
+
+// Reload the board (first page per column) whenever the filter bar changes.
+let filterDebounce = null
+watch([filterMembers, filterLabels, filterTypes, filterStatuses, filterDateFrom, filterDateTo], () => {
+  clearTimeout(filterDebounce)
+  filterDebounce = setTimeout(() => {
+    boardStore.loadBoard(boardId.value, { pageSize: PAGE_SIZE, filter: buildServerFilter() })
+  }, 250)
 })
 
 const isPodDesign = computed(() => boardStore.board?.boardType === 'POD_DESIGN')
@@ -864,7 +857,7 @@ const confirmDeleteCard = (card) => {
 }
 
 const refreshBoard = async () => {
-  await boardStore.loadBoard(boardId.value)
+  await boardStore.loadBoard(boardId.value, { pageSize: PAGE_SIZE, filter: buildServerFilter() })
 }
 
 const onBoardSaved = () => {
@@ -955,18 +948,13 @@ let hScrollCleanup = null
 const findColumnById = (id) =>
   (boardStore.board?.columns || []).find(c => c.id === id)
 
-const persistCardDrop = async (cardId, fromColumnId, toColumnId, fromCol, toCol) => {
+// Persist a drop via a single relative move. The server inserts the card
+// before/after the reference card (or appends when there is none) and shifts
+// neighbouring positions, so this works even when the column is only partially
+// loaded — the client never needs to send the full ordered id list.
+const persistCardDrop = async (cardId, toColumnId, referenceCardId, placeBefore) => {
   try {
-    const toOrder = (toCol.cards || []).map(c => c.id)
-    if (fromColumnId === toColumnId) {
-      await cardApi.reorder(toColumnId, toOrder)
-    } else {
-      const destIndex = toOrder.indexOf(cardId)
-      await cardApi.move(cardId, { targetColumnId: toColumnId, position: destIndex + 1 })
-      await cardApi.reorder(toColumnId, toOrder)
-      const fromOrder = (fromCol.cards || []).map(c => c.id)
-      if (fromOrder.length) await cardApi.reorder(fromColumnId, fromOrder)
-    }
+    await cardApi.move(cardId, { targetColumnId: toColumnId, referenceCardId, placeBefore })
   } catch (e) {
     console.error('Failed to persist card drop', e)
     $q.notify({ type: 'negative', message: 'Failed to move card' })
@@ -986,13 +974,13 @@ const handleCardDrop = ({ source, location }) => {
   if (fromIdx === -1) return
 
   // Resolve destination column + drop position from the innermost drop target.
-  let toColumnId, overCardId = null, edge = null
+  let toColumnId, overCardId = null, placeBefore = false
   if (target.data.type === 'column') {
     toColumnId = target.data.columnId
   } else {
     toColumnId = target.data.columnId
     overCardId = target.data.cardId
-    edge = extractClosestEdge(target.data)
+    placeBefore = extractClosestEdge(target.data) === 'top'
   }
   if (overCardId === cardId) return // dropped onto itself — no-op
 
@@ -1000,8 +988,7 @@ const handleCardDrop = ({ source, location }) => {
   if (!toCol) return
   if (!toCol.cards) toCol.cards = []
 
-  // Optimistic move: remove from source, then insert into destination. We look
-  // up the over-card index AFTER removal so it's correct for same-column moves.
+  // Optimistic move within the loaded lists so the UI updates immediately.
   const [card] = fromCol.cards.splice(fromIdx, 1)
   let insertIdx
   if (overCardId == null) {
@@ -1010,11 +997,11 @@ const handleCardDrop = ({ source, location }) => {
     const overIdx = toCol.cards.findIndex(c => c.id === overCardId)
     insertIdx = overIdx === -1
       ? toCol.cards.length
-      : (edge === 'bottom' ? overIdx + 1 : overIdx)
+      : (placeBefore ? overIdx : overIdx + 1)
   }
   toCol.cards.splice(insertIdx, 0, card)
 
-  persistCardDrop(cardId, fromColumnId, toColumnId, fromCol, toCol)
+  persistCardDrop(cardId, toColumnId, overCardId, placeBefore)
 }
 
 // ─── WebSocket real-time updates ────────────────────────────────────────────

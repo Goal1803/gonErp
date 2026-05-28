@@ -2,13 +2,16 @@ package com.gonerp.taskmanager.controller;
 
 import com.gonerp.common.ApiResponse;
 import com.gonerp.taskmanager.dto.*;
+import com.gonerp.taskmanager.model.enums.CardStatus;
 import com.gonerp.taskmanager.service.BoardService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -24,8 +27,25 @@ public class BoardController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<BoardResponse>> findById(@PathVariable Long id) {
-        return ResponseEntity.ok(ApiResponse.ok(boardService.findById(id)));
+    public ResponseEntity<ApiResponse<BoardResponse>> findById(
+            @PathVariable Long id,
+            @RequestParam(required = false) Integer pageSize,
+            @RequestParam(required = false) List<Long> memberIds,
+            @RequestParam(required = false) List<Long> labelIds,
+            @RequestParam(required = false) List<Long> typeIds,
+            @RequestParam(required = false) List<CardStatus> statuses,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
+            @RequestParam(required = false) String q) {
+        CardFilter filter = new CardFilter();
+        filter.setMemberIds(memberIds);
+        filter.setLabelIds(labelIds);
+        filter.setTypeIds(typeIds);
+        filter.setStatuses(statuses);
+        filter.setDateFrom(dateFrom);
+        filter.setDateTo(dateTo);
+        filter.setQ(q);
+        return ResponseEntity.ok(ApiResponse.ok(boardService.findById(id, filter, pageSize)));
     }
 
     @PostMapping

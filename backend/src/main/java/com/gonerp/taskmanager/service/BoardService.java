@@ -11,6 +11,9 @@ import com.gonerp.usermanager.model.User;
 import com.gonerp.usermanager.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -31,10 +34,10 @@ public class BoardService {
     private final BoardRepository boardRepository;
     private final BoardColumnRepository boardColumnRepository;
     private final BoardMemberRepository boardMemberRepository;
+    private final CardRepository cardRepository;
     private final CardLabelRepository cardLabelRepository;
     private final CardTypeRepository cardTypeRepository;
-    private final CardCommentRepository cardCommentRepository;
-    private final CardAttachmentRepository cardAttachmentRepository;
+    private final CardSummaryMapper cardSummaryMapper;
     private final UserRepository userRepository;
 
     private static final List<String> POD_DESIGN_COLUMNS = List.of(
@@ -104,6 +107,17 @@ public class BoardService {
     }
 
     public BoardResponse findById(Long id) {
+        return findById(id, null, null);
+    }
+
+    /**
+     * Load a board. Cards per column are filtered server-side ({@code filter})
+     * and, when {@code pageSize} is non-null, only the first page is returned
+     * (each column also reports its total via {@link ColumnResponse#getTotalCards()}
+     * so the client can lazily fetch the rest). When {@code pageSize} is null the
+     * full (filtered) card list is returned — backward-compatible behaviour.
+     */
+    public BoardResponse findById(Long id, CardFilter filter, Integer pageSize) {
         Board board = getBoardOrThrow(id);
         checkAccess(board);
         List<LabelResponse> labels = cardLabelRepository.findByBoardId(id)
@@ -111,41 +125,25 @@ public class BoardService {
         List<TypeResponse> types = cardTypeRepository.findByBoardId(id)
                 .stream().map(TypeResponse::from).toList();
 
-        // System admins, board owners, and board admins see all cards; regular
-        // members only see cards they are a member of.
-        boolean canSeeAll = canSeeAllCards(board);
-        Long uid = canSeeAll ? null : getCurrentUser().getId();
-
-        // Determine the visible (non-archived + permission-filtered) cards per
-        // column, then build summaries with batch-loaded comment/attachment
-        // counts — avoids loading every card's comment/attachment collections.
-        Map<Long, List<Card>> visibleByColumn = new LinkedHashMap<>();
-        List<Long> allCardIds = new ArrayList<>();
-        for (BoardColumn column : board.getColumns()) {
-            List<Card> visible = column.getCards().stream()
-                    .filter(c -> !c.isArchived())
-                    .filter(c -> canSeeAll || c.getMembers().stream()
-                            .anyMatch(m -> m.getUser().getId().equals(uid)))
-                    .sorted(Comparator.comparingInt(Card::getPosition))
-                    .toList();
-            visibleByColumn.put(column.getId(), visible);
-            visible.forEach(c -> allCardIds.add(c.getId()));
+        // Build the effective filter. System admins / board owners / board
+        // admins see all cards; everyone else is restricted to their own cards.
+        CardFilter f = (filter == null) ? new CardFilter() : filter;
+        if (!canSeeAllCards(board)) {
+            f.setRestrictToMemberUserId(getCurrentUser().getId());
         }
 
-        Map<Long, Integer> commentCounts = allCardIds.isEmpty()
-                ? new HashMap<>() : batchCounts(cardCommentRepository.countByCardIds(allCardIds));
-        Map<Long, Integer> attachmentCounts = allCardIds.isEmpty()
-                ? new HashMap<>() : batchCounts(cardAttachmentRepository.countByCardIds(allCardIds));
-
-        List<ColumnResponse> columns = board.getColumns().stream().map(column -> {
-            List<Card> visible = visibleByColumn.get(column.getId());
-            List<CardSummaryResponse> cards = visible.stream()
-                    .map(c -> CardSummaryResponse.from(c,
-                            commentCounts.getOrDefault(c.getId(), 0),
-                            attachmentCounts.getOrDefault(c.getId(), 0)))
-                    .toList();
-            return ColumnResponse.from(column, cards, cards.size());
-        }).toList();
+        Sort byPosition = Sort.by(Sort.Direction.ASC, "position");
+        List<ColumnResponse> columns = board.getColumns().stream()
+                .sorted(Comparator.comparingInt(BoardColumn::getPosition))
+                .map(column -> {
+                    Specification<Card> spec = CardSpecifications.build(column.getId(), f);
+                    long total = cardRepository.count(spec);
+                    List<Card> cards = (pageSize != null && pageSize > 0)
+                            ? cardRepository.findAll(spec, PageRequest.of(0, pageSize, byPosition)).getContent()
+                            : cardRepository.findAll(spec, byPosition);
+                    return ColumnResponse.from(column, cardSummaryMapper.toSummaries(cards), total);
+                })
+                .toList();
 
         return BoardResponse.from(board, labels, types, columns);
     }
@@ -159,16 +157,6 @@ public class BoardService {
         return boardMemberRepository.findByBoardIdAndUserId(board.getId(), user.getId())
                 .map(m -> m.getRole() == BoardMemberRole.ADMIN || m.getRole() == BoardMemberRole.OWNER)
                 .orElse(false);
-    }
-
-    // Turn [cardId, count] rows into a cardId -> count map (counts not present
-    // default to 0 at the call site via getOrDefault).
-    private Map<Long, Integer> batchCounts(List<Object[]> rows) {
-        Map<Long, Integer> map = new HashMap<>();
-        for (Object[] row : rows) {
-            map.put((Long) row[0], ((Number) row[1]).intValue());
-        }
-        return map;
     }
 
     public BoardSummaryResponse create(BoardRequest request) {
