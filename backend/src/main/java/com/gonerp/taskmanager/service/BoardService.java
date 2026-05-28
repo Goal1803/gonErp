@@ -16,7 +16,12 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -28,6 +33,8 @@ public class BoardService {
     private final BoardMemberRepository boardMemberRepository;
     private final CardLabelRepository cardLabelRepository;
     private final CardTypeRepository cardTypeRepository;
+    private final CardCommentRepository cardCommentRepository;
+    private final CardAttachmentRepository cardAttachmentRepository;
     private final UserRepository userRepository;
 
     private static final List<String> POD_DESIGN_COLUMNS = List.of(
@@ -104,33 +111,64 @@ public class BoardService {
         List<TypeResponse> types = cardTypeRepository.findByBoardId(id)
                 .stream().map(TypeResponse::from).toList();
 
-        BoardResponse response = BoardResponse.from(board, labels, types);
+        // System admins, board owners, and board admins see all cards; regular
+        // members only see cards they are a member of.
+        boolean canSeeAll = canSeeAllCards(board);
+        Long uid = canSeeAll ? null : getCurrentUser().getId();
 
-        // Filter out archived cards from board view
-        for (ColumnResponse col : response.getColumns()) {
-            col.setCards(col.getCards().stream().filter(c -> !c.isArchived()).toList());
+        // Determine the visible (non-archived + permission-filtered) cards per
+        // column, then build summaries with batch-loaded comment/attachment
+        // counts — avoids loading every card's comment/attachment collections.
+        Map<Long, List<Card>> visibleByColumn = new LinkedHashMap<>();
+        List<Long> allCardIds = new ArrayList<>();
+        for (BoardColumn column : board.getColumns()) {
+            List<Card> visible = column.getCards().stream()
+                    .filter(c -> !c.isArchived())
+                    .filter(c -> canSeeAll || c.getMembers().stream()
+                            .anyMatch(m -> m.getUser().getId().equals(uid)))
+                    .sorted(Comparator.comparingInt(Card::getPosition))
+                    .toList();
+            visibleByColumn.put(column.getId(), visible);
+            visible.forEach(c -> allCardIds.add(c.getId()));
         }
 
-        // Regular members only see cards they are a member of;
-        // system admins, board owners, and board admins see all cards.
-        if (!isSystemAdmin()) {
-            User user = getCurrentUser();
-            boolean isBoardOwner = board.getOwner().getId().equals(user.getId());
-            boolean isBoardAdmin = boardMemberRepository.findByBoardIdAndUserId(id, user.getId())
-                    .map(m -> m.getRole() == BoardMemberRole.ADMIN || m.getRole() == BoardMemberRole.OWNER)
-                    .orElse(false);
-            if (!isBoardOwner && !isBoardAdmin) {
-                Long uid = user.getId();
-                for (ColumnResponse col : response.getColumns()) {
-                    col.setCards(col.getCards().stream()
-                            .filter(card -> card.getMembers() != null &&
-                                    card.getMembers().stream().anyMatch(m -> m.getId().equals(uid)))
-                            .toList());
-                }
-            }
-        }
+        Map<Long, Integer> commentCounts = allCardIds.isEmpty()
+                ? new HashMap<>() : batchCounts(cardCommentRepository.countByCardIds(allCardIds));
+        Map<Long, Integer> attachmentCounts = allCardIds.isEmpty()
+                ? new HashMap<>() : batchCounts(cardAttachmentRepository.countByCardIds(allCardIds));
 
-        return response;
+        List<ColumnResponse> columns = board.getColumns().stream().map(column -> {
+            List<Card> visible = visibleByColumn.get(column.getId());
+            List<CardSummaryResponse> cards = visible.stream()
+                    .map(c -> CardSummaryResponse.from(c,
+                            commentCounts.getOrDefault(c.getId(), 0),
+                            attachmentCounts.getOrDefault(c.getId(), 0)))
+                    .toList();
+            return ColumnResponse.from(column, cards, cards.size());
+        }).toList();
+
+        return BoardResponse.from(board, labels, types, columns);
+    }
+
+    // True if the current user may see every card on the board (system admin,
+    // board owner, or board ADMIN/OWNER member).
+    private boolean canSeeAllCards(Board board) {
+        if (isSystemAdmin()) return true;
+        User user = getCurrentUser();
+        if (board.getOwner().getId().equals(user.getId())) return true;
+        return boardMemberRepository.findByBoardIdAndUserId(board.getId(), user.getId())
+                .map(m -> m.getRole() == BoardMemberRole.ADMIN || m.getRole() == BoardMemberRole.OWNER)
+                .orElse(false);
+    }
+
+    // Turn [cardId, count] rows into a cardId -> count map (counts not present
+    // default to 0 at the call site via getOrDefault).
+    private Map<Long, Integer> batchCounts(List<Object[]> rows) {
+        Map<Long, Integer> map = new HashMap<>();
+        for (Object[] row : rows) {
+            map.put((Long) row[0], ((Number) row[1]).intValue());
+        }
+        return map;
     }
 
     public BoardSummaryResponse create(BoardRequest request) {
