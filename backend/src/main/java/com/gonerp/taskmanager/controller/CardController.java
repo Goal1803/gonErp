@@ -4,9 +4,11 @@ import com.gonerp.common.ApiResponse;
 import com.gonerp.common.FileStorageService;
 import com.gonerp.config.R2StorageProperties;
 import com.gonerp.taskmanager.dto.*;
+import com.gonerp.taskmanager.model.enums.CardStatus;
 import com.gonerp.taskmanager.service.CardService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -15,6 +17,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -37,6 +40,30 @@ public class CardController {
     @GetMapping("/cards/{id}")
     public ResponseEntity<ApiResponse<CardDetailResponse>> findById(@PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.ok(cardService.findById(id)));
+    }
+
+    // Paginated + server-side-filtered cards for one column (lazy loading on the board).
+    @GetMapping("/columns/{columnId}/cards")
+    public ResponseEntity<ApiResponse<CardPageResponse>> getColumnCards(
+            @PathVariable Long columnId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size,
+            @RequestParam(required = false) List<Long> memberIds,
+            @RequestParam(required = false) List<Long> labelIds,
+            @RequestParam(required = false) List<Long> typeIds,
+            @RequestParam(required = false) List<CardStatus> statuses,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
+            @RequestParam(required = false) String q) {
+        CardFilter filter = new CardFilter();
+        filter.setMemberIds(memberIds);
+        filter.setLabelIds(labelIds);
+        filter.setTypeIds(typeIds);
+        filter.setStatuses(statuses);
+        filter.setDateFrom(dateFrom);
+        filter.setDateTo(dateTo);
+        filter.setQ(q);
+        return ResponseEntity.ok(ApiResponse.ok(cardService.getColumnCards(columnId, filter, page, size)));
     }
 
     @PutMapping("/cards/{id}")

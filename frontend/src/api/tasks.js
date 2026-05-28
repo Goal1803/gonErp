@@ -2,7 +2,9 @@ import { api } from 'src/boot/axios'
 
 export const boardApi = {
   getAll: () => api.get('/tasks/boards'),
-  getById: (id) => api.get(`/tasks/boards/${id}`),
+  // params may include pageSize (enables lazy card loading) and server-side
+  // filters: memberIds, labelIds, typeIds, statuses, dateFrom, dateTo, q.
+  getById: (id, params) => api.get(`/tasks/boards/${id}`, { params }),
   create: (data) => api.post('/tasks/boards', data),
   update: (id, data) => api.put(`/tasks/boards/${id}`, data),
   delete: (id) => api.delete(`/tasks/boards/${id}`),
@@ -21,7 +23,10 @@ export const columnApi = {
   create: (boardId, data) => api.post(`/tasks/boards/${boardId}/columns`, data),
   update: (id, data) => api.put(`/tasks/columns/${id}`, data),
   delete: (id) => api.delete(`/tasks/columns/${id}`),
-  reorder: (boardId, orderedIds) => api.patch(`/tasks/boards/${boardId}/columns/reorder`, { orderedIds })
+  reorder: (boardId, orderedIds) => api.patch(`/tasks/boards/${boardId}/columns/reorder`, { orderedIds }),
+  // Paginated + server-side-filtered cards for one column (lazy loading).
+  // params: page, size, memberIds, labelIds, typeIds, statuses, dateFrom, dateTo, q.
+  cards: (columnId, params) => api.get(`/tasks/columns/${columnId}/cards`, { params })
 }
 
 export const cardApi = {

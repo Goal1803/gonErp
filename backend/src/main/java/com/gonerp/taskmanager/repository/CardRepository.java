@@ -2,6 +2,8 @@ package com.gonerp.taskmanager.repository;
 
 import com.gonerp.taskmanager.model.Card;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -10,9 +12,19 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Repository
-public interface CardRepository extends JpaRepository<Card, Long> {
+public interface CardRepository extends JpaRepository<Card, Long>, JpaSpecificationExecutor<Card> {
 
     List<Card> findByColumnIdOrderByPositionAsc(Long columnId);
+
+    // Shift positions of cards in a column whose position >= :from by :delta.
+    // Used by drag reorder to open/close a slot without sending the full card
+    // list (which the client no longer holds when cards are loaded lazily).
+    @Modifying
+    @Query("UPDATE Card c SET c.position = c.position + :delta " +
+            "WHERE c.column.id = :columnId AND c.position >= :from")
+    void shiftPositionsFrom(@Param("columnId") Long columnId,
+                            @Param("from") int from,
+                            @Param("delta") int delta);
 
     int countByColumnId(Long columnId);
 

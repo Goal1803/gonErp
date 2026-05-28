@@ -22,7 +22,7 @@
             {{ allVisibleSelected ? 'Deselect all in column' : 'Select all cards in column' }}
           </q-tooltip>
         </q-btn>
-        <q-badge color="grey-8" :label="visibleCount" rounded style="font-size:0.65rem" />
+        <q-badge color="grey-8" :label="countLabel" rounded style="font-size:0.65rem" />
         <q-icon v-if="virtualMode" name="bolt" size="xs" color="amber-5" class="q-ml-xs">
           <q-tooltip>
             Virtual scroll đang bật ({{ visibleCount }} thẻ &gt; {{ VIRTUAL_THRESHOLD }}) —
@@ -99,6 +99,10 @@
           @download-mockups="$emit('download-mockups-card', $event)"
         />
       </q-virtual-scroll>
+
+      <div v-if="loadingMore" class="row justify-center q-py-sm">
+        <q-spinner color="teal-5" size="20px" />
+      </div>
     </div>
 
       <!-- Jump-to-bottom FAB -->
@@ -142,6 +146,7 @@ import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useQuasar } from 'quasar'
 import DraggableCard from './DraggableCard.vue'
 import { columnApi, cardApi } from 'src/api/tasks'
+import { useBoardStore } from 'src/stores/boardStore'
 import { combine } from '@atlaskit/pragmatic-drag-and-drop/combine'
 import { dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import { autoScrollForElements } from '@atlaskit/pragmatic-drag-and-drop-auto-scroll/element'
@@ -155,6 +160,7 @@ const props = defineProps({
 })
 const emit = defineEmits(['open-card', 'delete', 'delete-card', 'copy-card', 'refresh', 'assign-card', 'toggle-select-card', 'download-mockups-card', 'toggle-select-all-column'])
 const $q = useQuasar()
+const boardStore = useBoardStore()
 
 const editingTitle = ref(false)
 const editTitle = ref('')
@@ -171,6 +177,12 @@ const displayCards = computed(() => {
 })
 
 const visibleCount = computed(() => displayCards.value.length)
+
+// Show "loaded/total" when the column has more cards to lazily fetch.
+const countLabel = computed(() => {
+  const total = props.column.totalCards || 0
+  return total > visibleCount.value ? `${visibleCount.value}/${total}` : `${visibleCount.value}`
+})
 
 // Above this many visible cards, render via virtual scrolling (only on-screen
 // cards in the DOM) instead of a plain v-for. Drag-and-drop works in both modes.
@@ -193,7 +205,22 @@ const updateJumpBottom = () => {
   showJumpBottom.value = canScroll && !nearBottom
 }
 
-const onColScroll = () => updateJumpBottom()
+// Lazy loading: fetch the next page when the user scrolls near the bottom.
+const hasMore = computed(() => boardStore.columnHasMore(props.column))
+const loadingMore = computed(() => !!boardStore.loadingMore[props.column.id])
+
+const maybeLoadMore = () => {
+  const el = colCardsEl.value
+  if (!el || !hasMore.value || loadingMore.value) return
+  if (el.scrollHeight - el.clientHeight - el.scrollTop < 300) {
+    boardStore.loadMoreCards(props.column.id)
+  }
+}
+
+const onColScroll = () => {
+  updateJumpBottom()
+  maybeLoadMore()
+}
 
 const scrollToBottom = () => {
   const el = colCardsEl.value
