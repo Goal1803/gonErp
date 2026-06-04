@@ -1,5 +1,6 @@
 package com.gonerp.taskmanager.dto;
 
+import com.gonerp.taskmanager.model.enums.CardGenType;
 import com.gonerp.taskmanager.model.enums.CardStatus;
 import lombok.Data;
 
@@ -10,4 +11,5 @@ public class CardRequest {
     private CardStatus status;
     private String mainImageUrl;
     private String sku;
+    private CardGenType genType;
 }

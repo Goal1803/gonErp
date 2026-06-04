@@ -42,7 +42,8 @@ public class BoardService {
 
     private static final List<String> POD_DESIGN_COLUMNS = List.of(
             "Draft", "Idea", "Doing", "Checking", "Need to Fix",
-            "Fixing", "Fix-Checking", "Done", "Listed", "Canceled"
+            "Fixing", "Fix-Checking", "Done", "Seller Gen- Done",
+            "Listed", "Seller Gen- Listed", "Canceled"
     );
 
     private static final List<String> POD_ORDER_COLUMNS = List.of(

@@ -5,6 +5,7 @@ import com.gonerp.taskmanager.dto.*;
 import com.gonerp.taskmanager.event.NotificationEvent;
 import com.gonerp.taskmanager.model.*;
 import com.gonerp.taskmanager.model.enums.BoardType;
+import com.gonerp.taskmanager.model.enums.CardGenType;
 import com.gonerp.taskmanager.model.enums.CardStatus;
 import com.gonerp.taskmanager.model.enums.DesignStatus;
 import com.gonerp.taskmanager.model.enums.NotificationType;
@@ -229,6 +230,11 @@ public class CardService {
                 .status(request.getStatus() != null ? request.getStatus() : CardStatus.OPEN)
                 .position(position)
                 .stage(column.getTitle())
+                // POD_DESIGN classifies designer- vs seller-generated cards
+                // (default DESIGNER); other board types leave it null.
+                .genType(column.getBoard().getBoardType() == BoardType.POD_DESIGN
+                        ? (request.getGenType() != null ? request.getGenType() : CardGenType.DESIGNER)
+                        : null)
                 .column(column)
                 .build();
         card = cardRepository.save(card);
@@ -261,6 +267,10 @@ public class CardService {
         if (request.getStatus() != null) card.setStatus(request.getStatus());
         if (request.getMainImageUrl() != null) card.setMainImageUrl(request.getMainImageUrl());
         if (request.getSku() != null) card.setSku(request.getSku());
+        if (request.getGenType() != null
+                && card.getColumn().getBoard().getBoardType() == BoardType.POD_DESIGN) {
+            card.setGenType(request.getGenType());
+        }
         card = cardRepository.save(card);
         String actor = getCurrentUser().getUserName();
         logActivity(card, actor + " updated this card");
@@ -644,7 +654,8 @@ public class CardService {
         if (card.getColumn().getBoard().getBoardType() == BoardType.POD_DESIGN) {
             designDetailRepository.findByCardId(card.getId()).ifPresent(dd -> {
                 String title = targetColumn.getTitle();
-                if ("Done".equals(title) || "Listed".equals(title)) {
+                if ("Done".equals(title) || "Listed".equals(title)
+                        || "Seller Gen- Done".equals(title) || "Seller Gen- Listed".equals(title)) {
                     dd.setDesignStatus(DesignStatus.APPROVED);
                     if (dd.getApprovalDate() == null) dd.setApprovalDate(java.time.LocalDateTime.now());
                 } else if ("Canceled".equals(title)) {
