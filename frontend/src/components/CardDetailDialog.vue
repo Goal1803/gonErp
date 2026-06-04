@@ -786,6 +786,20 @@
             @view-images="openSlideshow($event)"
           />
 
+          <!-- Gen-type: designer- vs seller-generated (POD_DESIGN only) -->
+          <div v-if="props.boardType === 'POD_DESIGN'" class="q-mb-sm">
+            <div class="text-caption text-grey-5 q-mb-xs row items-center gap-2">
+              <q-icon name="category" /> Mockup by
+            </div>
+            <q-btn-toggle
+              :model-value="detail.genType || 'DESIGNER'"
+              no-caps dense unelevated rounded
+              toggle-color="teal-6" color="grey-9" text-color="grey-4"
+              :options="[{ label: 'Designer gen', value: 'DESIGNER' }, { label: 'Seller gen', value: 'SELLER' }]"
+              @update:model-value="val => { detail.genType = val; saveField('genType', val); }"
+            />
+          </div>
+
           <!-- Description -->
           <div class="text-caption text-grey-5 q-mb-xs row items-center gap-2">
             <q-icon name="subject" /> Description

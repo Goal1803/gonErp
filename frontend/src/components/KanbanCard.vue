@@ -41,6 +41,11 @@
     </div>
 
     <div class="card-body">
+      <!-- Gen-type badge: distinguishes seller- vs designer-generated cards -->
+      <div v-if="card.genType" class="pill-row">
+        <span class="card-pill" :style="genBadgeStyle(card.genType)">{{ genLabel(card.genType) }}</span>
+      </div>
+
       <!-- Labels & Types pills -->
       <div v-if="card.labels?.length || card.types?.length" class="pill-row">
         <span v-for="label in card.labels" :key="'l-' + label.id"
@@ -112,6 +117,12 @@ defineEmits(['open', 'delete', 'copy', 'assign', 'toggle-select', 'download-mock
 const statusColor = (s) => ({
   OPEN: 'grey-7', IN_PROGRESS: 'blue-7', DONE: 'green-8', BLOCKED: 'red-8', CANCELLED: 'grey-9'
 }[s] || 'grey-7')
+
+// POD_DESIGN classification badge (designer- vs seller-generated)
+const genLabel = (g) => g === 'SELLER' ? 'Seller gen' : 'Designer gen'
+const genBadgeStyle = (g) => g === 'SELLER'
+  ? { background: '#f57c00', color: '#fff' }   // orange — seller gen
+  : { background: '#00897b', color: '#fff' }   // teal — designer gen
 </script>
 
 <style scoped>

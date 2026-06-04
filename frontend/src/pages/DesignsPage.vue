@@ -307,7 +307,7 @@ const uploadingPng = ref(false)
 const uploadingPsd = ref(false)
 const uploadingMockup = ref(false)
 
-const stageOptions = ['Draft', 'Idea', 'Doing', 'Checking', 'Need to Fix', 'Fixing', 'Fix-Checking', 'Done', 'Listed', 'Canceled']
+const stageOptions = ['Draft', 'Idea', 'Doing', 'Checking', 'Need to Fix', 'Fixing', 'Fix-Checking', 'Done', 'Seller Gen- Done', 'Listed', 'Seller Gen- Listed', 'Canceled']
 const statusOptions = ['OPEN', 'IN_PROGRESS', 'DONE', 'BLOCKED', 'CANCELLED']
 
 const productTypeOptions = ref([])

@@ -39,6 +39,17 @@ public class DesignDashboardService {
     private static final ZoneId DEFAULT_ZONE = ZoneId.of("Europe/Berlin");
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
+    // Columns that count as a finished design. "Seller Gen-" variants are the
+    // seller-generated counterparts of "Done"/"Listed" and must be treated
+    // identically for every completion metric. Stored lowercase for case-insensitive match.
+    private static final Set<String> COMPLETED_COLUMN_TITLES = Set.of(
+            "done", "listed", "seller gen- done", "seller gen- listed");
+
+    private static boolean isCompletedColumn(Card c) {
+        return c.getColumn() != null
+                && COMPLETED_COLUMN_TITLES.contains(c.getColumn().getTitle().toLowerCase());
+    }
+
     public DesignDashboardResponse getDashboard(Long boardId, LocalDate startDate, LocalDate endDate, Long filterUserId) {
         Board board = boardRepository.findById(boardId)
                 .orElseThrow(() -> new RuntimeException("Board not found: " + boardId));
@@ -102,11 +113,9 @@ public class DesignDashboardService {
                 .filter(c -> c.getColumn() != null && "Canceled".equalsIgnoreCase(c.getColumn().getTitle()))
                 .count();
 
-        // Completed designs — cards currently in "Done" or "Listed" column AND created in the date range
+        // Completed designs — cards currently in a completed column AND created in the date range
         List<Card> completedCards = userCards.stream()
-                .filter(c -> c.getColumn() != null && (
-                        "Done".equalsIgnoreCase(c.getColumn().getTitle()) ||
-                        "Listed".equalsIgnoreCase(c.getColumn().getTitle())))
+                .filter(DesignDashboardService::isCompletedColumn)
                 .toList();
 
         // Get DesignDetails for completed cards (for avg hours calculation)
@@ -379,18 +388,14 @@ public class DesignDashboardService {
                     .filter(c -> c.getColumn() != null && "Draft".equalsIgnoreCase(c.getColumn().getTitle()))
                     .count();
 
-            // Completed count — cards currently in Done/Listed
+            // Completed count — cards currently in a completed column
             int completed = (int) memberCards.stream()
-                    .filter(c -> c.getColumn() != null && (
-                            "Done".equalsIgnoreCase(c.getColumn().getTitle()) ||
-                            "Listed".equalsIgnoreCase(c.getColumn().getTitle())))
+                    .filter(DesignDashboardService::isCompletedColumn)
                     .count();
 
             // Avg hours from completed design details
             List<DesignDetail> userCompleted = memberCards.stream()
-                    .filter(c -> c.getColumn() != null && (
-                            "Done".equalsIgnoreCase(c.getColumn().getTitle()) ||
-                            "Listed".equalsIgnoreCase(c.getColumn().getTitle())))
+                    .filter(DesignDashboardService::isCompletedColumn)
                     .map(c -> designDetailRepository.findByCardId(c.getId()).orElse(null))
                     .filter(dd -> dd != null)
                     .toList();

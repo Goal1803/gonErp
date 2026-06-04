@@ -132,6 +132,11 @@
         <q-input v-model="newCardName" outlined color="teal-5" dense placeholder="Card name..."
           autofocus @keyup.enter="addCard" @keyup.escape="addingCard=false"
           style="font-size:0.85rem" />
+        <q-btn-toggle v-if="boardType === 'POD_DESIGN'" v-model="newCardGenType"
+          class="q-mt-xs full-width" no-caps dense spread unelevated rounded
+          toggle-color="teal-6" color="grey-3" text-color="grey-8"
+          :options="[{ label: 'Designer gen', value: 'DESIGNER' }, { label: 'Seller gen', value: 'SELLER' }]"
+          style="font-size:0.7rem" />
         <div class="row q-gutter-xs q-mt-xs">
           <q-btn label="Add" color="teal-6" unelevated dense size="sm" @click="addCard" />
           <q-btn flat label="Cancel" color="grey-5" dense size="sm" @click="addingCard=false" />
@@ -166,6 +171,7 @@ const editingTitle = ref(false)
 const editTitle = ref('')
 const addingCard = ref(false)
 const newCardName = ref('')
+const newCardGenType = ref('DESIGNER')
 const colCardsEl = ref(null)
 
 // Display only filtered cards — actual reordering is applied to the full
@@ -261,8 +267,11 @@ const saveTitle = async () => {
 const addCard = async () => {
   if (!newCardName.value.trim()) return
   try {
-    await cardApi.create(props.column.id, { name: newCardName.value.trim() })
+    const payload = { name: newCardName.value.trim() }
+    if (props.boardType === 'POD_DESIGN') payload.genType = newCardGenType.value
+    await cardApi.create(props.column.id, payload)
     newCardName.value = ''
+    newCardGenType.value = 'DESIGNER'
     addingCard.value = false
     emit('refresh')
   } catch {

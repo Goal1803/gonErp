@@ -1,6 +1,7 @@
 package com.gonerp.taskmanager.dto;
 
 import com.gonerp.taskmanager.model.Card;
+import com.gonerp.taskmanager.model.enums.CardGenType;
 import com.gonerp.taskmanager.model.enums.CardStatus;
 import lombok.Builder;
 import lombok.Data;
@@ -18,6 +19,7 @@ public class CardSummaryResponse {
     private int position;
     private String mainImageUrl;
     private String sku;
+    private CardGenType genType;
     private List<LabelResponse> labels;
     private List<TypeResponse> types;
     private List<UserSummaryResponse> members;
@@ -43,6 +45,7 @@ public class CardSummaryResponse {
                 .position(card.getPosition())
                 .mainImageUrl(card.getMainImageUrl())
                 .sku(card.getSku())
+                .genType(card.getGenType())
                 .labels(card.getLabels().stream().map(LabelResponse::from).toList())
                 .types(card.getTypes().stream().map(TypeResponse::from).toList())
                 .members(card.getMembers().stream()
