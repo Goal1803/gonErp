@@ -55,6 +55,32 @@ export const useBoardStore = defineStore('board', () => {
     }
   }
 
+  // Re-derive a single column's cards + total from the server using the active
+  // filter / pageSize. Realtime board events only mutate local state
+  // optimistically and never adjust totalCards (and they include/exclude cards
+  // differently for admins vs restricted members), so per-column counts can
+  // drift apart between two clients. Reconciling makes the column a pure
+  // function of the server's authoritative count(spec) again — the same query
+  // the board load uses — so two viewers can never disagree once it runs.
+  // Re-fetches as many cards as are currently loaded, so a scrolled column does
+  // not collapse back to a single page.
+  async function reconcileColumn(columnId) {
+    const col = board.value?.columns?.find(c => c.id === columnId)
+    if (!col) return
+    try {
+      const loaded = col.cards?.length || 0
+      const ps = pageSize.value || 0
+      const size = ps ? Math.max(ps, Math.ceil(loaded / ps) * ps) : Math.max(loaded, 1000)
+      const params = { ...filterParams.value, page: 0, size }
+      const res = await columnApi.cards(columnId, params)
+      const data = res.data.data || {}
+      if (Array.isArray(data.content)) col.cards = data.content
+      if (typeof data.total === 'number') col.totalCards = data.total
+    } catch (e) {
+      console.error('Failed to reconcile column', columnId, e)
+    }
+  }
+
   async function reorderColumns(boardId, orderedIds) {
     // Capture previous order for rollback
     const previousIds = board.value?.columns?.map(c => c.id) || []
@@ -102,6 +128,7 @@ export const useBoardStore = defineStore('board', () => {
     loadBoard,
     columnHasMore,
     loadMoreCards,
+    reconcileColumn,
     reorderColumns,
     reorderCards,
     moveCard
