@@ -1020,11 +1020,52 @@ const findCardInBoard = (cardId) => {
   return null
 }
 
+// ── Authoritative reconcile ──────────────────────────────────────────────
+// The optimistic handlers below keep the UI snappy, but they never adjust
+// column.totalCards and they include/exclude cards differently for admins vs
+// restricted members — so two clients can drift apart on per-column counts
+// (the count badge mixes loaded-cards with the server total). After every
+// count-affecting event we mark the touched column(s) dirty and re-fetch them
+// from the server with the active filter (debounced + coalesced). This makes
+// the per-column counts a pure function of the server's filtered query again,
+// so two viewers can never disagree — and a missed/duplicate/out-of-order
+// websocket message self-heals on the next event instead of persisting.
+const dirtyColumns = new Set()
+let reconcileTimer = null
+const scheduleReconcile = (...columnIds) => {
+  for (const id of columnIds) if (id != null) dirtyColumns.add(id)
+  if (!dirtyColumns.size || reconcileTimer) return
+  reconcileTimer = setTimeout(async () => {
+    reconcileTimer = null
+    const ids = [...dirtyColumns]
+    dirtyColumns.clear()
+    for (const id of ids) await boardStore.reconcileColumn(id)
+  }, 400)
+}
+
 const handleBoardEvent = (event) => {
   const { type, tabId, actorName, cardId, columnId, payload } = event
 
   // Skip events originated from this same tab — already applied optimistically
   if (tabId && tabId === TAB_ID) return
+
+  // Queue an authoritative re-fetch of the affected column(s) for any event
+  // that can change a per-column count. The optimistic mutation in the second
+  // switch still runs first for instant feedback; the reconcile corrects drift.
+  switch (type) {
+    case 'CARD_CREATED':
+    case 'CARD_UPDATED':
+    case 'CARD_DELETED':
+    case 'CARD_ARCHIVED':
+    case 'CARD_UNARCHIVED':
+    case 'CARD_MEMBER_ADDED':
+    case 'CARD_MEMBER_REMOVED':
+      scheduleReconcile(columnId, findCardInBoard(cardId)?.column?.id)
+      break
+    case 'CARD_MOVED':
+      if (payload) scheduleReconcile(payload.fromColumnId, payload.toColumnId)
+      break
+  }
 
   switch (type) {
     case 'CARD_CREATED': {
@@ -1198,10 +1239,18 @@ const handleBoardEvent = (event) => {
   }
 }
 
+let socketConnectedOnce = false
 const { connect } = useBoardSocket(
   () => boardId.value,
   handleBoardEvent,
-  () => { isConnected.value = true }
+  () => {
+    isConnected.value = true
+    // On a *re*connect the socket may have missed events while offline, so the
+    // optimistic state can be stale — re-fetch the whole board. Skip the first
+    // connect (the board was just loaded on mount).
+    if (socketConnectedOnce) refreshBoard()
+    socketConnectedOnce = true
+  }
 )
 
 // Re-connect when board changes (e.g. navigating between boards)
