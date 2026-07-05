@@ -158,6 +158,9 @@ public class FinanceExportService {
                 .collect(Collectors.groupingBy(inv -> inv.getTransaction().getId()));
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        // Track entry names to avoid "duplicate entry" ZipException when two files
+        // (or two accounts that sanitize to the same name) map to the same path.
+        Set<String> usedEntries = new HashSet<>();
         try (ZipOutputStream zos = new ZipOutputStream(baos)) {
 
             for (Map.Entry<Long, List<FinanceTransaction>> entry : txByAccount.entrySet()) {
@@ -170,13 +173,13 @@ public class FinanceExportService {
 
                 // 1. Processed Excel
                 byte[] processedXlsx = buildProcessedExcel(transactions, invoicesByTransaction);
-                zos.putNextEntry(new ZipEntry(folderPrefix + accountName + "_processed.xlsx"));
+                zos.putNextEntry(new ZipEntry(uniqueEntryName(usedEntries, folderPrefix + accountName + "_processed.xlsx")));
                 zos.write(processedXlsx);
                 zos.closeEntry();
 
                 // 2. Raw Excel
                 byte[] rawXlsx = buildRawExcel(transactions);
-                zos.putNextEntry(new ZipEntry(folderPrefix + accountName + "_raw.xlsx"));
+                zos.putNextEntry(new ZipEntry(uniqueEntryName(usedEntries, folderPrefix + accountName + "_raw.xlsx")));
                 zos.write(rawXlsx);
                 zos.closeEntry();
 
@@ -189,7 +192,7 @@ public class FinanceExportService {
                     String uploadPath = folderPrefix + "Other_files/" + subfolder + sanitizeFilename(file.getOriginalFilename());
                     byte[] fileBytes = downloadFile(file.getStorageUrl());
                     if (fileBytes != null) {
-                        zos.putNextEntry(new ZipEntry(uploadPath));
+                        zos.putNextEntry(new ZipEntry(uniqueEntryName(usedEntries, uploadPath)));
                         zos.write(fileBytes);
                         zos.closeEntry();
                     }
@@ -204,7 +207,7 @@ public class FinanceExportService {
                         String invoiceFilename = "row" + (tx.getRowIndex() + 1) + "_" + counterparty + "_" + sanitizeFilename(invoice.getOriginalFilename());
                         byte[] invoiceBytes = downloadFile(invoice.getStorageUrl());
                         if (invoiceBytes != null) {
-                            zos.putNextEntry(new ZipEntry(folderPrefix + "invoices/" + invoiceFilename));
+                            zos.putNextEntry(new ZipEntry(uniqueEntryName(usedEntries, folderPrefix + "invoices/" + invoiceFilename)));
                             zos.write(invoiceBytes);
                             zos.closeEntry();
                         }
@@ -501,5 +504,25 @@ public class FinanceExportService {
     private String sanitizeFilename(String name) {
         if (name == null) return "unknown";
         return name.replaceAll("[^a-zA-Z0-9._\\-\\s]", "_").replaceAll("\\s+", "_");
+    }
+
+    /**
+     * Returns an entry name unique within the ZIP, appending "_1", "_2", ... before the
+     * file extension when the given name collides with one already added. Prevents
+     * ZipException("duplicate entry") when two files share a path inside the archive.
+     */
+    private String uniqueEntryName(Set<String> used, String name) {
+        if (used.add(name)) return name;
+        int slash = name.lastIndexOf('/');
+        int dot = name.lastIndexOf('.');
+        String base = dot > slash ? name.substring(0, dot) : name;
+        String ext = dot > slash ? name.substring(dot) : "";
+        int counter = 1;
+        String candidate;
+        do {
+            candidate = base + "_" + counter + ext;
+            counter++;
+        } while (!used.add(candidate));
+        return candidate;
     }
 }
