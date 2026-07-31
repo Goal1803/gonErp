@@ -42,11 +42,22 @@ services:
     restart: unless-stopped
     depends_on:
       - api
-    ports:
-      - "80:80"
-      - "443:443"
+    # Không bind cổng host nữa: proxy chung ở /opt/proxy giữ 80/443 và chuyển
+    # tiếp vào đây qua mạng `edge`. Nhờ vậy zielstation (và app sau này) dùng
+    # chung được hai cổng đó mà không tranh nhau.
     volumes:
       - /etc/letsencrypt:/etc/letsencrypt:ro
+    networks:
+      default:
+      edge:
+        # zielstation cũng có service tên `web`; alias riêng để proxy không
+        # route nhầm giữa hai app.
+        aliases:
+          - gonerp-web
+
+networks:
+  edge:
+    external: true
 
 volumes:
   postgres_data:

@@ -17,6 +17,8 @@ public class OrganizationResponse {
     private boolean moduleImageManager;
     private boolean moduleDesigns;
     private boolean moduleWorkTime;
+
+    private boolean moduleNotes;
     private boolean moduleFinance;
     private boolean moduleEcommerce;
     private Long orgTypeId;
@@ -35,6 +37,7 @@ public class OrganizationResponse {
                 .moduleImageManager(org.isModuleImageManager())
                 .moduleDesigns(org.isModuleDesigns())
                 .moduleWorkTime(org.isModuleWorkTime())
+                .moduleNotes(org.isModuleNotes())
                 .moduleFinance(org.isModuleFinance())
                 .moduleEcommerce(org.isModuleEcommerce())
                 .orgTypeId(org.getOrgType() != null ? org.getOrgType().getId() : null)

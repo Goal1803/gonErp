@@ -26,6 +26,8 @@ public class AuthResponse {
     private boolean moduleImageManager;
     private boolean moduleDesigns;
     private boolean moduleWorkTime;
+
+    private boolean moduleNotes;
     private boolean moduleFinance;
     private boolean moduleEcommerce;
     private String financeRole;

@@ -64,6 +64,7 @@ public class OrganizationService {
                 .moduleWorkTime(request.getModuleWorkTime() != null ? request.getModuleWorkTime() : false)
                 .moduleFinance(request.getModuleFinance() != null ? request.getModuleFinance() : false)
                 .moduleEcommerce(request.getModuleEcommerce() != null ? request.getModuleEcommerce() : false)
+                .moduleNotes(request.getModuleNotes() != null ? request.getModuleNotes() : false)
                 .orgType(orgType)
                 .build();
         org = organizationRepository.save(org);
@@ -114,6 +115,7 @@ public class OrganizationService {
         if (request.getModuleWorkTime() != null) org.setModuleWorkTime(request.getModuleWorkTime());
         if (request.getModuleFinance() != null) org.setModuleFinance(request.getModuleFinance());
         if (request.getModuleEcommerce() != null) org.setModuleEcommerce(request.getModuleEcommerce());
+        if (request.getModuleNotes() != null) org.setModuleNotes(request.getModuleNotes());
 
         return OrganizationResponse.from(organizationRepository.save(org),
                 userRepository.countByOrganizationId(org.getId()));

@@ -63,6 +63,7 @@
               <q-toggle v-model="form.moduleImageManager" label="Image Manager" color="blue-5" class="q-mr-md" />
               <q-toggle v-model="form.moduleDesigns" label="Designs" color="purple-5" />
               <q-toggle v-model="form.moduleWorkTime" label="Working Time" color="orange-5" class="q-ml-md" />
+              <q-toggle v-model="form.moduleNotes" label="Notes" color="orange-5" class="q-ml-md" />
               <q-toggle v-model="form.moduleFinance" label="Finance" color="green-8" class="q-ml-md" />
               <q-toggle v-model="form.moduleEcommerce" label="E-commerce" color="cyan-5" class="q-ml-md" />
             </div>
@@ -137,7 +138,7 @@ const showPwd = ref(false)
 
 const defaultForm = {
   name: '', slug: '', orgTypeId: null, active: true,
-  moduleTaskManager: true, moduleImageManager: true, moduleDesigns: true, moduleWorkTime: false, moduleFinance: false, moduleEcommerce: false,
+  moduleTaskManager: true, moduleImageManager: true, moduleDesigns: true, moduleWorkTime: false, moduleFinance: false, moduleEcommerce: false, moduleNotes: false,
   adminUserName: '', adminPassword: '', adminFirstName: '', adminLastName: ''
 }
 
@@ -162,6 +163,7 @@ watch(() => props.org, (o) => {
       moduleImageManager: o.moduleImageManager ?? true,
       moduleDesigns: o.moduleDesigns ?? true,
       moduleWorkTime: o.moduleWorkTime ?? false,
+      moduleNotes: o.moduleNotes ?? false,
       moduleFinance: o.moduleFinance ?? false,
       moduleEcommerce: o.moduleEcommerce ?? false,
       adminUserName: '', adminPassword: '', adminFirstName: '', adminLastName: ''

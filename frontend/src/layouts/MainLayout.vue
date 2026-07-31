@@ -282,6 +282,12 @@
             <q-item-section><q-item-label>E-commerce</q-item-label></q-item-section>
           </q-item>
 
+          <!-- Notes -->
+          <q-item v-if="authStore.hasNotes" clickable v-ripple to="/notes" class="rounded-borders q-mb-xs">
+            <q-item-section avatar><q-icon name="sticky_note_2" /></q-item-section>
+            <q-item-section><q-item-label>Notes</q-item-label></q-item-section>
+          </q-item>
+
           <!-- Coming Soon -->
           <q-item-label header class="text-grey-6 text-uppercase text-caption q-mb-xs q-mt-sm">
             Coming Soon

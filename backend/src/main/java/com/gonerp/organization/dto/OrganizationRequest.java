@@ -22,6 +22,8 @@ public class OrganizationRequest {
     private Boolean moduleImageManager;
     private Boolean moduleDesigns;
     private Boolean moduleWorkTime;
+
+    private Boolean moduleNotes;
     private Boolean moduleFinance;
     private Boolean moduleEcommerce;
 
