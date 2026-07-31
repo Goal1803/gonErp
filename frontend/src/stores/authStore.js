@@ -28,6 +28,7 @@ export const useAuthStore = defineStore('auth', {
     hasImageManager: (state) => state.user?.moduleImageManager ?? true,
     hasDesigns: (state) => state.user?.moduleDesigns ?? true,
     hasWorkTime: (state) => state.user?.moduleWorkTime ?? false,
+    hasNotes: (state) => state.user?.role === 'SUPER_ADMIN' || (state.user?.moduleNotes ?? false),
     hasFinance: (state) => {
       // Superadmin always has access
       if (state.user?.role === 'SUPER_ADMIN') return true

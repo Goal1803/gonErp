@@ -228,6 +228,18 @@ const routes = [
         name: 'worktimeSettings',
         component: () => import('pages/WorkTimeSettingsPage.vue'),
         meta: { title: 'Work Time Settings', requiresModule: 'hasWorkTime', requiresAdmin: true }
+      },
+      {
+        path: 'notes',
+        name: 'notes',
+        component: () => import('pages/NotesPage.vue'),
+        meta: { title: 'Notes', requiresModule: 'hasNotes' }
+      },
+      {
+        path: 'notes/:noteId',
+        name: 'note',
+        component: () => import('pages/NotesPage.vue'),
+        meta: { title: 'Notes', requiresModule: 'hasNotes' }
       }
     ]
   },

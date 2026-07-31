@@ -51,6 +51,10 @@ public class Organization extends BaseModel {
     @Builder.Default
     private boolean moduleEcommerce = false;
 
+    @Column(name = "module_notes", nullable = false, columnDefinition = "boolean default false")
+    @Builder.Default
+    private boolean moduleNotes = false;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "org_type_id")
     private OrganizationType orgType;

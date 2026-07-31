@@ -81,6 +81,7 @@ public class AuthController {
                     .moduleImageManager(true)
                     .moduleDesigns(true)
                     .moduleWorkTime(true)
+                    .moduleNotes(true)
                     .moduleFinance(true)
                     .moduleEcommerce(true)
                     .financeRole("FINANCE_CFO")
@@ -93,6 +94,7 @@ public class AuthController {
                     .moduleImageManager(org.isModuleImageManager())
                     .moduleDesigns(org.isModuleDesigns())
                     .moduleWorkTime(org.isModuleWorkTime())
+                    .moduleNotes(org.isModuleNotes())
                     .moduleFinance(org.isModuleFinance())
                     .moduleEcommerce(org.isModuleEcommerce());
             if (org.isModuleFinance()) {

@@ -34,3 +34,17 @@ Thumbs.db
 *.env
 .env*
 !.env.example
+
+# ========================
+# Bản sao macOS/iCloud tự sinh ("target 4/", "Foo 2.java")
+# ========================
+* 2.*
+* 3.*
+* 4.*
+*/target */
+
+# ========================
+# Python
+# ========================
+__pycache__/
+*.pyc
