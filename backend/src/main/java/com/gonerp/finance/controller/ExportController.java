@@ -3,6 +3,7 @@ package com.gonerp.finance.controller;
 import com.gonerp.common.ApiResponse;
 import com.gonerp.finance.dto.ReportExportResponse;
 import com.gonerp.finance.model.FinanceReportExport;
+import com.gonerp.finance.service.FinanceExportAsyncService;
 import com.gonerp.finance.service.FinanceExportService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -18,6 +19,7 @@ import java.util.List;
 public class ExportController {
 
     private final FinanceExportService exportService;
+    private final FinanceExportAsyncService exportAsyncService;
 
     @GetMapping("/excel/report/{reportId}")
     public ResponseEntity<byte[]> exportExcel(
@@ -39,10 +41,16 @@ public class ExportController {
                 .body(zip);
     }
 
+    /**
+     * Trả về ngay bản ghi ở trạng thái GENERATING; ZIP được dựng ở thread nền.
+     * Chạy đồng bộ sẽ vượt axios timeout (30s) và proxy trả 503 dù backend vẫn
+     * hoàn tất — client theo dõi tiến độ qua GET /history/{reportId}.
+     */
     @PostMapping("/generate/{reportId}")
     public ResponseEntity<ApiResponse<ReportExportResponse>> generateReportZip(@PathVariable Long reportId) {
-        FinanceReportExport export = exportService.generateReportZip(reportId);
-        return ResponseEntity.ok(ApiResponse.ok(ReportExportResponse.from(export)));
+        FinanceReportExport export = exportService.createPendingExport(reportId);
+        exportAsyncService.runGeneration(export.getId());
+        return ResponseEntity.accepted().body(ApiResponse.ok(ReportExportResponse.from(export)));
     }
 
     @GetMapping("/history/{reportId}")

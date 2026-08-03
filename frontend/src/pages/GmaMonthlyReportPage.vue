@@ -371,7 +371,9 @@
                   <q-badge
                     :color="exp.status === 'GENERATING' ? 'blue' : exp.status === 'COMPLETED' ? 'green' : 'red'"
                     :label="exp.status"
-                  />
+                  >
+                    <q-tooltip v-if="exp.errorMessage">{{ exp.errorMessage }}</q-tooltip>
+                  </q-badge>
                 </td>
                 <td class="text-center">
                   <q-btn
@@ -1108,7 +1110,19 @@ function formatFileSize(bytes) {
 async function loadExportHistory() {
   try {
     const res = await financeExportApi.getHistory(reportId.value)
+    const previous = new Map(exportHistory.value.map(e => [e.id, e.status]))
     exportHistory.value = res.data.data || []
+
+    // Poll chạy nền nên báo cho user biết khi một export đang GENERATING kết thúc.
+    for (const exp of exportHistory.value) {
+      if (previous.get(exp.id) !== 'GENERATING') continue
+      if (exp.status === 'COMPLETED') {
+        $q.notify({ type: 'positive', message: 'ZIP package ready — download it from Export History.' })
+      } else if (exp.status === 'FAILED') {
+        $q.notify({ type: 'negative', message: exp.errorMessage || 'Failed to generate ZIP package' })
+      }
+    }
+
     startExportPollIfNeeded()
   } catch {
     exportHistory.value = []
@@ -1133,14 +1147,17 @@ function stopExportPoll() {
 }
 
 async function generateZipPackage() {
-  showLoading('Generating ZIP package...')
+  showLoading('Starting ZIP package...')
   try {
+    // Backend trả về ngay với status GENERATING rồi dựng ZIP ở nền — mở Export
+    // History trước khi load để startExportPollIfNeeded() thấy dialog đang mở và
+    // bật poll theo dõi tới khi COMPLETED/FAILED.
     await financeExportApi.generateZip(reportId.value)
-    $q.notify({ type: 'positive', message: 'ZIP package generated! Check Export History to download.' })
-    loadExportHistory()
+    $q.notify({ type: 'info', message: 'Generating ZIP package... Progress is shown in Export History.' })
     showExportHistory.value = true
+    await loadExportHistory()
   } catch (e) {
-    $q.notify({ type: 'negative', message: e.response?.data?.message || 'Failed to generate ZIP package' })
+    $q.notify({ type: 'negative', message: e.response?.data?.message || 'Failed to start ZIP package' })
   } finally {
     hideLoading()
   }

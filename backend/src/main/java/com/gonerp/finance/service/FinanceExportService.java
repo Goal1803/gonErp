@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -91,8 +92,15 @@ public class FinanceExportService {
 
     // --- Full ZIP package generation ---
 
+    /**
+     * Tạo bản ghi export ở trạng thái GENERATING và trả về ngay. Việc dựng ZIP
+     * (tải hàng trăm file từ R2, nén vài chục MB) mất tới vài phút nên không thể
+     * chạy trong request thread: axios timeout 30s và proxy sẽ trả 503 trong khi
+     * backend vẫn đang chạy, khiến UI báo lỗi dù file thực ra tạo thành công.
+     * Frontend poll Export History cho tới khi status đổi sang COMPLETED/FAILED.
+     */
     @Transactional
-    public FinanceReportExport generateReportZip(Long reportId) {
+    public FinanceReportExport createPendingExport(Long reportId) {
         financeAccessService.requireFinanceAccess();
 
         FinanceMonthlyReport report = monthlyReportRepository.findById(reportId)
@@ -108,37 +116,56 @@ public class FinanceExportService {
                 .status(ExportStatus.GENERATING)
                 .generatedBy(currentUser)
                 .build();
-        export = exportRepository.save(export);
+        return exportRepository.save(export);
+    }
 
-        try {
-            byte[] zipBytes = buildFullReportZip(report);
+    /**
+     * Dựng ZIP và đẩy lên R2 cho một bản ghi export đã ở trạng thái GENERATING.
+     * Chạy trong thread nền, không có SecurityContext nên không gọi lại
+     * requireFinanceAccess() — quyền đã được kiểm ở {@link #createPendingExport}.
+     * Lỗi được để ném ra ngoài cho {@link FinanceExportAsyncService} đánh dấu FAILED
+     * trong một transaction mới, vì transaction này có thể đã rollback-only.
+     */
+    @Transactional
+    public void buildAndStoreZip(Long exportId) {
+        FinanceReportExport export = exportRepository.findById(exportId)
+                .orElseThrow(() -> new IllegalArgumentException("Export not found: " + exportId));
+        FinanceMonthlyReport report = export.getMonthlyReport();
 
-            String key = "finance/exports/" + report.getOrganization().getId()
-                    + "/" + report.getYear() + "/" + report.getMonth()
-                    + "/" + UUID.randomUUID() + "_" + filename;
+        byte[] zipBytes = buildFullReportZip(report);
 
-            s3Client.putObject(
-                    PutObjectRequest.builder()
-                            .bucket(r2Props.getBucket())
-                            .key(key)
-                            .contentType("application/zip")
-                            .build(),
-                    RequestBody.fromBytes(zipBytes));
+        String key = "finance/exports/" + report.getOrganization().getId()
+                + "/" + report.getYear() + "/" + report.getMonth()
+                + "/" + UUID.randomUUID() + "_" + export.getFilename();
 
-            String storageUrl = r2Props.getPublicUrl() + "/" + key;
-            export.setStorageUrl(storageUrl);
-            export.setFileSize((long) zipBytes.length);
-            export.setStatus(ExportStatus.COMPLETED);
-            exportRepository.save(export);
+        s3Client.putObject(
+                PutObjectRequest.builder()
+                        .bucket(r2Props.getBucket())
+                        .key(key)
+                        .contentType("application/zip")
+                        .build(),
+                RequestBody.fromBytes(zipBytes));
 
-        } catch (Exception e) {
-            log.error("Failed to generate report ZIP for report {}: {}", reportId, e.getMessage(), e);
+        String storageUrl = r2Props.getPublicUrl() + "/" + key;
+        export.setStorageUrl(storageUrl);
+        export.setFileSize((long) zipBytes.length);
+        export.setStatus(ExportStatus.COMPLETED);
+        exportRepository.save(export);
+    }
+
+    /**
+     * Ghi trạng thái FAILED trong một transaction mới — transaction gọi tới có thể
+     * đã bị đánh dấu rollback-only khi lỗi phát sinh từ tầng JPA.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void markFailed(Long exportId, String message) {
+        exportRepository.findById(exportId).ifPresent(export -> {
             export.setStatus(ExportStatus.FAILED);
-            export.setErrorMessage(e.getMessage() != null ? e.getMessage().substring(0, Math.min(e.getMessage().length(), 2000)) : "Unknown error");
+            export.setErrorMessage(message != null
+                    ? message.substring(0, Math.min(message.length(), 2000))
+                    : "Unknown error");
             exportRepository.save(export);
-        }
-
-        return export;
+        });
     }
 
     private byte[] buildFullReportZip(FinanceMonthlyReport report) {
