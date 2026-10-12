@@ -27,13 +27,15 @@ public abstract class AbstractCsvParser implements CsvParser {
         String line;
         int lineNum = 0;
         while ((line = reader.readLine()) != null) {
-            line = line.trim();
+            // Strip UTF-8 BOM (PayPal exports start with one), otherwise the
+            // first header becomes "\uFEFFDate" and never matches "Date"
+            line = stripBom(line).trim();
             if (line.isEmpty()) continue;
 
             List<String> fields = parseLine(line, getDelimiter());
 
             if (headers == null) {
-                headers = fields.stream().map(String::trim).toList();
+                headers = fields.stream().map(f -> stripBom(f).trim()).toList();
                 continue;
             }
 
@@ -64,6 +66,10 @@ public abstract class AbstractCsvParser implements CsvParser {
                 .rows(rows)
                 .warnings(warnings)
                 .build();
+    }
+
+    public static String stripBom(String s) {
+        return s != null && !s.isEmpty() && s.charAt(0) == '\uFEFF' ? s.substring(1) : s;
     }
 
     protected List<String> parseLine(String line, String delimiter) {
