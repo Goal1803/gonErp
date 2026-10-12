@@ -6,6 +6,7 @@ import com.gonerp.finance.model.*;
 import com.gonerp.finance.model.enums.AccountType;
 import com.gonerp.finance.model.enums.ParseStatus;
 import com.gonerp.finance.model.enums.UploadFileType;
+import com.gonerp.finance.parser.AbstractCsvParser;
 import com.gonerp.finance.parser.CsvParserFactory;
 import com.gonerp.finance.parser.ParseResult;
 import com.gonerp.finance.repository.FinanceAccountRepository;
@@ -162,12 +163,20 @@ public class TransactionFileService {
         int count = 0;
         for (FinanceTransaction tx : transactions) {
             if (tx.getRawData() != null) {
+                tx.setRawData(stripBomKeys(tx.getRawData()));
                 extractCanonicalFields(tx, tx.getRawData(), tx.getAccount().getAccountType(), tx.getAccount());
                 count++;
             }
         }
         transactionRepository.saveAll(transactions);
         return count;
+    }
+
+    // Older uploads stored the BOM-prefixed header ("\uFEFFDate") as the key
+    private Map<String, String> stripBomKeys(Map<String, String> raw) {
+        Map<String, String> cleaned = new LinkedHashMap<>();
+        raw.forEach((k, v) -> cleaned.put(AbstractCsvParser.stripBom(k), v));
+        return cleaned;
     }
 
     public void delete(Long fileId) {

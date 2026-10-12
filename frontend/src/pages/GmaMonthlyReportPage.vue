@@ -509,7 +509,7 @@ const visibleColumns = ref([])
 // Default important columns per account type (max ~10 most useful for accounting)
 const DEFAULT_COLUMNS = {
   SPARKASSE: ['Buchungstag', 'Beguenstigter/Zahlungspflichtiger', 'Verwendungszweck', 'Betrag', 'Waehrung', 'amount', 'note', 'category', 'subcategory', 'invoice', 'completed'],
-  PAYPAL: ['Date', 'Name', 'Type', 'Currency', 'Gross', 'Fee', 'Net', 'Balance Impact', 'amount', 'note', 'category', 'invoice', 'completed'],
+  PAYPAL: ['Date', 'Time', 'Name', 'Type', 'Currency', 'Gross', 'Fee', 'Net', 'Balance Impact', 'amount', 'note', 'category', 'invoice', 'completed'],
   WISE_MAIN: ['Date', 'Amount', 'Currency', 'Description', 'Running Balance', 'Transaction Type', 'note', 'category', 'subcategory', 'invoice', 'completed'],
   WISE_SUB: ['Date', 'Amount', 'Currency', 'Description', 'Running Balance', 'Transaction Type', 'note', 'category', 'subcategory', 'invoice', 'completed'],
   VIVID: ['Completed date', 'Counterparty name', 'Reference', 'Payment amount', 'Payment currency', 'amount', 'note', 'category', 'subcategory', 'invoice', 'completed'],
@@ -614,16 +614,26 @@ function filesByFolder(folder) {
 
 const tableColumns = computed(() => {
   if (!transactions.value.length) return []
-  const rawKeySet = new Set()
+  // Group raw keys by name without UTF-8 BOM: files parsed before the BOM fix
+  // stored the first header as "\uFEFFDate", which never matched "Date"
+  const rawKeyMap = new Map()
   for (const tx of transactions.value) {
     if (tx.rawData && typeof tx.rawData === 'object') {
       for (const k of Object.keys(tx.rawData)) {
-        rawKeySet.add(k)
+        const name = k.replace(/^\uFEFF/, '')
+        if (!rawKeyMap.has(name)) rawKeyMap.set(name, new Set())
+        rawKeyMap.get(name).add(k)
       }
     }
   }
-  const cols = Array.from(rawKeySet).map(k => ({
-    name: k, label: k, field: row => row.rawData?.[k] ?? '', align: 'left', sortable: true
+  const cols = Array.from(rawKeyMap.entries()).map(([name, keys]) => ({
+    name, label: name, align: 'left', sortable: true,
+    field: row => {
+      for (const k of keys) {
+        if (row.rawData?.[k] != null) return row.rawData[k]
+      }
+      return ''
+    }
   }))
   cols.push(
     { name: 'amount', label: 'Amount', field: 'amount', align: 'right', sortable: true },
@@ -695,7 +705,7 @@ function updateVisibleColumns() {
   const cols = tableColumns.value
   if (!cols.length) return
 
-  const saved = localStorage.getItem(`fin_cols_${activeTab.value}`)
+  const saved = localStorage.getItem(`fin_cols_v2_${activeTab.value}`)
   if (saved) {
     try {
       const parsed = JSON.parse(saved)
@@ -715,7 +725,7 @@ watch(tableColumns, () => updateVisibleColumns())
 
 watch(visibleColumns, (v) => {
   if (activeTab.value && v.length) {
-    localStorage.setItem(`fin_cols_${activeTab.value}`, JSON.stringify(v))
+    localStorage.setItem(`fin_cols_v2_${activeTab.value}`, JSON.stringify(v))
   }
 })
 
