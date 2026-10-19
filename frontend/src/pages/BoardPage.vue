@@ -29,6 +29,7 @@
           clearable
           @focus="searchFocused = true"
           @blur="onSearchBlur"
+          @keyup.enter="openSearchGrid"
         >
           <template #prepend>
             <q-icon name="search" size="xs" />
@@ -49,6 +50,14 @@
               <q-item-label caption class="text-grey-6 ellipsis">
                 {{ card._colName }}
               </q-item-label>
+            </q-item-section>
+          </q-item>
+          <q-item clickable dense class="search-see-all" @mousedown.prevent="openSearchGrid">
+            <q-item-section avatar style="min-width:32px">
+              <q-icon name="grid_view" size="xs" color="teal-5" />
+            </q-item-section>
+            <q-item-section class="text-teal-4 text-weight-medium">
+              View all {{ searchTotal }} result{{ searchTotal === 1 ? '' : 's' }} as grid
             </q-item-section>
           </q-item>
         </q-list>
@@ -309,6 +318,15 @@
       </q-card>
     </q-dialog>
 
+    <!-- All search results as a product grid -->
+    <search-results-grid-dialog
+      v-model="showSearchGrid"
+      :board-id="boardId"
+      :initial-query="searchGridQuery"
+      :board-columns="boardStore.board?.columns || []"
+      @open-card="openCard"
+    />
+
     <!-- Card detail dialog (pass boardType) -->
     <card-detail-dialog
       v-model="showCard"
@@ -364,6 +382,7 @@ import { saveBlob } from 'src/utils/fileUrl'
 import { TAB_ID } from 'src/boot/axios'
 import KanbanColumn from 'src/components/KanbanColumn.vue'
 import CardDetailDialog from 'src/components/CardDetailDialog.vue'
+import SearchResultsGridDialog from 'src/components/SearchResultsGridDialog.vue'
 import BoardFormDialog from 'src/components/BoardFormDialog.vue'
 import BoardMembersDialog from 'src/components/BoardMembersDialog.vue'
 
@@ -761,6 +780,9 @@ const openCard = (card) => {
 }
 
 const searchResults = ref([])
+const searchTotal = ref(0)
+const showSearchGrid = ref(false)
+const searchGridQuery = ref('')
 let searchDebounce = null
 
 watch(searchQuery, (q) => {
@@ -775,8 +797,9 @@ watch(searchQuery, (q) => {
         return { ...card, _colName: col?.title || card.stage || '', _exact: card.name?.toLowerCase() === q.trim().toLowerCase() }
       })
       results.sort((a, b) => (b._exact ? 1 : 0) - (a._exact ? 1 : 0))
+      searchTotal.value = results.length
       searchResults.value = results.slice(0, 12)
-    } catch { searchResults.value = [] }
+    } catch { searchResults.value = []; searchTotal.value = 0 }
   }, 300)
 })
 
@@ -784,6 +807,13 @@ const openSearchResult = (card) => {
   searchQuery.value = ''
   searchFocused.value = false
   openCard(card)
+}
+
+const openSearchGrid = () => {
+  if (!searchQuery.value || !searchQuery.value.trim()) return
+  searchGridQuery.value = searchQuery.value.trim()
+  searchFocused.value = false
+  showSearchGrid.value = true
 }
 
 const onSearchBlur = () => {
@@ -1326,6 +1356,12 @@ onUnmounted(() => {
   border: 1px solid var(--erp-border-subtle);
   border-radius: 6px;
   margin-top: 2px;
+}
+.search-see-all {
+  border-top: 1px solid var(--erp-border-subtle);
+  position: sticky;
+  bottom: 0;
+  background: var(--erp-bg-elevated);
 }
 .board-page {
   background: var(--erp-bg);

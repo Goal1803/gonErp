@@ -1094,9 +1094,8 @@ public class CardService {
     }
 
     public List<CardSummaryResponse> searchCards(Long boardId, String query, boolean includeArchived) {
-        return cardRepository.searchByBoardAndName(boardId, query, includeArchived).stream()
-                .map(CardSummaryResponse::from)
-                .toList();
+        return cardSummaryMapper.toSummaries(
+                cardRepository.searchByBoardAndName(boardId, query, includeArchived));
     }
 
     // === Comment images ZIP download (any board) ===
